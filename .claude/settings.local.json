@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd complete project scaffolding with manifest.json and placeholder files\n\nThis commit establishes the full project structure for the JobLink Chrome extension:\n\n- manifest.json: MV3 configuration with permissions for storage, identity \\(OAuth\\),\n  sidePanel, activeTab, and scripting. Includes OAuth2 config for Google Drive\n  \\(drive.file scope\\) and content script matches for LinkedIn/Indeed.\n\n- background/service-worker.js: placeholder for install events and OAuth management\n- content-scripts/linkedin.js: placeholder for LinkedIn job scraping\n- content-scripts/indeed.js: placeholder for Indeed job scraping\n- sidepanel/: placeholder HTML, CSS, and JS for the job review interface\n- setup/: placeholder HTML, CSS, and JS for first-run configuration wizard\n- drive/drive-api.js: placeholder for all Google Drive REST API calls\n- utils/helpers.js: placeholder for shared utilities and storage key constants\n- assets/icons/: minimal placeholder PNG icons \\(16, 48, 128px\\)\n\nAll placeholder files contain a single descriptive comment explaining their purpose.\nThe extension can be loaded in Chrome Developer Mode for structural verification.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd session log\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)"
+    ]
+  }
+}
