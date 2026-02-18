@@ -1,1 +1,100 @@
-<!-- Setup page: first-run configuration wizard for Google OAuth and Drive folder selection. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobLink Setup</title>
+  <link rel="stylesheet" href="setup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header / Logo Area -->
+    <header class="header">
+      <h1 class="logo">JobLink</h1>
+      <p class="tagline">Save job postings to Google Drive with one click</p>
+    </header>
+
+    <!-- Main Setup Form -->
+    <main id="setup-form" class="setup-content">
+      <!-- Google Drive Connection -->
+      <section class="setup-section">
+        <h2>Connect to Google Drive</h2>
+        <p class="section-description">
+          JobLink needs access to your Google Drive to save job postings.
+          We only request access to files created by this extension.
+        </p>
+        <button id="connect-drive-btn" class="btn btn-primary">
+          Connect Google Drive
+        </button>
+      </section>
+
+      <!-- Folder Selection -->
+      <section class="setup-section">
+        <h2>Choose Save Location</h2>
+        <p class="section-description">
+          Select a folder in your Drive where job postings will be saved.
+        </p>
+        <div class="folder-selector">
+          <div class="folder-display">
+            <span class="folder-icon">📁</span>
+            <span id="selected-folder" class="folder-name">No folder selected</span>
+          </div>
+          <button id="select-folder-btn" class="btn btn-secondary" disabled>
+            Select Folder
+          </button>
+        </div>
+      </section>
+
+      <!-- Phase 2 Coming Soon -->
+      <section class="setup-section phase2-section">
+        <h2>Coming Soon</h2>
+        <p class="section-description">
+          These features will be available in a future update.
+        </p>
+
+        <div class="coming-soon-item">
+          <label class="field-label disabled">CV Folder</label>
+          <div class="folder-selector disabled">
+            <div class="folder-display">
+              <span class="folder-icon">📁</span>
+              <span class="folder-name">Not available yet</span>
+            </div>
+            <button class="btn btn-secondary" disabled>Select</button>
+          </div>
+        </div>
+
+        <div class="coming-soon-item">
+          <label class="field-label disabled">Templates Folder</label>
+          <div class="folder-selector disabled">
+            <div class="folder-display">
+              <span class="folder-icon">📁</span>
+              <span class="folder-name">Not available yet</span>
+            </div>
+            <button class="btn btn-secondary" disabled>Select</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Save Button -->
+      <section class="setup-section">
+        <button id="save-setup-btn" class="btn btn-primary btn-large" disabled>
+          Complete Setup
+        </button>
+      </section>
+    </main>
+
+    <!-- Already Complete Message -->
+    <main id="setup-complete" class="setup-content" style="display: none;">
+      <section class="setup-section complete-message">
+        <div class="success-icon">✓</div>
+        <h2>Setup Already Complete</h2>
+        <p>JobLink is configured and ready to use. You can close this tab and start saving job postings.</p>
+        <p class="hint">To change settings, click the settings icon in the JobLink side panel.</p>
+      </section>
+    </main>
+  </div>
+
+  <script src="../utils/helpers.js"></script>
+  <script src="setup.js"></script>
+</body>
+</html>

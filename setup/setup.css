@@ -1,1 +1,210 @@
-/* Setup page styles: layout and visual styling for the first-run configuration wizard. */
+/* Setup page styles for JobLink extension */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background-color: #f5f5f5;
+  color: #333;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+/* Header / Logo */
+.header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.logo {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #2563eb;
+  margin-bottom: 8px;
+}
+
+.tagline {
+  color: #666;
+  font-size: 1.1rem;
+}
+
+/* Setup Content */
+.setup-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 32px;
+}
+
+/* Sections */
+.setup-section {
+  margin-bottom: 32px;
+}
+
+.setup-section:last-child {
+  margin-bottom: 0;
+}
+
+.setup-section h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #1a1a1a;
+}
+
+.section-description {
+  color: #666;
+  font-size: 0.95rem;
+  margin-bottom: 16px;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: #2563eb;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+.btn-secondary {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #d1d5db;
+}
+
+.btn-large {
+  width: 100%;
+  padding: 16px 24px;
+  font-size: 1.1rem;
+}
+
+/* Folder Selector */
+.folder-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.folder-selector.disabled {
+  opacity: 0.5;
+}
+
+.folder-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.folder-icon {
+  font-size: 1.25rem;
+}
+
+.folder-name {
+  color: #666;
+  font-size: 0.95rem;
+}
+
+/* Phase 2 Section */
+.phase2-section {
+  padding-top: 24px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.phase2-section h2 {
+  color: #9ca3af;
+}
+
+.phase2-section .section-description {
+  color: #9ca3af;
+}
+
+.coming-soon-item {
+  margin-bottom: 16px;
+}
+
+.coming-soon-item:last-child {
+  margin-bottom: 0;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #374151;
+}
+
+.field-label.disabled {
+  color: #9ca3af;
+}
+
+/* Setup Complete Message */
+.complete-message {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.success-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background-color: #10b981;
+  color: white;
+  font-size: 2rem;
+  border-radius: 50%;
+  margin-bottom: 24px;
+}
+
+.complete-message h2 {
+  margin-bottom: 16px;
+}
+
+.complete-message p {
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.hint {
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
