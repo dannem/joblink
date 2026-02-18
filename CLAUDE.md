@@ -15,6 +15,20 @@
 4. Commit all changes to the feature branch at the end of every working session
 5. Never break a working feature to add a new one — if a session goes wrong, roll back and start fresh
 
+## Session Log Protocol
+At the end of every session, before closing:
+1. Update `SESSION_LOG.md` in the project root with:
+   - Session number and status (Complete / Partial / Blocked)
+   - Date
+   - Branch name
+   - What was built
+   - Test results
+   - Known issues or next steps
+2. Commit SESSION_LOG.md directly to the feature branch
+3. Then merge the feature branch to main and push
+
+Never close a session without updating the session log first.
+
 ## Architecture Overview
 - **Extension Framework**: Chrome Manifest V3
 - **Language**: Vanilla JavaScript (no frameworks, no TypeScript, no build tools)
