@@ -97,42 +97,38 @@ function extractLocation() {
 /**
  * Extract the full job description text.
  *
- * Uses innerText (not textContent) so that only visible text is returned —
- * this avoids capturing hidden accessibility text and section headers like
- * "About the job" that LinkedIn renders before the real content.
+ * Each selector is tried in order. For every candidate element, both
+ * innerText and textContent are read and the longer result is kept —
+ * innerText misses text hidden by CSS overflow clamps, while textContent
+ * includes hidden ARIA/heading nodes; taking the longer string balances both.
  *
- * Selectors are ordered from most-specific child content to broadest wrapper,
- * so the actual body text is found before a short heading element.
- * A minimum character length guards against matching header-only elements.
+ * A minimum character length guards against returning header-only elements
+ * like "About the job" (~14 chars) instead of the real body text.
  *
  * @returns {string} Description text, or '' if not found
  */
 function extractDescription() {
-  const MIN_DESC_LENGTH = 100; // "About the job" is ~14 chars; real content is much longer
+  const MIN_DESC_LENGTH = 100;
 
   const descSelectors = [
-    // Specific content text node inside the description wrapper (2024+)
-    '.jobs-description-content__text',
     '.jobs-description__content .jobs-description-content__text',
-    // Newer standalone about-the-job module
-    '.job-details-about-the-job-module__description',
-    '.job-details-about-the-job-module',
-    // id-based selector seen on many standalone pages
-    '#job-details',
-    // Older HTML content box
+    '.jobs-description',
     '.jobs-box__html-content',
-    // Broader content wrapper — tried last to avoid matching heading-only state
-    '.jobs-description__content',
-    // Older standalone topcard
-    '.description__text',
+    '.job-details-about-the-job-module__description',
+    '.jobs-description-content',
+    '[id*="job-details"]',
   ];
 
   for (const selector of descSelectors) {
     const el = document.querySelector(selector);
     if (el) {
-      // innerText gives only visible text; avoids hidden spans and ARIA labels
-      const text = (el.innerText || el.textContent || '').trim();
-      if (text && text.length >= MIN_DESC_LENGTH) return text;
+      const byInnerText   = (el.innerText   || '').trim();
+      const byTextContent = (el.textContent || '').trim();
+      // Prefer whichever strategy surfaced more text
+      const text = byInnerText.length >= byTextContent.length
+        ? byInnerText
+        : byTextContent;
+      if (text.length >= MIN_DESC_LENGTH) return text;
     }
   }
 
@@ -222,8 +218,32 @@ function scrapeLinkedInJob() {
 }
 
 /**
+ * Send a completed job data object to the service worker.
+ *
+ * @param {Object} jobData - Scraper output conforming to the JobLink format
+ */
+function sendJobData(jobData) {
+  try {
+    chrome.runtime.sendMessage(
+      { type: 'JOB_DATA_EXTRACTED', payload: jobData },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          // Non-fatal: service worker may be inactive on first run.
+          console.warn('[JobLink] Message warning:', chrome.runtime.lastError.message);
+        }
+      }
+    );
+  } catch (error) {
+    console.error('[JobLink] Failed to send job data to service worker:', error);
+  }
+}
+
+/**
  * Wait for LinkedIn's dynamic content to render, then extract and send job data.
- * Wrapped in setTimeout to give the SPA time to finish populating the DOM.
+ *
+ * If the description is empty on the first pass (the description panel sometimes
+ * renders ~1 s after the rest of the top card), a single retry fires after an
+ * additional 1000 ms.  All other fields are taken from the first pass regardless.
  */
 setTimeout(() => {
   // --- DEBUG: log raw DOM so selector issues can be diagnosed in DevTools ---
@@ -241,20 +261,18 @@ setTimeout(() => {
   // --- END DEBUG ---
 
   const jobData = scrapeLinkedInJob();
+  console.log('[JobLink] LinkedIn scraper result (first pass):', jobData);
 
-  console.log('[JobLink] LinkedIn scraper result:', jobData);
-
-  try {
-    chrome.runtime.sendMessage(
-      { type: 'JOB_DATA_EXTRACTED', payload: jobData },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          // Non-fatal: service worker may be inactive on first run.
-          console.warn('[JobLink] Message warning:', chrome.runtime.lastError.message);
-        }
-      }
-    );
-  } catch (error) {
-    console.error('[JobLink] Failed to send job data to service worker:', error);
+  if (jobData.description) {
+    sendJobData(jobData);
+    return;
   }
+
+  // Description was empty — the panel may still be loading. Retry once.
+  console.log('[JobLink] Description empty on first pass — retrying in 1000 ms');
+  setTimeout(() => {
+    jobData.description = extractDescription();
+    console.log('[JobLink] LinkedIn scraper result (after retry):', jobData);
+    sendJobData(jobData);
+  }, 1000);
 }, EXTRACTION_DELAY_MS);
