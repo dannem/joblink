@@ -57,6 +57,10 @@ function extractLocation() {
     // Classic standalone topcard
     '.topcard__flavor--bullet',
     '.topcard__flavor',
+    // Wildcard class fallbacks — catch LinkedIn class renames
+    '[class*="job-location"]',
+    '[class*="workplace-type"]',
+    '[class*="location"]',
   ];
 
   for (const selector of bulletSelectors) {
@@ -93,23 +97,32 @@ function extractLocation() {
 /**
  * Extract the full job description text.
  *
- * Uses textContent (rather than innerText) so that text hidden behind LinkedIn's
- * "See more" CSS clamp is still captured, since LinkedIn sometimes puts the full
- * text in the DOM and hides it with overflow/max-height rather than conditional
- * rendering.
+ * Uses innerText (not textContent) so that only visible text is returned —
+ * this avoids capturing hidden accessibility text and section headers like
+ * "About the job" that LinkedIn renders before the real content.
+ *
+ * Selectors are ordered from most-specific child content to broadest wrapper,
+ * so the actual body text is found before a short heading element.
+ * A minimum character length guards against matching header-only elements.
  *
  * @returns {string} Description text, or '' if not found
  */
 function extractDescription() {
+  const MIN_DESC_LENGTH = 100; // "About the job" is ~14 chars; real content is much longer
+
   const descSelectors = [
-    // Main description content wrapper (split-panel and standalone, 2023+)
-    '.jobs-description__content',
-    // Newer standalone module (2024+)
+    // Specific content text node inside the description wrapper (2024+)
+    '.jobs-description-content__text',
+    '.jobs-description__content .jobs-description-content__text',
+    // Newer standalone about-the-job module
     '.job-details-about-the-job-module__description',
+    '.job-details-about-the-job-module',
     // id-based selector seen on many standalone pages
     '#job-details',
     // Older HTML content box
     '.jobs-box__html-content',
+    // Broader content wrapper — tried last to avoid matching heading-only state
+    '.jobs-description__content',
     // Older standalone topcard
     '.description__text',
   ];
@@ -117,8 +130,9 @@ function extractDescription() {
   for (const selector of descSelectors) {
     const el = document.querySelector(selector);
     if (el) {
-      const text = (el.textContent || el.innerText || '').trim();
-      if (text) return text;
+      // innerText gives only visible text; avoids hidden spans and ARIA labels
+      const text = (el.innerText || el.textContent || '').trim();
+      if (text && text.length >= MIN_DESC_LENGTH) return text;
     }
   }
 
@@ -183,9 +197,14 @@ function scrapeLinkedInJob() {
     'a[data-tracking-control-name="public_jobs_topcard-org-name"]',
     // Classic topcard company link
     '.topcard__org-name-link',
-    // Generic fallback: any company-page link inside the top card containers
+    // Any company-page link inside the top card containers
     '.job-details-jobs-unified-top-card a[href*="/company/"]',
     '.jobs-unified-top-card a[href*="/company/"]',
+    // Wildcard class fallbacks — catch LinkedIn class renames
+    '[class*="hiring-company"] a',
+    '[class*="hiring-company"]',
+    '[class*="company-name"] a',
+    '[class*="company-name"]',
   ]);
 
   const location = extractLocation();
@@ -207,6 +226,20 @@ function scrapeLinkedInJob() {
  * Wrapped in setTimeout to give the SPA time to finish populating the DOM.
  */
 setTimeout(() => {
+  // --- DEBUG: log raw DOM so selector issues can be diagnosed in DevTools ---
+  // Remove this block once company/location selectors are confirmed working.
+  console.log('[JobLink][DEBUG] body HTML (first 3000 chars):',
+    document.body.innerHTML.substring(0, 3000));
+  console.log('[JobLink][DEBUG] company probe [class*="company"]  :',
+    document.querySelector('[class*="company"]'));
+  console.log('[JobLink][DEBUG] company probe [class*="hiring"]   :',
+    document.querySelector('[class*="hiring"]'));
+  console.log('[JobLink][DEBUG] location probe [class*="location"]:',
+    document.querySelector('[class*="location"]'));
+  console.log('[JobLink][DEBUG] location probe [class*="workplace"]:',
+    document.querySelector('[class*="workplace"]'));
+  // --- END DEBUG ---
+
   const jobData = scrapeLinkedInJob();
 
   console.log('[JobLink] LinkedIn scraper result:', jobData);
