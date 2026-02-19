@@ -8,6 +8,12 @@ let accessToken = null;
 let selectedFolderId = null;
 let selectedFolderName = null;
 
+// Folder navigation state
+// Each item: { id: string, name: string }
+let folderPath = [];
+let currentFolderId = 'root';
+let currentFolderName = 'My Drive';
+
 document.addEventListener('DOMContentLoaded', initSetupPage);
 
 /**
@@ -38,11 +44,12 @@ function showSetupForm() {
 
   // Set up event listeners
   document.getElementById('connect-drive-btn').addEventListener('click', handleConnectDrive);
-  document.getElementById('select-folder-btn').addEventListener('click', handleSelectFolder);
+  document.getElementById('select-folder-btn').addEventListener('click', handleOpenFolderPicker);
   document.getElementById('save-setup-btn').addEventListener('click', handleSaveSetup);
   document.getElementById('error-dismiss').addEventListener('click', hideError);
   document.getElementById('folder-picker-close').addEventListener('click', hideFolderPicker);
-  document.getElementById('use-root-btn').addEventListener('click', handleUseRootFolder);
+  document.getElementById('folder-nav-up').addEventListener('click', handleNavigateUp);
+  document.getElementById('select-current-btn').addEventListener('click', handleSelectCurrentFolder);
 }
 
 /**
@@ -163,38 +170,65 @@ async function handleConnectDrive() {
 }
 
 /**
- * Handle the "Select Folder" button click.
- * Opens the folder picker with list of Drive folders.
+ * Handle opening the folder picker.
+ * Resets navigation to root and loads top-level folders.
  */
-async function handleSelectFolder() {
-  const selectBtn = document.getElementById('select-folder-btn');
-  const folderPicker = document.getElementById('folder-picker');
-  const folderList = document.getElementById('folder-list');
-
+async function handleOpenFolderPicker() {
   hideError();
 
+  // Reset navigation state
+  folderPath = [];
+  currentFolderId = 'root';
+  currentFolderName = 'My Drive';
+
   // Show folder picker
-  folderPicker.style.display = 'block';
+  document.getElementById('folder-picker').style.display = 'block';
+
+  // Update UI and load folders
+  updateBreadcrumbs();
+  updateNavButtons();
+  await loadFolders(currentFolderId);
+}
+
+/**
+ * Load and display folders for a given parent folder.
+ * @param {string} parentId - Parent folder ID
+ */
+async function loadFolders(parentId) {
+  const folderList = document.getElementById('folder-list');
   folderList.innerHTML = '<div class="folder-list-loading">Loading folders...</div>';
 
   try {
-    // Fetch folders from Drive
-    const folders = await listDriveFolders(accessToken);
+    const folders = await listDriveFolders(accessToken, parentId);
 
     if (folders.length === 0) {
-      folderList.innerHTML = '<div class="folder-list-empty">No folders found. You can use the root folder or create folders in Drive first.</div>';
+      folderList.innerHTML = '<div class="folder-list-empty">No subfolders found. Click "Select this folder" to use the current folder.</div>';
     } else {
       folderList.innerHTML = folders.map(folder => `
-        <div class="folder-item" data-folder-id="${folder.id}" data-folder-name="${escapeHtml(folder.name)}">
+        <div class="folder-item" data-folder-id="${escapeAttr(folder.id)}" data-folder-name="${escapeAttr(folder.name)}">
           <span class="folder-item-icon">&#128193;</span>
           <span class="folder-item-name">${escapeHtml(folder.name)}</span>
+          <button class="btn btn-secondary btn-tiny folder-select-btn" data-folder-id="${escapeAttr(folder.id)}" data-folder-name="${escapeAttr(folder.name)}">
+            Select
+          </button>
         </div>
       `).join('');
 
-      // Add click handlers
+      // Add click handlers for folder names (navigate into)
       folderList.querySelectorAll('.folder-item').forEach(item => {
-        item.addEventListener('click', () => {
-          selectFolder(item.dataset.folderId, item.dataset.folderName);
+        // Click on the row (excluding the select button) navigates into folder
+        item.addEventListener('click', (e) => {
+          if (!e.target.classList.contains('folder-select-btn')) {
+            navigateIntoFolder(item.dataset.folderId, item.dataset.folderName);
+          }
+        });
+      });
+
+      // Add click handlers for select buttons
+      folderList.querySelectorAll('.folder-select-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectFolderAndClose(btn.dataset.folderId, btn.dataset.folderName);
         });
       });
     }
@@ -206,33 +240,155 @@ async function handleSelectFolder() {
 }
 
 /**
- * Handle selecting "My Drive" root folder.
+ * Navigate into a folder (load its subfolders).
+ * @param {string} folderId - Folder ID to navigate into
+ * @param {string} folderName - Folder name
  */
-function handleUseRootFolder() {
-  selectFolder('root', 'My Drive');
+async function navigateIntoFolder(folderId, folderName) {
+  // Add current folder to path before navigating
+  folderPath.push({ id: currentFolderId, name: currentFolderName });
+
+  // Update current folder
+  currentFolderId = folderId;
+  currentFolderName = folderName;
+
+  // Update UI
+  updateBreadcrumbs();
+  updateNavButtons();
+  await loadFolders(folderId);
 }
 
 /**
- * Select a folder and update the UI.
+ * Handle navigating up to parent folder.
+ */
+async function handleNavigateUp() {
+  if (folderPath.length === 0) return;
+
+  // Pop the last folder from path
+  const parent = folderPath.pop();
+  currentFolderId = parent.id;
+  currentFolderName = parent.name;
+
+  // Update UI
+  updateBreadcrumbs();
+  updateNavButtons();
+  await loadFolders(currentFolderId);
+}
+
+/**
+ * Handle clicking a breadcrumb to navigate to that folder.
+ * @param {number} index - Index in the folder path (-1 for root)
+ */
+async function handleBreadcrumbClick(index) {
+  if (index === -1) {
+    // Navigate to root
+    folderPath = [];
+    currentFolderId = 'root';
+    currentFolderName = 'My Drive';
+  } else {
+    // Navigate to specific folder in path
+    const targetFolder = folderPath[index];
+    currentFolderId = targetFolder.id;
+    currentFolderName = targetFolder.name;
+    // Truncate path to this point
+    folderPath = folderPath.slice(0, index);
+  }
+
+  updateBreadcrumbs();
+  updateNavButtons();
+  await loadFolders(currentFolderId);
+}
+
+/**
+ * Handle selecting the current folder being browsed.
+ */
+function handleSelectCurrentFolder() {
+  selectFolderAndClose(currentFolderId, currentFolderName);
+}
+
+/**
+ * Select a folder and close the picker.
  * @param {string} folderId - Selected folder ID
  * @param {string} folderName - Selected folder name
  */
-function selectFolder(folderId, folderName) {
+function selectFolderAndClose(folderId, folderName) {
+  // Build full path name for display
+  let fullPathName = folderName;
+  if (folderPath.length > 0 || folderId !== 'root') {
+    const pathNames = folderPath.map(f => f.name);
+    if (folderId !== currentFolderId) {
+      // Selecting a subfolder, not the current browsed folder
+      pathNames.push(currentFolderName);
+    }
+    if (folderId === 'root') {
+      fullPathName = 'My Drive';
+    } else {
+      pathNames.push(folderName);
+      // Remove 'My Drive' from path display if present
+      if (pathNames[0] === 'My Drive') {
+        pathNames.shift();
+      }
+      fullPathName = pathNames.length > 0 ? pathNames.join(' > ') : folderName;
+    }
+  }
+
   selectedFolderId = folderId;
-  selectedFolderName = folderName;
+  selectedFolderName = fullPathName;
 
   // Update UI
   const folderSelector = document.querySelector('.setup-section:nth-of-type(3) .folder-selector');
   const selectedFolderEl = document.getElementById('selected-folder');
 
   folderSelector.classList.add('selected');
-  selectedFolderEl.textContent = folderName;
+  selectedFolderEl.textContent = fullPathName;
   selectedFolderEl.classList.add('selected');
 
   // Hide picker
   hideFolderPicker();
 
   updateCompleteButtonState();
+}
+
+/**
+ * Update the breadcrumb trail display.
+ */
+function updateBreadcrumbs() {
+  const breadcrumbs = document.getElementById('folder-breadcrumbs');
+  let html = '';
+
+  // Root (My Drive)
+  const isAtRoot = folderPath.length === 0 && currentFolderId === 'root';
+  html += `<span class="breadcrumb-item ${isAtRoot ? 'active' : 'clickable'}" data-index="-1">My Drive</span>`;
+
+  // Path folders
+  folderPath.forEach((folder, index) => {
+    html += `<span class="breadcrumb-separator">&#8250;</span>`;
+    html += `<span class="breadcrumb-item clickable" data-index="${index}">${escapeHtml(folder.name)}</span>`;
+  });
+
+  // Current folder (if not root)
+  if (currentFolderId !== 'root') {
+    html += `<span class="breadcrumb-separator">&#8250;</span>`;
+    html += `<span class="breadcrumb-item active">${escapeHtml(currentFolderName)}</span>`;
+  }
+
+  breadcrumbs.innerHTML = html;
+
+  // Add click handlers for clickable breadcrumbs
+  breadcrumbs.querySelectorAll('.breadcrumb-item.clickable').forEach(item => {
+    item.addEventListener('click', () => {
+      handleBreadcrumbClick(parseInt(item.dataset.index, 10));
+    });
+  });
+}
+
+/**
+ * Update navigation button visibility.
+ */
+function updateNavButtons() {
+  const upBtn = document.getElementById('folder-nav-up');
+  // Show up button only if we're not at root
+  upBtn.style.display = folderPath.length > 0 ? 'flex' : 'none';
 }
 
 /**
@@ -277,4 +433,18 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+/**
+ * Escape attribute values to prevent XSS in data attributes.
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped text
+ */
+function escapeAttr(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }

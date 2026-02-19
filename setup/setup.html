@@ -64,19 +64,30 @@
           </button>
         </div>
 
-        <!-- Folder picker dropdown -->
+        <!-- Folder picker with navigation -->
         <div id="folder-picker" class="folder-picker" style="display: none;">
+          <!-- Header with close button -->
           <div class="folder-picker-header">
             <span>Select a folder:</span>
             <button id="folder-picker-close" class="folder-picker-close">&times;</button>
           </div>
+
+          <!-- Navigation bar: back button + breadcrumbs + select current -->
+          <div class="folder-picker-nav">
+            <button id="folder-nav-up" class="nav-btn" title="Go up" style="display: none;">
+              <span class="nav-icon">&#8592;</span>
+            </button>
+            <div id="folder-breadcrumbs" class="breadcrumbs">
+              <span class="breadcrumb-item active">My Drive</span>
+            </div>
+            <button id="select-current-btn" class="btn btn-primary btn-small">
+              Select this folder
+            </button>
+          </div>
+
+          <!-- Folder list -->
           <div id="folder-list" class="folder-list">
             <!-- Folders will be populated here -->
-          </div>
-          <div class="folder-picker-footer">
-            <button id="use-root-btn" class="btn btn-secondary btn-small">
-              Use My Drive root
-            </button>
           </div>
         </div>
       </section>
