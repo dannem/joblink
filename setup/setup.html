@@ -16,6 +16,13 @@
 
     <!-- Main Setup Form -->
     <main id="setup-form" class="setup-content">
+      <!-- Error Message Area -->
+      <div id="error-message" class="error-message" style="display: none;">
+        <span class="error-icon">!</span>
+        <span id="error-text"></span>
+        <button id="error-dismiss" class="error-dismiss">&times;</button>
+      </div>
+
       <!-- Google Drive Connection -->
       <section class="setup-section">
         <h2>Connect to Google Drive</h2>
@@ -23,9 +30,22 @@
           JobLink needs access to your Google Drive to save job postings.
           We only request access to files created by this extension.
         </p>
-        <button id="connect-drive-btn" class="btn btn-primary">
-          Connect Google Drive
-        </button>
+
+        <!-- Not connected state -->
+        <div id="drive-not-connected">
+          <button id="connect-drive-btn" class="btn btn-primary">
+            Connect Google Drive
+          </button>
+        </div>
+
+        <!-- Connected state -->
+        <div id="drive-connected" class="connection-status" style="display: none;">
+          <span class="status-icon success">&#10003;</span>
+          <div class="status-info">
+            <span class="status-label">Connected as</span>
+            <span id="connected-email" class="status-value"></span>
+          </div>
+        </div>
       </section>
 
       <!-- Folder Selection -->
@@ -36,12 +56,28 @@
         </p>
         <div class="folder-selector">
           <div class="folder-display">
-            <span class="folder-icon">📁</span>
+            <span class="folder-icon">&#128193;</span>
             <span id="selected-folder" class="folder-name">No folder selected</span>
           </div>
           <button id="select-folder-btn" class="btn btn-secondary" disabled>
             Select Folder
           </button>
+        </div>
+
+        <!-- Folder picker dropdown -->
+        <div id="folder-picker" class="folder-picker" style="display: none;">
+          <div class="folder-picker-header">
+            <span>Select a folder:</span>
+            <button id="folder-picker-close" class="folder-picker-close">&times;</button>
+          </div>
+          <div id="folder-list" class="folder-list">
+            <!-- Folders will be populated here -->
+          </div>
+          <div class="folder-picker-footer">
+            <button id="use-root-btn" class="btn btn-secondary btn-small">
+              Use My Drive root
+            </button>
+          </div>
         </div>
       </section>
 
@@ -56,7 +92,7 @@
           <label class="field-label disabled">CV Folder</label>
           <div class="folder-selector disabled">
             <div class="folder-display">
-              <span class="folder-icon">📁</span>
+              <span class="folder-icon">&#128193;</span>
               <span class="folder-name">Not available yet</span>
             </div>
             <button class="btn btn-secondary" disabled>Select</button>
@@ -67,7 +103,7 @@
           <label class="field-label disabled">Templates Folder</label>
           <div class="folder-selector disabled">
             <div class="folder-display">
-              <span class="folder-icon">📁</span>
+              <span class="folder-icon">&#128193;</span>
               <span class="folder-name">Not available yet</span>
             </div>
             <button class="btn btn-secondary" disabled>Select</button>
@@ -86,15 +122,27 @@
     <!-- Already Complete Message -->
     <main id="setup-complete" class="setup-content" style="display: none;">
       <section class="setup-section complete-message">
-        <div class="success-icon">✓</div>
+        <div class="success-icon">&#10003;</div>
         <h2>Setup Already Complete</h2>
         <p>JobLink is configured and ready to use. You can close this tab and start saving job postings.</p>
         <p class="hint">To change settings, click the settings icon in the JobLink side panel.</p>
       </section>
     </main>
+
+    <!-- Setup Success Message (shown after completing setup) -->
+    <main id="setup-success" class="setup-content" style="display: none;">
+      <section class="setup-section complete-message">
+        <div class="success-icon">&#10003;</div>
+        <h2>Setup Complete!</h2>
+        <p>JobLink is now configured and ready to use.</p>
+        <p>Navigate to a job posting on LinkedIn or Indeed, then click the JobLink icon to save it to your Drive.</p>
+        <button id="close-tab-btn" class="btn btn-primary">Close This Tab</button>
+      </section>
+    </main>
   </div>
 
   <script src="../utils/helpers.js"></script>
+  <script src="../drive/drive-api.js"></script>
   <script src="setup.js"></script>
 </body>
 </html>

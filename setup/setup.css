@@ -46,6 +46,51 @@ body {
   padding: 32px;
 }
 
+/* Error Message */
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  color: #991b1b;
+}
+
+.error-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background-color: #dc2626;
+  color: white;
+  font-weight: bold;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+#error-text {
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+.error-dismiss {
+  background: none;
+  border: none;
+  color: #991b1b;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.error-dismiss:hover {
+  color: #7f1d1d;
+}
+
 /* Sections */
 .setup-section {
   margin-bottom: 32px;
@@ -111,6 +156,53 @@ body {
   font-size: 1.1rem;
 }
 
+.btn-small {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+}
+
+/* Connection Status */
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+
+.status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.status-icon.success {
+  background-color: #10b981;
+  color: white;
+}
+
+.status-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.status-label {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.status-value {
+  font-weight: 500;
+  color: #166534;
+}
+
 /* Folder Selector */
 .folder-selector {
   display: flex;
@@ -124,6 +216,11 @@ body {
 
 .folder-selector.disabled {
   opacity: 0.5;
+}
+
+.folder-selector.selected {
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
 }
 
 .folder-display {
@@ -140,6 +237,95 @@ body {
 .folder-name {
   color: #666;
   font-size: 0.95rem;
+}
+
+.folder-name.selected {
+  color: #166534;
+  font-weight: 500;
+}
+
+/* Folder Picker */
+.folder-picker {
+  margin-top: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.folder-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 500;
+}
+
+.folder-picker-close {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.folder-picker-close:hover {
+  color: #333;
+}
+
+.folder-list {
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.folder-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color 0.15s ease;
+}
+
+.folder-item:last-child {
+  border-bottom: none;
+}
+
+.folder-item:hover {
+  background-color: #f0f9ff;
+}
+
+.folder-item-icon {
+  font-size: 1.1rem;
+}
+
+.folder-item-name {
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+.folder-list-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.folder-list-loading {
+  padding: 24px 16px;
+  text-align: center;
+  color: #666;
+}
+
+.folder-picker-footer {
+  padding: 12px 16px;
+  background-color: #f9fafb;
+  border-top: 1px solid #e5e7eb;
 }
 
 /* Phase 2 Section */
@@ -204,7 +390,42 @@ body {
   margin-bottom: 8px;
 }
 
+.complete-message .btn {
+  margin-top: 16px;
+}
+
 .hint {
   font-size: 0.9rem;
   color: #9ca3af;
+}
+
+/* Loading state */
+.btn.loading {
+  position: relative;
+  color: transparent;
+}
+
+.btn.loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.btn-primary.loading::after {
+  border-top-color: white;
+}
+
+.btn-secondary.loading::after {
+  border-top-color: #374151;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
