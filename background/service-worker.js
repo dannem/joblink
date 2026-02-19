@@ -48,3 +48,23 @@ chrome.action.onClicked.addListener(async (tab) => {
     console.error('Failed to open side panel:', error);
   }
 });
+
+/**
+ * Listen for messages from content scripts and other extension pages.
+ *
+ * JOB_DATA_EXTRACTED — sent by linkedin.js (and eventually indeed.js) after
+ * scraping a job posting. Logs the data for testing; will be forwarded to the
+ * side panel in a future session.
+ */
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'JOB_DATA_EXTRACTED') {
+    console.log('[JobLink] Job data received from content script:', message.payload);
+    console.log('[JobLink] Source tab:', sender.tab ? sender.tab.url : 'unknown');
+
+    // Acknowledge receipt so the content script callback does not error
+    sendResponse({ status: 'received' });
+  }
+
+  // Return false — we are not sending an async response
+  return false;
+});
