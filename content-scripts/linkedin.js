@@ -1,9 +1,13 @@
 /**
  * LinkedIn job scraper for JobLink extension.
  *
- * Handles two LinkedIn job page layouts:
- *   1. Standalone job view  — linkedin.com/jobs/view/[id]/
- *   2. Split-panel view     — linkedin.com/jobs/search/ with a job selected on the right
+ * Supported layout (v1):
+ *   Split-panel view — linkedin.com/jobs/search/ with a job selected on the right
+ *
+ * NOT supported (v1):
+ *   Standalone job view — linkedin.com/jobs/view/[id]/
+ *   These pages load the job detail inside a cross-origin iframe, blocking all
+ *   content-script DOM access. Standalone support is deferred to a future version.
  *
  * Returns a plain JS object in the JobLink scraper output format and sends it
  * to the service worker via chrome.runtime.sendMessage.
@@ -12,45 +16,8 @@
  * self-contained. No imports. No Drive API calls. DOM parsing only.
  */
 
-/** Delay (ms) before extracting on split-panel search pages. */
+/** Delay (ms) before extracting, to let LinkedIn's JS finish rendering. */
 const EXTRACTION_DELAY_MS = 500;
-
-/** Delay (ms) before extracting on standalone job pages — they load more slowly. */
-const STANDALONE_EXTRACTION_DELAY_MS = 1500;
-
-/**
- * Return true when the current page is a standalone job view
- * (linkedin.com/jobs/view/[id]/) rather than the split-panel search results.
- *
- * @returns {boolean}
- */
-function isStandalonePage() {
-  return window.location.pathname.startsWith('/jobs/view/');
-}
-
-/**
- * Log key standalone-page elements to the console so selector issues can be
- * diagnosed in DevTools without having to manually inspect the DOM.
- * Called only when isStandalonePage() is true.
- */
-function logStandaloneDiagnostics() {
-  const h1     = document.querySelector('h1');
-  const org    = document.querySelector('.topcard__org-name-link');
-  const bullet = document.querySelector('.topcard__flavor--bullet');
-  const desc   = document.querySelector('.description__text');
-  const markup = document.querySelector('.show-more-less-html__markup');
-
-  console.log('[JobLink][STANDALONE-DIAG] h1:',
-    h1 && h1.innerText);
-  console.log('[JobLink][STANDALONE-DIAG] .topcard__org-name-link:',
-    org && org.innerText);
-  console.log('[JobLink][STANDALONE-DIAG] .topcard__flavor--bullet:',
-    bullet && bullet.innerText);
-  console.log('[JobLink][STANDALONE-DIAG] .description__text (200):',
-    desc && desc.innerText.substring(0, 200));
-  console.log('[JobLink][STANDALONE-DIAG] .show-more-less-html__markup (200):',
-    markup && markup.innerText.substring(0, 200));
-}
 
 /**
  * Try each CSS selector in order and return the trimmed text of the first
@@ -78,17 +45,11 @@ function extractText(selectors) {
  * and era of the page. This function tries specific "bullet" classes first,
  * then falls back to parsing the primary description container.
  *
- * @param {boolean} standalone - true when on a linkedin.com/jobs/view/ page
  * @returns {string} Location text, or '' if not found
  */
-function extractLocation(standalone) {
+function extractLocation() {
   const bulletSelectors = [
-    // Standalone-specific selectors — tried first on /jobs/view/ pages
-    ...(standalone ? [
-      '.topcard__flavor--bullet',
-      '.top-card-layout__first-subline .topcard__flavor:not(.topcard__flavor--bullet)',
-    ] : []),
-    // Unified top card used in both layouts (2024+)
+    // Unified top card used in split-panel (2024+)
     '.job-details-jobs-unified-top-card__bullet',
     // Direct tvm__text span inside the primary description container
     '.job-details-jobs-unified-top-card__primary-description-container .tvm__text',
@@ -96,7 +57,7 @@ function extractLocation(standalone) {
     '.jobs-unified-top-card__bullet',
     // Workplace type label (Remote / Hybrid / On-site) on split-panel
     '.jobs-unified-top-card__workplace-type',
-    // Classic standalone topcard (shared fallback)
+    // Classic topcard fallbacks
     '.topcard__flavor--bullet',
     '.topcard__flavor',
     // Wildcard class fallbacks — catch LinkedIn class renames
@@ -147,20 +108,12 @@ function extractLocation(standalone) {
  * A minimum character length guards against returning header-only elements
  * like "About the job" (~14 chars) instead of the real body text.
  *
- * @param {boolean} standalone - true when on a linkedin.com/jobs/view/ page
  * @returns {string} Description text, or '' if not found
  */
-function extractDescription(standalone) {
+function extractDescription() {
   const MIN_DESC_LENGTH = 100;
 
   const descSelectors = [
-    // Standalone-specific selectors — tried first on /jobs/view/ pages
-    ...(standalone ? [
-      '.show-more-less-html__markup',
-      '.description__text',
-      '.core-section-container__content',
-    ] : []),
-    // Split-panel and shared selectors
     '.jobs-description__content .jobs-description-content__text',
     '.jobs-description',
     '.jobs-box__html-content',
@@ -192,12 +145,12 @@ function extractDescription(standalone) {
  * URL is the search-results page, not the job itself.  Try in order:
  *   1. <link rel="canonical"> — LinkedIn inserts the correct permalink here.
  *   2. Construct a /jobs/view/[id]/ URL from the currentJobId query param.
- *   3. Fall back to window.location.href (standalone view or last resort).
+ *   3. Fall back to window.location.href (last resort).
  *
  * @returns {string} Absolute URL for this job posting
  */
 function extractApplicationUrl() {
-  // 1. Canonical link tag (most reliable across both layouts)
+  // 1. Canonical link tag (most reliable)
   const canonical = document.querySelector('link[rel="canonical"]');
   if (canonical && canonical.href) {
     return canonical.href;
@@ -210,41 +163,28 @@ function extractApplicationUrl() {
     return `https://www.linkedin.com/jobs/view/${jobId}/`;
   }
 
-  // 3. Fallback — standalone job view already has the correct URL
+  // 3. Fallback
   return window.location.href;
 }
 
 /**
- * Scrape all job fields from the currently open LinkedIn job page.
+ * Scrape all job fields from the currently open LinkedIn split-panel job view.
  *
- * @param {boolean} standalone - true when on a linkedin.com/jobs/view/ page
  * @returns {Object} Job data object conforming to the JobLink scraper output format
  */
-function scrapeLinkedInJob(standalone) {
+function scrapeLinkedInJob() {
   const jobTitle = extractText([
-    // Standalone-specific selectors — tried first on /jobs/view/ pages
-    ...(standalone ? [
-      'h1.top-card-layout__title',
-      'h1.topcard__title',
-      'h1',
-    ] : []),
     // Unified top card — h1 inside the title wrapper (most reliable, 2024+)
     '.job-details-jobs-unified-top-card__job-title h1',
     // Older split-panel top card
     '.jobs-unified-top-card__job-title h1',
     '.jobs-unified-top-card__job-title',
-    // Generic h1 with LinkedIn's heading class (standalone fallback)
+    // Generic h1 fallback
     'h1.t-24',
-    // Classic topcard title
     '.topcard__title',
   ]);
 
   const company = extractText([
-    // Standalone-specific selectors — tried first on /jobs/view/ pages
-    ...(standalone ? [
-      '.topcard__org-name-link',
-      '.top-card-layout__first-subline a',
-    ] : []),
     // Unified top card — company link (2024+)
     '.job-details-jobs-unified-top-card__company-name a',
     '.job-details-jobs-unified-top-card__company-name',
@@ -265,17 +205,14 @@ function scrapeLinkedInJob(standalone) {
     '[class*="company-name"]',
   ]);
 
-  const location = extractLocation(standalone);
-  const description = extractDescription(standalone);
-
   return {
     jobTitle,
     company,
-    location,
-    description,
+    location:       extractLocation(),
+    description:    extractDescription(),
     applicationUrl: extractApplicationUrl(),
-    source: 'linkedin',
-    scrapedAt: new Date().toISOString(),
+    source:         'linkedin',
+    scrapedAt:      new Date().toISOString(),
   };
 }
 
@@ -303,21 +240,11 @@ function sendJobData(jobData) {
 /**
  * Wait for LinkedIn's dynamic content to render, then extract and send job data.
  *
- * Standalone pages use a longer initial delay (1500 ms) as they render more
- * slowly than the split-panel view. If the description is still empty after
- * the first pass, a single retry fires after an additional 1000 ms — the
- * description panel sometimes loads after the rest of the top card.
- * All other fields are taken from the first pass regardless.
+ * If the description is empty on the first pass (the description panel sometimes
+ * renders ~1 s after the rest of the top card), a single retry fires after an
+ * additional 1000 ms. All other fields are taken from the first pass regardless.
  */
-const standalone = isStandalonePage();
-const delay = standalone ? STANDALONE_EXTRACTION_DELAY_MS : EXTRACTION_DELAY_MS;
-
-console.log(`[JobLink] Layout: ${standalone ? 'standalone' : 'split-panel'}, delay: ${delay} ms`);
-
 setTimeout(() => {
-  // Standalone diagnostics — logs key elements to help identify selector issues
-  if (standalone) logStandaloneDiagnostics();
-
   // --- DEBUG: log raw DOM so selector issues can be diagnosed in DevTools ---
   // Remove this block once company/location selectors are confirmed working.
   console.log('[JobLink][DEBUG] body HTML (first 3000 chars):',
@@ -332,7 +259,7 @@ setTimeout(() => {
     document.querySelector('[class*="workplace"]'));
   // --- END DEBUG ---
 
-  const jobData = scrapeLinkedInJob(standalone);
+  const jobData = scrapeLinkedInJob();
   console.log('[JobLink] LinkedIn scraper result (first pass):', jobData);
 
   if (jobData.description) {
@@ -343,8 +270,8 @@ setTimeout(() => {
   // Description was empty — the panel may still be loading. Retry once.
   console.log('[JobLink] Description empty on first pass — retrying in 1000 ms');
   setTimeout(() => {
-    jobData.description = extractDescription(standalone);
+    jobData.description = extractDescription();
     console.log('[JobLink] LinkedIn scraper result (after retry):', jobData);
     sendJobData(jobData);
   }, 1000);
-}, delay);
+}, EXTRACTION_DELAY_MS);
