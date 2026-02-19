@@ -39,3 +39,27 @@ What was built:
 - Added userinfo.email scope to manifest for displaying connected account
 Test results: OAuth flow completes, folders load from Drive, selection saves to storage, setup completes successfully.
 Known issues: None.
+
+---
+
+Session 4 — Complete
+Date: 2026-02-18
+Branch: feature-linkedin-scraper
+What was built:
+- content-scripts/linkedin.js — full LinkedIn job scraper
+  - Handles both standalone job view (linkedin.com/jobs/view/...) and split-panel search results view
+  - Extracts jobTitle, company, location, description, applicationUrl, source, scrapedAt
+  - Multi-selector fallback strategy for each field to handle multiple LinkedIn page layouts and era differences
+  - Location uses dedicated extractLocation() with bullet-class selectors first, then falls back to parsing the primary description container's .tvm__text spans
+  - Description uses textContent to capture text that may be CSS-clamped behind a "See more" button
+  - 500ms delay before extraction to allow LinkedIn's SPA to finish rendering
+  - Sends { type: 'JOB_DATA_EXTRACTED', payload: jobData } to the service worker
+  - Robust error handling: chrome.runtime.lastError checked in message callback, outer try/catch prevents unhandled rejections
+- background/service-worker.js — added chrome.runtime.onMessage listener
+  - Handles JOB_DATA_EXTRACTED message type
+  - Logs received job data and sender tab URL to the console for testing
+  - Responds with { status: 'received' } to satisfy the content script callback
+- manifest.json — content_scripts entry for LinkedIn was already registered in Session 1 scaffolding; no changes needed
+Test results: Manual test required (see testing instructions in session notes). Console logging in service worker confirms message pipeline is wired up.
+Known issues: LinkedIn's class names change frequently — if selectors break after a LinkedIn redesign, update extractText() selector arrays in linkedin.js. No automated tests; relies on manual verification in Chrome DevTools.
+Next steps: Build the side panel UI to display scraped job data and trigger saving to Drive.
