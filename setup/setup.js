@@ -119,7 +119,18 @@ async function handleConnectDrive() {
   hideError();
 
   try {
-    // Request OAuth token
+    // Clear any cached token first to ensure we get fresh scopes
+    await new Promise((resolve) => {
+      chrome.identity.getAuthToken({ interactive: false }, (oldToken) => {
+        if (oldToken) {
+          chrome.identity.removeCachedAuthToken({ token: oldToken }, resolve);
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    // Request OAuth token with updated scopes
     const token = await new Promise((resolve, reject) => {
       chrome.identity.getAuthToken({ interactive: true }, (token) => {
         if (chrome.runtime.lastError) {
