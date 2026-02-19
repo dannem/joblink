@@ -107,8 +107,13 @@ If a field cannot be extracted, it must return an empty string — never `null` 
 [User's chosen root folder]/
 └── [Company] - [Job Title]/
     ├── job_info.json       # Structured job data (the scraper output object)
-    └── job_summary.html    # Human-readable formatted summary
+    ├── job_summary.html    # Human-readable formatted summary (browser preview)
+    └── job_summary.pdf     # Printable/shareable version generated with jsPDF
 ```
+PDF generation uses the jsPDF library (loaded via CDN in the side panel).
+All three files are generated and uploaded in the same Save to Drive operation.
+Never generate files partially — all three must succeed or none are saved.
+
 Folder and file names must be sanitised to remove characters that Drive does not allow.
 
 ## Quality Gates
