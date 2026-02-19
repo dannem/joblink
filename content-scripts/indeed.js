@@ -36,14 +36,25 @@ function extractText(selectors) {
 /**
  * Extract the job title from the page.
  *
+ * The bare 'h1' selector is avoided as a direct fallback because Indeed's site
+ * logo renders as an h1 with the text "Indeed", which would be returned instead
+ * of the job title. The last-resort fallback explicitly filters that element out.
+ *
  * @returns {string} Job title text, or '' if not found
  */
 function extractJobTitle() {
-  return extractText([
-    'h1[data-testid="jobsearch-JobInfoHeader-title"]',
+  const text = extractText([
+    '[data-testid="jobsearch-JobInfoHeader-title"]',
     'h1.jobsearch-JobInfoHeader-title',
-    'h1',
+    '.jobTitle h1',
+    '.jobsearch-JobInfoHeader h1',
   ]);
+  if (text) return text;
+
+  // Last resort: find the first h1 whose visible text is not the site logo.
+  const el = [...document.querySelectorAll('h1')]
+    .find(h => h.innerText.trim() !== 'Indeed');
+  return el ? el.innerText.trim() : '';
 }
 
 /**
