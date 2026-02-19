@@ -30,7 +30,7 @@
       "js": ["content-scripts/linkedin.js"]
     },
     {
-      "matches": ["*://*.indeed.com/viewjob*", "*://*.indeed.com/jobs*"],
+      "matches": ["*://*.indeed.com/*"],
       "js": ["content-scripts/indeed.js"],
       "run_at": "document_idle"
     }
