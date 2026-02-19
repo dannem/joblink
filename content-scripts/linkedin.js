@@ -238,11 +238,97 @@ function sendJobData(jobData) {
 }
 
 /**
- * Wait for LinkedIn's dynamic content to render, then extract and send job data.
+ * Scrape the currently visible job and send it to the service worker.
+ * Handles the description-empty retry internally.
  *
- * If the description is empty on the first pass (the description panel sometimes
- * renders ~1 s after the rest of the top card), a single retry fires after an
- * additional 1000 ms. All other fields are taken from the first pass regardless.
+ * Shared between the initial page-load path and the URL polling loop so
+ * that both code paths stay in sync.
+ */
+function runScrape() {
+  const jobData = scrapeLinkedInJob();
+  console.log('[JobLink] LinkedIn scraper result (first pass):', jobData);
+
+  if (jobData.description) {
+    sendJobData(jobData);
+    return;
+  }
+
+  // Description was empty — the panel may still be loading. Retry once.
+  console.log('[JobLink] Description empty on first pass — retrying in 1000 ms');
+  setTimeout(() => {
+    jobData.description = extractDescription();
+    console.log('[JobLink] LinkedIn scraper result (after retry):', jobData);
+    sendJobData(jobData);
+  }, 1000);
+}
+
+// ── URL change detection (split-panel navigation) ─────────────────────────────
+
+/** Full href observed the last time the polling loop ran. */
+let lastSeenHref = window.location.href;
+
+/** Active setInterval handle; null when the polling loop is not running. */
+let pollIntervalId = null;
+
+/**
+ * Extract the currentJobId query param from a URL string.
+ *
+ * @param {string} href
+ * @returns {string|null}
+ */
+function getJobIdFromHref(href) {
+  try {
+    return new URL(href).searchParams.get('currentJobId');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Start a polling loop that detects in-page job navigation on /jobs/search/.
+ *
+ * LinkedIn's split-panel view updates `currentJobId` in the URL query string
+ * without a page reload when the user clicks a different job.  This loop
+ * checks every 1000 ms and, when `currentJobId` changes, waits 800 ms for the
+ * new job content to render then calls runScrape().
+ *
+ * The loop stops automatically if the user navigates away from /jobs/search/.
+ * Guards against double-start if called more than once.
+ */
+function startPolling() {
+  if (pollIntervalId !== null) return;
+
+  pollIntervalId = setInterval(() => {
+    // Stop if the user has left the split-panel search page
+    if (!window.location.pathname.startsWith('/jobs/search/')) {
+      clearInterval(pollIntervalId);
+      pollIntervalId = null;
+      console.log('[JobLink] Left /jobs/search/ — URL polling stopped');
+      return;
+    }
+
+    const currentHref = window.location.href;
+    if (currentHref === lastSeenHref) return;
+
+    const prevJobId = getJobIdFromHref(lastSeenHref);
+    const nextJobId = getJobIdFromHref(currentHref);
+    lastSeenHref = currentHref;
+
+    if (nextJobId && nextJobId !== prevJobId) {
+      console.log(
+        `[JobLink] New job selected (${prevJobId} → ${nextJobId}) — scraping in 800 ms`
+      );
+      setTimeout(runScrape, 800);
+    }
+  }, 1000);
+}
+
+// ── Entry point ───────────────────────────────────────────────────────────────
+
+/**
+ * Wait for LinkedIn's SPA to finish rendering, then run the initial scrape.
+ * On split-panel search pages, also start the URL polling loop so that
+ * subsequent job-clicks are captured without a page reload.
  */
 setTimeout(() => {
   // --- DEBUG: log raw DOM so selector issues can be diagnosed in DevTools ---
@@ -259,19 +345,9 @@ setTimeout(() => {
     document.querySelector('[class*="workplace"]'));
   // --- END DEBUG ---
 
-  const jobData = scrapeLinkedInJob();
-  console.log('[JobLink] LinkedIn scraper result (first pass):', jobData);
+  runScrape();
 
-  if (jobData.description) {
-    sendJobData(jobData);
-    return;
+  if (window.location.pathname.startsWith('/jobs/search/')) {
+    startPolling();
   }
-
-  // Description was empty — the panel may still be loading. Retry once.
-  console.log('[JobLink] Description empty on first pass — retrying in 1000 ms');
-  setTimeout(() => {
-    jobData.description = extractDescription();
-    console.log('[JobLink] LinkedIn scraper result (after retry):', jobData);
-    sendJobData(jobData);
-  }, 1000);
 }, EXTRACTION_DELAY_MS);
