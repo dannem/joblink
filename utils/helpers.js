@@ -3,13 +3,18 @@
  * All chrome.storage.sync keys must be defined here as constants.
  */
 
-// Storage key constants — use these everywhere, never raw strings
+// chrome.storage.sync key constants — use these everywhere, never raw strings
 const STORAGE_KEYS = {
   DRIVE_ROOT_FOLDER_ID: 'DRIVE_ROOT_FOLDER_ID',
   DRIVE_ROOT_FOLDER_NAME: 'DRIVE_ROOT_FOLDER_NAME',
   DRIVE_CV_FOLDER_ID: 'DRIVE_CV_FOLDER_ID',
   DRIVE_TEMPLATES_FOLDER_ID: 'DRIVE_TEMPLATES_FOLDER_ID',
   SETUP_COMPLETE: 'SETUP_COMPLETE'
+};
+
+// chrome.storage.session key constants — cleared when the browser session ends
+const SESSION_KEYS = {
+  CURRENT_JOB: 'CURRENT_JOB', // The most recently scraped job, pending review/save
 };
 
 // Default storage values for first install

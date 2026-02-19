@@ -50,21 +50,47 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 /**
- * Listen for messages from content scripts and other extension pages.
+ * Listen for messages from content scripts and extension pages.
  *
- * JOB_DATA_EXTRACTED — sent by linkedin.js (and eventually indeed.js) after
- * scraping a job posting. Logs the data for testing; will be forwarded to the
- * side panel in a future session.
+ * JOB_DATA_EXTRACTED — sent by content scripts after scraping a job.
+ *   LinkedIn sends the job object as `message.payload`.
+ *   Indeed sends it as `message.data`.
+ *   Both are normalised here to `payload` before storage and forwarding.
+ *
+ * SAVE_TO_DRIVE — sent by the side panel when the user clicks Save.
+ *   TODO: implement Drive file creation (Session 7).
+ *   Stubbed with success:true so the side panel UI flow can be tested now.
  */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'JOB_DATA_EXTRACTED') {
-    console.log('[JobLink] Job data received from content script:', message.payload);
+    // Normalise: LinkedIn uses `payload`, Indeed uses `data`
+    const jobData = message.payload || message.data;
+
+    console.log('[JobLink] Job data received from content script:', jobData);
     console.log('[JobLink] Source tab:', sender.tab ? sender.tab.url : 'unknown');
 
-    // Acknowledge receipt so the content script callback does not error
+    if (jobData) {
+      // Persist for side panel re-opens within the same browser session
+      chrome.storage.session
+        .set({ [SESSION_KEYS.CURRENT_JOB]: jobData })
+        .catch(err => console.error('[JobLink] Failed to store job in session:', err));
+
+      // Forward to side panel (best-effort — panel may not be open yet)
+      chrome.runtime.sendMessage({ type: 'JOB_DATA_EXTRACTED', payload: jobData })
+        .catch(() => { /* Side panel not open — not an error */ });
+    }
+
     sendResponse({ status: 'received' });
+    return false;
   }
 
-  // Return false — we are not sending an async response
+  if (message.type === 'SAVE_TO_DRIVE') {
+    // TODO (Session 7): create Drive folder and upload job_info.json + job_summary.html
+    // Stubbed so the side panel success state can be tested end-to-end.
+    console.log('[JobLink] SAVE_TO_DRIVE received (stub — not yet saved):', message.payload);
+    sendResponse({ success: true });
+    return false;
+  }
+
   return false;
 });

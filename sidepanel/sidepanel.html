@@ -1,1 +1,75 @@
-<!-- Side panel: displays scraped job data for user review and provides controls to save to Google Drive. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobLink</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header class="panel-header">
+    <span class="logo">JobLink</span>
+    <button id="settings-btn" class="icon-btn" title="Open settings" aria-label="Open settings">&#9881;</button>
+  </header>
+
+  <!-- ── Empty state ────────────────────────────────────────── -->
+  <div id="state-empty" class="panel-state panel-state--centered">
+    <div class="empty-icon">&#128203;</div>
+    <p class="empty-msg">Navigate to a LinkedIn or Indeed job posting to capture it.</p>
+  </div>
+
+  <!-- ── Job loaded state ───────────────────────────────────── -->
+  <div id="state-job" class="panel-state" style="display: none;">
+
+    <!-- Source badge + capture time -->
+    <div class="job-meta">
+      <span id="source-badge" class="source-badge"></span>
+      <span id="scraped-time" class="scraped-time"></span>
+    </div>
+
+    <!-- Editable fields -->
+    <div class="fields">
+      <div class="field-group">
+        <label class="field-label" for="field-title">Job Title</label>
+        <input id="field-title" type="text" class="field-input">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="field-company">Company</label>
+        <input id="field-company" type="text" class="field-input">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="field-location">Location</label>
+        <input id="field-location" type="text" class="field-input">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Application URL</label>
+        <a id="field-url" href="#" target="_blank" rel="noopener noreferrer" class="field-url"></a>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="field-description">Description</label>
+        <textarea id="field-description" class="field-textarea"></textarea>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="action-row">
+      <button id="btn-save" class="btn btn-primary">Save to Drive</button>
+      <button id="btn-clear" class="btn btn-secondary">Clear</button>
+    </div>
+
+    <!-- Status messages -->
+    <div id="msg-success" class="msg msg--success" style="display: none;">Saved to Drive ✓</div>
+    <div id="msg-error"   class="msg msg--error"   style="display: none;"></div>
+
+  </div>
+
+  <script src="../utils/helpers.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
