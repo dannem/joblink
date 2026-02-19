@@ -65,6 +65,8 @@ chrome.runtime.onMessage.addListener((message) => {
 btnSave.addEventListener('click', handleSave);
 btnClear.addEventListener('click', handleClear);
 
+// chrome.runtime.openOptionsPage() requires options_page/options_ui in manifest.json,
+// which is not declared. Use chrome.tabs.create directly instead.
 settingsBtn.addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('setup/setup.html') });
 });

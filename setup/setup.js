@@ -54,11 +54,17 @@ function showSetupForm() {
 
 /**
  * Show the "setup already complete" message.
+ * Wires up the "Change save folder" button so the user can re-open the
+ * setup form to pick a different Drive folder without reinstalling.
  */
 function showSetupComplete() {
   document.getElementById('setup-form').style.display = 'none';
   document.getElementById('setup-complete').style.display = 'block';
   document.getElementById('setup-success').style.display = 'none';
+
+  document.getElementById('change-folder-btn').addEventListener('click', () => {
+    showSetupForm();
+  });
 }
 
 /**
