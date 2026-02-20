@@ -3,8 +3,10 @@
  * Handles extension install events, OAuth token management, and message routing.
  */
 
-// Import helpers for storage key constants
+// Import helpers for storage key constants and utility functions
 importScripts('../utils/helpers.js');
+// Import Drive API functions — all Drive calls must go through this module
+importScripts('../drive/drive-api.js');
 
 /**
  * Handle extension installation.
@@ -58,8 +60,8 @@ chrome.action.onClicked.addListener(async (tab) => {
  *   Both are normalised here to `payload` before storage and forwarding.
  *
  * SAVE_TO_DRIVE — sent by the side panel when the user clicks Save.
- *   TODO: implement Drive file creation (Session 7).
- *   Stubbed with success:true so the side panel UI flow can be tested now.
+ *   Gets an OAuth token, creates a subfolder in the user's Drive root, and
+ *   uploads job_info.json and job_summary.html. Responds async via sendResponse.
  */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'JOB_DATA_EXTRACTED') {
@@ -85,12 +87,66 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'SAVE_TO_DRIVE') {
-    // TODO (Session 7): create Drive folder and upload job_info.json + job_summary.html
-    // Stubbed so the side panel success state can be tested end-to-end.
-    console.log('[JobLink] SAVE_TO_DRIVE received (stub — not yet saved):', message.payload);
-    sendResponse({ success: true });
-    return false;
+    console.log('[JobLink] SAVE_TO_DRIVE received:', message.payload);
+    handleSaveToDrive(message.payload)
+      .then(result => sendResponse(result))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true; // Keep the message channel open while the async work completes
   }
 
   return false;
 });
+
+/**
+ * Orchestrate saving a scraped job to Google Drive.
+ * Creates a subfolder under the user's configured root, then uploads
+ * job_info.json and job_summary.html into it.
+ * @param {Object} job - The job object in the standard scraper output format
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+async function handleSaveToDrive(job) {
+  // 1. Get a fresh OAuth token (non-interactive — user must already be signed in)
+  const token = await new Promise((resolve, reject) => {
+    chrome.identity.getAuthToken({ interactive: false }, (accessToken) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve(accessToken);
+      }
+    });
+  });
+
+  // 2. Get the user's configured root Drive folder from storage
+  const rootFolderId = await getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID);
+  if (!rootFolderId) {
+    throw new Error('No Drive folder configured. Please complete setup first.');
+  }
+
+  // 3. Sanitise the job fields into a valid Drive folder name
+  const folderName = sanitiseFolderName(job.company, job.jobTitle);
+
+  // 4. Create the job subfolder inside the root folder
+  const folder = await createDriveFolder(token, folderName, rootFolderId);
+
+  // 5. Upload job_info.json — the raw structured job data
+  await uploadFileToDrive(
+    token,
+    'job_info.json',
+    JSON.stringify(job, null, 2),
+    'application/json',
+    folder.id
+  );
+
+  // 6. Upload job_summary.html — the human-readable summary
+  const htmlContent = generateJobSummaryHtml(job);
+  await uploadFileToDrive(
+    token,
+    'job_summary.html',
+    htmlContent,
+    'text/html',
+    folder.id
+  );
+
+  console.log(`[JobLink] Saved to Drive: ${folderName} (folder ID: ${folder.id})`);
+  return { success: true };
+}

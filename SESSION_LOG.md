@@ -63,3 +63,22 @@ What was built:
 Test results: Manual test required (see testing instructions in session notes). Console logging in service worker confirms message pipeline is wired up.
 Known issues: LinkedIn's class names change frequently — if selectors break after a LinkedIn redesign, update extractText() selector arrays in linkedin.js. No automated tests; relies on manual verification in Chrome DevTools.
 Next steps: Build the side panel UI to display scraped job data and trigger saving to Drive.
+
+---
+
+Session 7 — Complete
+Date: 2026-02-20
+Branch: feature-drive-save
+What was built:
+- utils/helpers.js — two new utility functions:
+  - sanitiseFolderName(company, jobTitle): strips Drive-illegal characters (\ / : * ? " < > |) and returns "[Company] - [Job Title]"
+  - generateJobSummaryHtml(job): returns a complete HTML document with the job's title, company, location, source, date, apply link, and full description. All user-supplied strings are HTML-escaped to prevent XSS.
+- background/service-worker.js — real SAVE_TO_DRIVE implementation:
+  - importScripts now includes ../drive/drive-api.js so Drive functions are available
+  - SAVE_TO_DRIVE handler returns true (not false) to keep the async message channel open
+  - Calls handleSaveToDrive(job) and forwards the result to sendResponse when the Promise settles
+  - handleSaveToDrive(): wraps chrome.identity.getAuthToken in a Promise, reads DRIVE_ROOT_FOLDER_ID from storage, sanitises the folder name, calls createDriveFolder(), then uploadFileToDrive() twice (JSON + HTML). Any thrown error propagates as { success: false, error: '...' }.
+  - Stale TODO comment updated to reflect the real implementation
+Test results: Manual test required — load the extension, scrape a LinkedIn or Indeed job, click Save in the side panel, and verify the folder and both files appear in Google Drive.
+Known issues: None anticipated. If OAuth token is expired, getAuthToken with interactive: false will fail; the error message will surface in the side panel.
+Next steps: Add PDF generation (jsPDF) and upload as a third file in the same Drive save operation.
