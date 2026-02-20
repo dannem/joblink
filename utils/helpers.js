@@ -109,7 +109,7 @@ function generateJobSummaryHtml(job) {
     body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 24px; color: #1a1a1a; line-height: 1.6; }
     h1 { font-size: 1.75rem; margin-bottom: 6px; }
     .meta { color: #555; font-size: 0.95rem; margin-bottom: 8px; }
-    .meta span + span::before { content: ' \00b7  '; }
+    .meta span + span::before { content: ' \u00B7  '; }
     .apply-link { margin-bottom: 28px; }
     .apply-link a { color: #0073b1; text-decoration: none; font-weight: 500; }
     .apply-link a:hover { text-decoration: underline; }
