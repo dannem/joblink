@@ -87,8 +87,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'SAVE_TO_DRIVE') {
-    console.log('[JobLink] SAVE_TO_DRIVE received:', message.payload);
-    handleSaveToDrive(message.payload)
+    const pdfBase64 = message.pdfBase64 || '';
+    console.log('[JobLink] SAVE_TO_DRIVE received:', message.payload, pdfBase64 ? '(PDF included)' : '(no PDF)');
+    handleSaveToDrive(message.payload, pdfBase64)
       .then(result => sendResponse(result))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; // Keep the message channel open while the async work completes
@@ -100,11 +101,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 /**
  * Orchestrate saving a scraped job to Google Drive.
  * Creates a subfolder under the user's configured root, then uploads
- * job_info.json and job_summary.html into it.
- * @param {Object} job - The job object in the standard scraper output format
+ * job_info.json, job_summary.html, and (if provided) job_summary.pdf.
+ * @param {Object} job       - The job object in the standard scraper output format
+ * @param {string} pdfBase64 - Base64-encoded PDF bytes, or '' to skip PDF upload
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-async function handleSaveToDrive(job) {
+async function handleSaveToDrive(job, pdfBase64) {
   // 1. Get a fresh OAuth token (non-interactive — user must already be signed in)
   const token = await new Promise((resolve, reject) => {
     chrome.identity.getAuthToken({ interactive: false }, (accessToken) => {
@@ -146,6 +148,24 @@ async function handleSaveToDrive(job) {
     'text/html',
     folder.id
   );
+
+  // 7. Upload job_summary.pdf — skip gracefully if the side panel did not supply bytes.
+  //    PDF failure must not block the save; JSON and HTML are already written at this point.
+  if (pdfBase64) {
+    try {
+      await uploadBase64FileToDrive(
+        token,
+        'job_summary.pdf',
+        pdfBase64,
+        'application/pdf',
+        folder.id
+      );
+    } catch (pdfErr) {
+      console.warn('[JobLink] PDF upload failed (JSON and HTML were saved):', pdfErr.message);
+    }
+  } else {
+    console.log('[JobLink] No PDF data provided — skipping PDF upload.');
+  }
 
   console.log(`[JobLink] Saved to Drive: ${folderName} (folder ID: ${folder.id})`);
   return { success: true };

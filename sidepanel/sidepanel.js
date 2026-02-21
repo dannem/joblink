@@ -113,6 +113,8 @@ function showJob(job) {
 
 /**
  * Collect the current (possibly edited) field values and request a Drive save.
+ * Generates the PDF here (jsPDF cannot run in a service worker), then sends
+ * the job data and the base64 PDF together in one message.
  * The service worker handles the actual upload; this function manages UI state.
  */
 async function handleSave() {
@@ -130,10 +132,20 @@ async function handleSave() {
   setSaving(true);
   hideMessages();
 
+  // Generate the PDF in the side panel — jsPDF is not available in the service worker.
+  // If generation fails, log the error and continue without PDF so JSON/HTML are not blocked.
+  let pdfBase64 = '';
+  try {
+    pdfBase64 = generateJobPdfBase64(jobToSave);
+  } catch (pdfErr) {
+    console.warn('[JobLink] PDF generation failed — save will continue without PDF:', pdfErr);
+  }
+
   try {
     const response = await chrome.runtime.sendMessage({
-      type:    'SAVE_TO_DRIVE',
-      payload: jobToSave,
+      type:     'SAVE_TO_DRIVE',
+      payload:  jobToSave,
+      pdfBase64,
     });
 
     if (response && response.success) {

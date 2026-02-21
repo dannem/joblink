@@ -79,3 +79,18 @@ What was built:
 Test results: Manual test required — load extension, scrape a job, click Save, verify [Company] - [Job Title] folder appears in Google Drive containing job_info.json and job_summary.html.
 Known issues: None.
 Next steps: Manual end-to-end test. If passing, Session 8 can begin on Phase 2 (AI tailoring dashboard).
+
+---
+
+Session 8 — Complete
+Date: 2026-02-20
+Branch: feature-pdf-generation
+What was built:
+- utils/helpers.js: added generateJobPdfBase64(job) — uses jsPDF to build a clean A4 PDF (title, company/location, date/source, URL, horizontal rule, description, footer) with automatic page-break handling; returns the base64 data string with no data-URI prefix. Guards against being called from a service worker (typeof window check).
+- sidepanel/sidepanel.html: added jsPDF 2.5.1 UMD CDN script tag between helpers.js and sidepanel.js so window.jspdf is available when generateJobPdfBase64 is called.
+- sidepanel/sidepanel.js: handleSave() now calls generateJobPdfBase64(jobToSave) before sending SAVE_TO_DRIVE. PDF errors are caught and logged; the message is still sent without pdfBase64 so JSON/HTML saves are never blocked by a PDF failure.
+- drive/drive-api.js: added uploadBase64FileToDrive() — same multipart/related pattern as uploadFileToDrive() but adds Content-Transfer-Encoding: base64 to the file part so binary PDF bytes are not corrupted by string handling.
+- background/service-worker.js: handleSaveToDrive() now accepts a pdfBase64 argument. Step 7 uploads job_summary.pdf via uploadBase64FileToDrive(); if pdfBase64 is empty or the upload throws, the error is logged as a warning and { success: true } is still returned (JSON and HTML are already saved at that point).
+Test results: Manual test required — scrape a job, click Save, verify Google Drive folder contains job_info.json, job_summary.html, and job_summary.pdf.
+Known issues: jsPDF's built-in Helvetica font covers Latin-1 only; characters outside that range (e.g. some emoji or CJK) will not render in the PDF. Acceptable for Phase 1.
+Next steps: Phase 2 planning — AI tailoring dashboard.

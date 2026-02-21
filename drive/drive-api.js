@@ -101,6 +101,59 @@ async function createDriveFolder(accessToken, folderName, parentId) {
 }
 
 /**
+ * Upload a binary file to Google Drive using base64-encoded content.
+ * Uses Content-Transfer-Encoding: base64 in the multipart body so that
+ * binary data is not corrupted by string concatenation.
+ * @param {string} accessToken  - OAuth access token
+ * @param {string} fileName     - Name of the file
+ * @param {string} base64Content - File content encoded as base64 (no data-URI prefix)
+ * @param {string} mimeType     - MIME type of the file
+ * @param {string} parentId     - Parent folder ID
+ * @returns {Promise<{id: string, name: string}>} Uploaded file info
+ * @throws {Error} If the API call fails
+ */
+async function uploadBase64FileToDrive(accessToken, fileName, base64Content, mimeType, parentId) {
+  const metadata = {
+    name: fileName,
+    parents: [parentId]
+  };
+
+  const boundary = '-------JobLinkBoundaryPdf';
+  const delimiter = `\r\n--${boundary}\r\n`;
+  const closeDelimiter = `\r\n--${boundary}--`;
+
+  const body =
+    delimiter +
+    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+    JSON.stringify(metadata) +
+    delimiter +
+    `Content-Type: ${mimeType}\r\n` +
+    'Content-Transfer-Encoding: base64\r\n\r\n' +
+    base64Content +
+    closeDelimiter;
+
+  const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': `multipart/related; boundary=${boundary}`
+    },
+    body: body
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Failed to upload file: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return {
+    id: data.id,
+    name: data.name
+  };
+}
+
+/**
  * Upload a file to Google Drive.
  * @param {string} accessToken - OAuth access token
  * @param {string} fileName - Name of the file
