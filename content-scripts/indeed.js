@@ -131,14 +131,11 @@ function scrapeIndeedJob() {
 }
 
 /**
- * Wait for Indeed's dynamic content to render, then extract and send job data.
- * Wrapped in setTimeout to give the SPA time to finish populating the DOM.
+ * Send a completed job data object to the service worker.
+ *
+ * @param {Object} jobData - Scraper output conforming to the JobLink format
  */
-setTimeout(() => {
-  const jobData = scrapeIndeedJob();
-
-  console.log('[JobLink] Indeed scraper result:', jobData);
-
+function sendJobData(jobData) {
   try {
     chrome.runtime.sendMessage(
       { type: 'JOB_DATA_EXTRACTED', data: jobData },
@@ -152,4 +149,73 @@ setTimeout(() => {
   } catch (error) {
     console.error('[JobLink] Failed to send job data to service worker:', error);
   }
+}
+
+/**
+ * Scrape the currently visible job and send it to the service worker.
+ *
+ * Shared between the initial page-load path and the navigation watcher so
+ * that both code paths stay in sync.
+ */
+function runScrape() {
+  const jobData = scrapeIndeedJob();
+  console.log('[JobLink] Indeed scraper result:', jobData);
+  sendJobData(jobData);
+}
+
+// ── Navigation watcher (SPA navigation detection) ─────────────────────────────
+
+/** Full href at the time of the last scrape — used to detect URL changes. */
+let lastSeenHref = window.location.href;
+
+/** Debounce timer handle for re-scrape scheduling; null when idle. */
+let debounceTimer = null;
+
+/**
+ * Start a MutationObserver that detects in-page job navigation on Indeed.
+ *
+ * Indeed's SPA updates the URL when the user clicks a different job listing
+ * without a full page reload.  The observer watches for any DOM mutation and,
+ * when the URL has also changed to a URL containing a jk= query parameter
+ * (Indeed's job key), schedules a re-scrape after EXTRACTION_DELAY_MS.
+ * Debouncing ensures that a rapid burst of DOM mutations from a single
+ * navigation triggers only one scrape.
+ */
+function startNavigationWatcher() {
+  const observer = new MutationObserver(() => {
+    const currentHref = window.location.href;
+
+    // No URL change — ignore this batch of mutations
+    if (currentHref === lastSeenHref) return;
+
+    // URL changed but no jk= param — update tracking but don't scrape
+    if (!currentHref.includes('jk=')) {
+      lastSeenHref = currentHref;
+      return;
+    }
+
+    lastSeenHref = currentHref;
+
+    // Debounce: cancel any pending scrape and restart the timer
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      console.log('[JobLink] Navigation detected — re-scraping:', currentHref);
+      runScrape();
+    }, EXTRACTION_DELAY_MS);
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+  console.log('[JobLink] Navigation watcher started');
+}
+
+// ── Entry point ───────────────────────────────────────────────────────────────
+
+/**
+ * Wait for Indeed's dynamic content to render, then run the initial scrape.
+ * Also starts the navigation watcher so subsequent job-clicks are captured
+ * without a page reload.
+ */
+setTimeout(() => {
+  runScrape();
+  startNavigationWatcher();
 }, EXTRACTION_DELAY_MS);
