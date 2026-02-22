@@ -94,3 +94,17 @@ What was built:
 Test results: Manual test required — load extension, scrape a job, click Save, verify Google Drive folder contains job_info.json, job_summary.html, and job_summary.pdf.
 Known issues: None.
 Next steps: Manual end-to-end test. If passing, Session 9 begins Phase 2 — AI tailoring dashboard.
+
+---
+
+Session 8b — Complete
+Date: 2026-02-22
+Branch: feature-pdf-debug
+What was built:
+- Diagnosed and fixed silent PDF failure: jsPDF CDN script was blocked by Chrome's Content Security Policy
+- Fixed by downloading jsPDF 2.5.1 UMD build and bundling it locally as assets/jspdf.umd.min.js
+- Updated sidepanel/sidepanel.html to load jsPDF from local path instead of CDN
+- Added and removed temporary debug logging to confirm fix
+Test results: All three files (job_info.json, job_summary.html, job_summary.pdf) confirmed saving to Google Drive on LinkedIn. Indeed untested.
+Known issues: None.
+Next steps: Test on Indeed. Then Session 9 begins Phase 2 — AI tailoring dashboard.
