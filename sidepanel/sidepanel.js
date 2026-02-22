@@ -137,6 +137,8 @@ async function handleSave() {
   let pdfBase64 = '';
   try {
     pdfBase64 = generateJobPdfBase64(jobToSave);
+    console.log('[JobLink] pdfBase64 length:', pdfBase64 ? pdfBase64.length : 'empty/null');
+    console.log('[JobLink] pdfBase64 preview:', pdfBase64 ? pdfBase64.substring(0, 100) : 'none');
   } catch (pdfErr) {
     console.warn('[JobLink] PDF generation failed — save will continue without PDF:', pdfErr);
   }

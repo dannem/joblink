@@ -152,6 +152,7 @@ async function handleSaveToDrive(job, pdfBase64) {
   // 7. Upload job_summary.pdf — skip gracefully if the side panel did not supply bytes.
   //    PDF failure must not block the save; JSON and HTML are already written at this point.
   if (pdfBase64) {
+    console.log('[JobLink] Attempting PDF upload, base64 length:', pdfBase64 ? pdfBase64.length : 'missing');
     try {
       await uploadBase64FileToDrive(
         token,
@@ -161,7 +162,7 @@ async function handleSaveToDrive(job, pdfBase64) {
         folder.id
       );
     } catch (pdfErr) {
-      console.warn('[JobLink] PDF upload failed (JSON and HTML were saved):', pdfErr.message);
+      console.warn('[JobLink] PDF upload failed:', pdfErr.message, pdfErr.stack);
     }
   } else {
     console.log('[JobLink] No PDF data provided — skipping PDF upload.');
