@@ -108,3 +108,16 @@ What was built:
 Test results: All three files (job_info.json, job_summary.html, job_summary.pdf) confirmed saving to Google Drive on LinkedIn. Indeed untested.
 Known issues: None.
 Next steps: Test on Indeed. Then Session 9 begins Phase 2 — AI tailoring dashboard.
+
+---
+
+Session 9 — Complete
+Date: 2026-02-22
+Branch: feature-auto-rescrape
+What was built:
+- content-scripts/linkedin.js: replaced polling approach with startNavigationWatcher() — MutationObserver on document.body detects URL changes, guards on /jobs/ URLs, debounces with EXTRACTION_DELAY_MS to fire one scrape per navigation
+- content-scripts/indeed.js: extracted sendJobData() and runScrape() functions to eliminate duplication, added identical startNavigationWatcher() guarding on jk= query param
+- Both scripts now auto-rescrape when user clicks a new job posting without a full page reload
+Test results: Manual test required — navigate between job postings on LinkedIn and Indeed without refreshing, confirm side panel updates automatically with each new job.
+Known issues: None.
+Next steps: Manual test on both sites. If passing, Session 10 begins Phase 2 — AI tailoring dashboard.

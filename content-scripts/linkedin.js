@@ -262,73 +262,57 @@ function runScrape() {
   }, 1000);
 }
 
-// ── URL change detection (split-panel navigation) ─────────────────────────────
+// ── Navigation watcher (SPA navigation detection) ─────────────────────────────
 
-/** Full href observed the last time the polling loop ran. */
+/** Full href at the time of the last scrape — used to detect URL changes. */
 let lastSeenHref = window.location.href;
 
-/** Active setInterval handle; null when the polling loop is not running. */
-let pollIntervalId = null;
+/** Debounce timer handle for re-scrape scheduling; null when idle. */
+let debounceTimer = null;
 
 /**
- * Extract the currentJobId query param from a URL string.
+ * Start a MutationObserver that detects in-page job navigation on LinkedIn.
  *
- * @param {string} href
- * @returns {string|null}
+ * LinkedIn's SPA updates the URL and re-renders the job panel without a full
+ * page reload when the user clicks a different job listing.  The observer
+ * watches for any DOM mutation and, when the URL has also changed to a URL
+ * containing /jobs/ (confirming the user is viewing a job), schedules a
+ * re-scrape after EXTRACTION_DELAY_MS.  Debouncing ensures that a rapid burst
+ * of DOM mutations from a single navigation triggers only one scrape.
  */
-function getJobIdFromHref(href) {
-  try {
-    return new URL(href).searchParams.get('currentJobId');
-  } catch {
-    return null;
-  }
-}
+function startNavigationWatcher() {
+  const observer = new MutationObserver(() => {
+    const currentHref = window.location.href;
 
-/**
- * Start a polling loop that detects in-page job navigation on /jobs/search/.
- *
- * LinkedIn's split-panel view updates `currentJobId` in the URL query string
- * without a page reload when the user clicks a different job.  This loop
- * checks every 1000 ms and, when `currentJobId` changes, waits 800 ms for the
- * new job content to render then calls runScrape().
- *
- * The loop stops automatically if the user navigates away from /jobs/search/.
- * Guards against double-start if called more than once.
- */
-function startPolling() {
-  if (pollIntervalId !== null) return;
+    // No URL change — ignore this batch of mutations
+    if (currentHref === lastSeenHref) return;
 
-  pollIntervalId = setInterval(() => {
-    // Stop if the user has left the split-panel search page
-    if (!window.location.pathname.startsWith('/jobs/search/')) {
-      clearInterval(pollIntervalId);
-      pollIntervalId = null;
-      console.log('[JobLink] Left /jobs/search/ — URL polling stopped');
+    // URL changed but not to a jobs URL — update tracking but don't scrape
+    if (!currentHref.includes('/jobs/')) {
+      lastSeenHref = currentHref;
       return;
     }
 
-    const currentHref = window.location.href;
-    if (currentHref === lastSeenHref) return;
-
-    const prevJobId = getJobIdFromHref(lastSeenHref);
-    const nextJobId = getJobIdFromHref(currentHref);
     lastSeenHref = currentHref;
 
-    if (nextJobId && nextJobId !== prevJobId) {
-      console.log(
-        `[JobLink] New job selected (${prevJobId} → ${nextJobId}) — scraping in 800 ms`
-      );
-      setTimeout(runScrape, 800);
-    }
-  }, 1000);
+    // Debounce: cancel any pending scrape and restart the timer
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      console.log('[JobLink] Navigation detected — re-scraping:', currentHref);
+      runScrape();
+    }, EXTRACTION_DELAY_MS);
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+  console.log('[JobLink] Navigation watcher started');
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 /**
  * Wait for LinkedIn's SPA to finish rendering, then run the initial scrape.
- * On split-panel search pages, also start the URL polling loop so that
- * subsequent job-clicks are captured without a page reload.
+ * Also starts the navigation watcher so subsequent job-clicks are captured
+ * without a page reload.
  */
 setTimeout(() => {
   // --- DEBUG: log raw DOM so selector issues can be diagnosed in DevTools ---
@@ -346,8 +330,5 @@ setTimeout(() => {
   // --- END DEBUG ---
 
   runScrape();
-
-  if (window.location.pathname.startsWith('/jobs/search/')) {
-    startPolling();
-  }
+  startNavigationWatcher();
 }, EXTRACTION_DELAY_MS);
