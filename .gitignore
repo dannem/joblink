@@ -1,0 +1,15 @@
+# Google OAuth credentials — never commit these
+dashboard/credentials.json
+dashboard/token.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env
+
+# OS
+.DS_Store
+Thumbs.db

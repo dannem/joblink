@@ -121,3 +121,32 @@ What was built:
 Test results: Manual test required — navigate between job postings on LinkedIn and Indeed without refreshing, confirm side panel updates automatically with each new job.
 Known issues: None.
 Next steps: Manual test on both sites. If passing, Session 10 begins Phase 2 — AI tailoring dashboard.
+
+---
+
+Session 10 — Complete
+Date: 2026-02-23
+Branch: feature-dashboard-scaffold
+What was built:
+
+Part 1 — Chrome extension: Drive subfolder structure
+- utils/helpers.js: added PREPARATION_FOLDER_ID, SUBMITTED_FOLDER_ID, REJECTED_FOLDER_ID to STORAGE_KEYS and DEFAULT_STORAGE
+- drive/drive-api.js: added getOrCreateNamedFolder() — idempotent search-then-create; searches Drive before creating to avoid duplicates
+- background/service-worker.js: added ensureStatusFolders() — creates and caches Preparation/Submitted/Rejected folder IDs on first save, returns cached IDs on subsequent saves; updated handleSaveToDrive() to save job folders inside Preparation/ instead of root
+
+Part 2 — Flask dashboard scaffold
+- dashboard/config.py: single source of truth for credentials path, ROOT_FOLDER_ID, folder names, Flask settings
+- dashboard/drive_service.py: get_credentials() for OAuth flow; DriveService class with get_all_jobs() (reads all three status folders, augments with status/folder_id, sorts newest first) and get_job_by_folder_id()
+- dashboard/routes.py: Blueprint with job_list (GET /) and job_detail (GET /job/<folder_id>) routes
+- dashboard/app.py: create_app() factory — validates config, loads Drive creds, registers Blueprint, attaches format_date Jinja2 filter
+- dashboard/templates/base.html: shared header and layout
+- dashboard/templates/jobs.html: sortable job list table with status badges
+- dashboard/templates/job_detail.html: full job detail with AI provider dropdown (UI only, disabled) as placeholder for Session 11
+- dashboard/static/style.css: plain CSS with design tokens, status badge colours, responsive layout
+- dashboard/requirements.txt: flask, google-auth, google-auth-oauthlib, google-api-python-client
+- dashboard/README.md: full setup instructions (credentials, ROOT_FOLDER_ID, running the app)
+- .gitignore: excludes credentials.json and token.json from version control
+
+Test results: Extension changes not yet tested in Chrome. Dashboard not yet runnable — requires credentials.json and ROOT_FOLDER_ID set in config.py.
+Known issues: None expected.
+Next steps: (1) Reload extension in Chrome, save a job, verify it lands in Preparation/ and all three status folders are created. (2) Configure dashboard with credentials.json and ROOT_FOLDER_ID, run python app.py, verify job list and detail pages render correctly. If both pass, Session 11 wires up the AI tailoring API calls.
