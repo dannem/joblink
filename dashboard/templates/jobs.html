@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Jobs — JobLink Dashboard{% endblock %}
+
+{% block content %}
+
+<h1 class="page-title">
+  Jobs
+  <span class="count">({{ jobs | length }})</span>
+</h1>
+
+{% if jobs %}
+<table class="jobs-table">
+  <thead>
+    <tr>
+      <th>Job Title</th>
+      <th>Company</th>
+      <th>Location</th>
+      <th>Date Scraped</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for job in jobs %}
+    <tr>
+      <td>
+        <a href="{{ url_for('jobs.job_detail', folder_id=job.folder_id) }}">
+          {{ job.jobTitle or '—' }}
+        </a>
+      </td>
+      <td>{{ job.company or '—' }}</td>
+      <td>{{ job.location or '—' }}</td>
+      <td>{{ job.scrapedAt | format_date if job.scrapedAt else '—' }}</td>
+      <td>
+        <span class="status-badge status-{{ job.status | lower }}">
+          {{ job.status }}
+        </span>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% else %}
+<p class="empty-msg">
+  No jobs found. Scrape some job postings using the JobLink Chrome extension,
+  then refresh this page.
+</p>
+{% endif %}
+
+{% endblock %}

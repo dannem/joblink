@@ -154,6 +154,45 @@ async function uploadBase64FileToDrive(accessToken, fileName, base64Content, mim
 }
 
 /**
+ * Find a folder by exact name under parentId, or create it if none exists.
+ *
+ * Searches Drive before creating to make the operation idempotent — calling
+ * this twice with the same arguments will not produce duplicate folders.
+ *
+ * @param {string} accessToken - OAuth access token
+ * @param {string} name        - Exact folder name to find or create
+ * @param {string} parentId    - Parent folder ID to search within
+ * @returns {Promise<{id: string, name: string}>} Existing or newly created folder
+ * @throws {Error} If any Drive API call fails
+ */
+async function getOrCreateNamedFolder(accessToken, name, parentId) {
+  // Escape single quotes for the Drive query string
+  const safeName = name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const query = encodeURIComponent(
+    `'${parentId}' in parents and name = '${safeName}' ` +
+    `and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+  );
+
+  const response = await fetch(
+    `${DRIVE_API_BASE}/files?q=${query}&fields=files(id,name)&pageSize=1`,
+    { headers: { 'Authorization': `Bearer ${accessToken}` } }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Failed to search for folder "${name}": ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (data.files && data.files.length > 0) {
+    return { id: data.files[0].id, name: data.files[0].name };
+  }
+
+  // Folder not found — create it
+  return createDriveFolder(accessToken, name, parentId);
+}
+
+/**
  * Upload a file to Google Drive.
  * @param {string} accessToken - OAuth access token
  * @param {string} fileName - Name of the file

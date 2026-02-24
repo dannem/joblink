@@ -121,3 +121,15 @@ What was built:
 Test results: Manual test required — navigate between job postings on LinkedIn and Indeed without refreshing, confirm side panel updates automatically with each new job.
 Known issues: None.
 Next steps: Manual test on both sites. If passing, Session 10 begins Phase 2 — AI tailoring dashboard.
+
+---
+
+Session 10 — Complete
+Date: 2026-02-23
+Branch: feature-dashboard-scaffold
+What was built:
+- Part 1 (Chrome extension update): Jobs now save into a Preparation subfolder. All three status subfolders (Preparation, Submitted, Rejected) are created automatically on first save. Folder IDs cached in chrome.storage.sync. New constants added to helpers.js. New getOrCreateNamedFolder() in drive-api.js. New ensureStatusFolders() in service-worker.js.
+- Part 2 (Flask dashboard): Standalone Python/Flask web app in dashboard/ folder. Auto-discovers the root Drive folder by searching for the Preparation/Submitted/Rejected subfolder structure — no manual configuration needed. Reads all jobs from all three status folders. Jobs list page with title, company, location, formatted date, and colour-coded status badge. Job detail page with full description, status, source, link to original posting, and AI provider selector (Claude/GPT-4o/Gemini — UI only, wired up in Session 11). Status correctly derived from which Drive subfolder the job lives in. Date formatted as "Feb 23, 2026 at 11:24 PM". Modular structure: config.py, drive_service.py, routes.py, app.py, templates/, static/. credentials.json and token.json excluded from git.
+Test results: Dashboard running at localhost:5000. Job list displays correctly. Job detail displays correctly with proper date formatting and status badge. Auto-discovery of Drive folder confirmed working.
+Known issues: None.
+Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o and Gemini).
