@@ -128,25 +128,8 @@ Session 10 — Complete
 Date: 2026-02-23
 Branch: feature-dashboard-scaffold
 What was built:
-
-Part 1 — Chrome extension: Drive subfolder structure
-- utils/helpers.js: added PREPARATION_FOLDER_ID, SUBMITTED_FOLDER_ID, REJECTED_FOLDER_ID to STORAGE_KEYS and DEFAULT_STORAGE
-- drive/drive-api.js: added getOrCreateNamedFolder() — idempotent search-then-create; searches Drive before creating to avoid duplicates
-- background/service-worker.js: added ensureStatusFolders() — creates and caches Preparation/Submitted/Rejected folder IDs on first save, returns cached IDs on subsequent saves; updated handleSaveToDrive() to save job folders inside Preparation/ instead of root
-
-Part 2 — Flask dashboard scaffold
-- dashboard/config.py: single source of truth for credentials path, ROOT_FOLDER_ID, folder names, Flask settings
-- dashboard/drive_service.py: get_credentials() for OAuth flow; DriveService class with get_all_jobs() (reads all three status folders, augments with status/folder_id, sorts newest first) and get_job_by_folder_id()
-- dashboard/routes.py: Blueprint with job_list (GET /) and job_detail (GET /job/<folder_id>) routes
-- dashboard/app.py: create_app() factory — validates config, loads Drive creds, registers Blueprint, attaches format_date Jinja2 filter
-- dashboard/templates/base.html: shared header and layout
-- dashboard/templates/jobs.html: sortable job list table with status badges
-- dashboard/templates/job_detail.html: full job detail with AI provider dropdown (UI only, disabled) as placeholder for Session 11
-- dashboard/static/style.css: plain CSS with design tokens, status badge colours, responsive layout
-- dashboard/requirements.txt: flask, google-auth, google-auth-oauthlib, google-api-python-client
-- dashboard/README.md: full setup instructions (credentials, ROOT_FOLDER_ID, running the app)
-- .gitignore: excludes credentials.json and token.json from version control
-
-Test results: Extension changes not yet tested in Chrome. Dashboard not yet runnable — requires credentials.json and ROOT_FOLDER_ID set in config.py.
-Known issues: None expected.
-Next steps: (1) Reload extension in Chrome, save a job, verify it lands in Preparation/ and all three status folders are created. (2) Configure dashboard with credentials.json and ROOT_FOLDER_ID, run python app.py, verify job list and detail pages render correctly. If both pass, Session 11 wires up the AI tailoring API calls.
+- Part 1 (Chrome extension update): Jobs now save into a Preparation subfolder. All three status subfolders (Preparation, Submitted, Rejected) are created automatically on first save. Folder IDs cached in chrome.storage.sync. New constants added to helpers.js. New getOrCreateNamedFolder() in drive-api.js. New ensureStatusFolders() in service-worker.js.
+- Part 2 (Flask dashboard): Standalone Python/Flask web app in dashboard/ folder. Auto-discovers the root Drive folder by searching for the Preparation/Submitted/Rejected subfolder structure — no manual configuration needed. Reads all jobs from all three status folders. Jobs list page with title, company, location, formatted date, and colour-coded status badge. Job detail page with full description, status, source, link to original posting, and AI provider selector (Claude/GPT-4o/Gemini — UI only, wired up in Session 11). Status correctly derived from which Drive subfolder the job lives in. Date formatted as "Feb 23, 2026 at 11:24 PM". Modular structure: config.py, drive_service.py, routes.py, app.py, templates/, static/. credentials.json and token.json excluded from git.
+Test results: Dashboard running at localhost:5000. Job list displays correctly. Job detail displays correctly with proper date formatting and status badge. Auto-discovery of Drive folder confirmed working.
+Known issues: None.
+Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o and Gemini).
