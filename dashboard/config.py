@@ -19,10 +19,10 @@ SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 
 # ── Drive folder ───────────────────────────────────────────────────────────────
 
-# The exact name of your root jobs folder in Google Drive.
-# The dashboard searches your entire Drive for a folder with this name.
-# Must match the folder name character-for-character (case-sensitive).
-ROOT_FOLDER_NAME = 'My_Job_Apps'
+# No root folder name or ID is needed here. The dashboard auto-discovers the
+# JobLink root folder by searching Drive for a folder that contains all three
+# status subfolders (Preparation, Submitted, Rejected). That structure is
+# created automatically by the Chrome extension on its first save.
 
 # Names of the three status subfolders — must match what the extension creates.
 PREPARATION_FOLDER = 'Preparation'

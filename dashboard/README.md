@@ -28,18 +28,14 @@ pip install -r requirements.txt
 > If you haven't created a Desktop OAuth client yet: **Create Credentials** →
 > **OAuth client ID** → Application type: **Desktop app** → Download.
 
-### 3 — Set your Drive root folder name
+### 3 — No folder configuration needed
 
-Open `dashboard/config.py` and set `ROOT_FOLDER_NAME` to the exact name of
-your root jobs folder in Google Drive:
+The dashboard automatically finds your JobLink root folder by searching Drive
+for a parent folder that contains all three of the subfolders the Chrome
+extension creates: **Preparation**, **Submitted**, and **Rejected**.
 
-```python
-ROOT_FOLDER_NAME = 'My_Job_Apps'
-```
-
-The dashboard searches your entire Drive for a folder with this name — no
-folder ID needed. The name must match **exactly**, including capitalisation
-and any underscores or spaces (e.g. `My_Job_Apps` ≠ `my_job_apps`).
+The only requirement is that the Chrome extension has saved at least one job
+first — that save creates the subfolder structure the dashboard relies on.
 
 ### 4 — Run the app
 
@@ -78,7 +74,7 @@ To change a job's status, drag its folder in Google Drive and refresh the dashbo
 | File | Purpose |
 |---|---|
 | `app.py` | Flask app factory and entry point |
-| `config.py` | All configuration (credentials path, root folder name, status folder names) |
+| `config.py` | All configuration (credentials path, status folder names) |
 | `drive_service.py` | Google Drive API wrapper — all Drive calls live here |
 | `routes.py` | Flask route handlers (job list, job detail) |
 | `templates/base.html` | Shared page layout |

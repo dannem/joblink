@@ -11,8 +11,10 @@ Public surface:
         .get_job_by_folder_id(folder_id) — read one job by its folder ID
 
     Internal helpers (private):
-        ._find_root_folder() — search Drive for config.ROOT_FOLDER_NAME,
-                               cache the result in self._root_folder_id
+        ._find_root_folder() — auto-discover the root folder by looking for a
+                               parent that contains Preparation, Submitted, and
+                               Rejected subfolders; caches result in
+                               self._root_folder_id
 """
 import json
 import os
@@ -82,44 +84,60 @@ class DriveService:
 
     def _find_root_folder(self):
         """
-        Return the Drive folder ID for config.ROOT_FOLDER_NAME.
+        Auto-discover the JobLink root folder by its subfolder structure.
 
-        Searches the user's entire Drive (not just the root level) for a
-        non-trashed folder whose name exactly matches ROOT_FOLDER_NAME.
-        The result is cached in self._root_folder_id so subsequent calls
+        Searches the user's entire Drive for all non-trashed folders named
+        "Preparation", then for each one checks whether its parent also
+        contains folders named "Submitted" and "Rejected". The first parent
+        that satisfies all three conditions is the JobLink root folder.
+
+        No folder name or ID configuration is needed — the structure itself
+        is the unique fingerprint of a JobLink root folder.
+
+        The resolved ID is cached in self._root_folder_id so subsequent calls
         within the same DriveService instance incur no API round-trip.
 
         Returns:
-            str: Drive folder ID
+            str: Drive folder ID of the JobLink root folder
 
         Raises:
-            RuntimeError: if no folder with that name exists in Drive
+            RuntimeError: if no folder matching the expected structure is found
         """
         if self._root_folder_id:
             return self._root_folder_id
 
-        safe_name = config.ROOT_FOLDER_NAME.replace("'", "\\'")
-        query = (
-            f"name = '{safe_name}' "
-            "and mimeType = 'application/vnd.google-apps.folder' "
-            "and trashed = false"
-        )
+        # Step 1: find every folder named "Preparation" across the entire Drive.
+        # Include parents so we can inspect each one's parent folder.
         result = self._svc.files().list(
-            q=query,
-            fields='files(id, name)',
-            pageSize=1,
+            q=(
+                f"name = '{config.PREPARATION_FOLDER}' "
+                "and mimeType = 'application/vnd.google-apps.folder' "
+                "and trashed = false"
+            ),
+            fields='files(id, parents)',
         ).execute()
 
-        files = result.get('files', [])
-        if not files:
-            raise RuntimeError(
-                f"No Drive folder named '{config.ROOT_FOLDER_NAME}' was found. "
-                "Check that ROOT_FOLDER_NAME in config.py exactly matches "
-                "the folder name in Google Drive (case-sensitive)."
-            )
+        # Step 2: for each candidate, check whether its parent folder also
+        # contains "Submitted" and "Rejected" — that parent is our root.
+        for candidate in result.get('files', []):
+            parents = candidate.get('parents', [])
+            if not parents:
+                continue
 
-        self._root_folder_id = files[0]['id']
-        return self._root_folder_id
+            parent_id = parents[0]
+            sibling_names = {f['name'] for f in self._list_folders(parent_id)}
+
+            if (config.SUBMITTED_FOLDER in sibling_names
+                    and config.REJECTED_FOLDER in sibling_names):
+                self._root_folder_id = parent_id
+                return self._root_folder_id
+
+        raise RuntimeError(
+            "Could not find the JobLink root folder in Google Drive. "
+            "Make sure the Chrome extension has saved at least one job — "
+            "this creates the Preparation, Submitted, and Rejected subfolder "
+            "structure that the dashboard uses to locate the root folder."
+        )
 
     # ── Low-level helpers ──────────────────────────────────────────────────────
 
