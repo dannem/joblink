@@ -9,6 +9,7 @@ Public surface:
     DriveService(creds)     — thin wrapper around the Drive v3 API client
         .get_all_jobs()     — read jobs from all three status subfolders
         .get_job_by_folder_id(folder_id) — read one job by its folder ID
+        .get_job_status(folder_id) — return the status label for a job folder
 
     Internal helpers (private):
         ._find_root_folder() — auto-discover the root folder by looking for a
@@ -288,3 +289,42 @@ class DriveService:
         if job_info is not None:
             job_info['folder_id'] = folder_id
         return job_info
+
+    def get_job_status(self, folder_id):
+        """
+        Determine the status of a job by finding which status subfolder
+        (Preparation, Submitted, or Rejected) directly contains it.
+
+        Fetches the job folder's parent ID in one API call, then lists the
+        root folder's direct children in a second call to identify the match.
+
+        Args:
+            folder_id (str): Drive folder ID for the job
+
+        Returns:
+            str | None: 'Preparation', 'Submitted', 'Rejected', or None if
+                        the folder's parent cannot be matched to a status folder
+        """
+        # Fetch the job folder's parent in a single Drive API call.
+        file_meta = self._svc.files().get(
+            fileId=folder_id, fields='parents'
+        ).execute()
+        parents = file_meta.get('parents', [])
+        if not parents:
+            return None
+        parent_id = parents[0]
+
+        # Map status folder names to display labels.
+        status_map = {
+            config.PREPARATION_FOLDER: 'Preparation',
+            config.SUBMITTED_FOLDER:   'Submitted',
+            config.REJECTED_FOLDER:    'Rejected',
+        }
+
+        # List the root folder's direct children and match the parent ID.
+        root_id = self._find_root_folder()
+        for folder in self._list_folders(root_id):
+            if folder['id'] == parent_id and folder['name'] in status_map:
+                return status_map[folder['name']]
+
+        return None

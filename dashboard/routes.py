@@ -35,6 +35,10 @@ def job_detail(folder_id):
     """
     Render the detail page for a single job.
 
+    Reads job_info.json for the job data, then resolves the status label by
+    checking which status subfolder (Preparation/Submitted/Rejected) contains
+    the folder. The status is added to the job dict before rendering.
+
     Args:
         folder_id: the Google Drive folder ID for the job (from the list page URL)
 
@@ -44,4 +48,5 @@ def job_detail(folder_id):
     job = drive.get_job_by_folder_id(folder_id)
     if job is None:
         abort(404)
+    job['status'] = drive.get_job_status(folder_id) or 'Unknown'
     return render_template('job_detail.html', job=job)

@@ -39,19 +39,24 @@ def create_app():
     @app.template_filter('format_date')
     def format_date(iso_str):
         """
-        Convert an ISO 8601 timestamp string to a human-readable date.
+        Convert an ISO 8601 timestamp string to a human-readable date/time.
 
-        Example: '2026-02-23T14:35:00.000Z' → '23 Feb 2026'
+        Example: '2026-02-23T23:24:38.330Z' → 'Feb 23, 2026 at 11:24 PM'
 
-        Returns the original string unchanged if it cannot be parsed.
+        Tries parsing with milliseconds first, then without.
+        Returns 'Unknown date' if the string is missing or cannot be parsed.
         """
         if not iso_str:
-            return ''
+            return 'Unknown date'
         try:
-            dt = datetime.fromisoformat(iso_str.replace('Z', '+00:00'))
-            return dt.strftime('%-d %b %Y')
+            clean = iso_str.rstrip('Z')
+            try:
+                dt = datetime.strptime(clean, '%Y-%m-%dT%H:%M:%S.%f')
+            except ValueError:
+                dt = datetime.strptime(clean, '%Y-%m-%dT%H:%M:%S')
+            return f"{dt.strftime('%b')} {dt.day}, {dt.year} at {dt.strftime('%I:%M %p')}"
         except (ValueError, AttributeError):
-            return iso_str
+            return 'Unknown date'
 
     return app
 
