@@ -30,10 +30,11 @@ def create_app():
     app.secret_key = config.SECRET_KEY
     app.config['DEBUG'] = config.DEBUG
 
-    if not config.ROOT_FOLDER_ID:
+    if not config.ROOT_FOLDER_NAME:
         raise RuntimeError(
-            'ROOT_FOLDER_ID is not set in config.py. '
-            'Open dashboard/config.py and paste your Drive root folder ID.'
+            'ROOT_FOLDER_NAME is not set in config.py. '
+            'Open dashboard/config.py and set it to the exact name of your '
+            'root jobs folder in Google Drive.'
         )
 
     # Obtain (or refresh) Drive credentials once at startup.
