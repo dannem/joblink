@@ -19,11 +19,10 @@ SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 
 # ── Drive folder ───────────────────────────────────────────────────────────────
 
-# The Google Drive folder ID configured in the JobLink Chrome extension.
-# To find it: open Drive, navigate to your root jobs folder, and copy the ID
-# from the URL: drive.google.com/drive/folders/<THIS_IS_THE_ID>
-# Alternatively, find it in the extension via chrome.storage.sync (DRIVE_ROOT_FOLDER_ID).
-ROOT_FOLDER_ID = ''  # TODO: paste your Drive root folder ID here
+# The exact name of your root jobs folder in Google Drive.
+# The dashboard searches your entire Drive for a folder with this name.
+# Must match the folder name character-for-character (case-sensitive).
+ROOT_FOLDER_NAME = 'My_Job_Apps'
 
 # Names of the three status subfolders — must match what the extension creates.
 PREPARATION_FOLDER = 'Preparation'

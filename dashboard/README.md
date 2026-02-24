@@ -28,25 +28,18 @@ pip install -r requirements.txt
 > If you haven't created a Desktop OAuth client yet: **Create Credentials** →
 > **OAuth client ID** → Application type: **Desktop app** → Download.
 
-### 3 — Set your Drive root folder ID
+### 3 — Set your Drive root folder name
 
-Open `dashboard/config.py` and paste your root folder ID into `ROOT_FOLDER_ID`:
+Open `dashboard/config.py` and set `ROOT_FOLDER_NAME` to the exact name of
+your root jobs folder in Google Drive:
 
 ```python
-ROOT_FOLDER_ID = 'your-folder-id-here'
+ROOT_FOLDER_NAME = 'My_Job_Apps'
 ```
 
-To find the ID: open Google Drive, navigate to the root jobs folder you chose
-during JobLink setup, and copy the ID from the URL:
-```
-https://drive.google.com/drive/folders/<THIS_IS_THE_ID>
-```
-
-Alternatively, find it in the extension's storage — open DevTools on any
-extension page and run:
-```js
-chrome.storage.sync.get('DRIVE_ROOT_FOLDER_ID', console.log)
-```
+The dashboard searches your entire Drive for a folder with this name — no
+folder ID needed. The name must match **exactly**, including capitalisation
+and any underscores or spaces (e.g. `My_Job_Apps` ≠ `my_job_apps`).
 
 ### 4 — Run the app
 
@@ -85,7 +78,7 @@ To change a job's status, drag its folder in Google Drive and refresh the dashbo
 | File | Purpose |
 |---|---|
 | `app.py` | Flask app factory and entry point |
-| `config.py` | All configuration (credentials path, folder ID, folder names) |
+| `config.py` | All configuration (credentials path, root folder name, status folder names) |
 | `drive_service.py` | Google Drive API wrapper — all Drive calls live here |
 | `routes.py` | Flask route handlers (job list, job detail) |
 | `templates/base.html` | Shared page layout |

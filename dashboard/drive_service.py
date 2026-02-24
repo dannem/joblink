@@ -9,6 +9,10 @@ Public surface:
     DriveService(creds)     — thin wrapper around the Drive v3 API client
         .get_all_jobs()     — read jobs from all three status subfolders
         .get_job_by_folder_id(folder_id) — read one job by its folder ID
+
+    Internal helpers (private):
+        ._find_root_folder() — search Drive for config.ROOT_FOLDER_NAME,
+                               cache the result in self._root_folder_id
 """
 import json
 import os
@@ -72,6 +76,50 @@ class DriveService:
             creds: google.oauth2.credentials.Credentials
         """
         self._svc = build('drive', 'v3', credentials=creds)
+        self._root_folder_id = None  # populated lazily by _find_root_folder()
+
+    # ── Root folder resolution ─────────────────────────────────────────────────
+
+    def _find_root_folder(self):
+        """
+        Return the Drive folder ID for config.ROOT_FOLDER_NAME.
+
+        Searches the user's entire Drive (not just the root level) for a
+        non-trashed folder whose name exactly matches ROOT_FOLDER_NAME.
+        The result is cached in self._root_folder_id so subsequent calls
+        within the same DriveService instance incur no API round-trip.
+
+        Returns:
+            str: Drive folder ID
+
+        Raises:
+            RuntimeError: if no folder with that name exists in Drive
+        """
+        if self._root_folder_id:
+            return self._root_folder_id
+
+        safe_name = config.ROOT_FOLDER_NAME.replace("'", "\\'")
+        query = (
+            f"name = '{safe_name}' "
+            "and mimeType = 'application/vnd.google-apps.folder' "
+            "and trashed = false"
+        )
+        result = self._svc.files().list(
+            q=query,
+            fields='files(id, name)',
+            pageSize=1,
+        ).execute()
+
+        files = result.get('files', [])
+        if not files:
+            raise RuntimeError(
+                f"No Drive folder named '{config.ROOT_FOLDER_NAME}' was found. "
+                "Check that ROOT_FOLDER_NAME in config.py exactly matches "
+                "the folder name in Google Drive (case-sensitive)."
+            )
+
+        self._root_folder_id = files[0]['id']
+        return self._root_folder_id
 
     # ── Low-level helpers ──────────────────────────────────────────────────────
 
@@ -189,9 +237,11 @@ class DriveService:
             (config.REJECTED_FOLDER,    'Rejected'),
         ]
 
+        root_id = self._find_root_folder()
+
         jobs = []
         for folder_name, status_label in status_map:
-            status_folder = self._find_folder(config.ROOT_FOLDER_ID, folder_name)
+            status_folder = self._find_folder(root_id, folder_name)
             if not status_folder:
                 continue
 
