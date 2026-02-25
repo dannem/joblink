@@ -1,3 +1,10 @@
+# JobLink Development Log
+
+Planning and session coordination: Claude.ai conversation "JobLink Dev Sessions"
+All architecture decisions, feature planning, and session prompts are recorded there.
+
+---
+
 Session 1 — Complete
 Date: 2026-02-18
 Branch: feature-scaffolding
