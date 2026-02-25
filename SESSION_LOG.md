@@ -143,6 +143,41 @@ Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o a
 
 ---
 
+Session 15 — Complete
+Date: 2026-02-25
+Branch: feature-restore-evaluate-ui
+What was built:
+Restored the Evaluate Fit UI to the side panel. The JS in sidepanel.js already referenced all
+AI/evaluate elements by ID; the HTML and CSS were simply missing.
+
+- sidepanel/sidepanel.html: inside #state-job, after the msg-error div, added:
+    - #btn-dashboard (Open Dashboard button)
+    - .ai-section containing:
+        - .ai-controls row: #ai-provider select (Claude / GPT-4o / Gemini) + #btn-evaluate button
+        - #ai-spinner loading indicator
+        - #ai-error inline error message
+        - #ai-results panel: fit-score-card, three collapsible sections (Correspondence,
+          Discrepancies, Recommendation each with their p#ai-* element), and
+          #ai-dashboard-link deep-link anchor
+  Also added two script tags before </body>: ../utils/ai-helpers.js and ../drive/drive-api.js,
+  which sidepanel.js depends on for callAI(), extractJson(), buildEvaluatePrompt(),
+  readProfileText(), uploadFileToDrive(), and getAuthToken().
+- sidepanel/sidepanel.css: appended all AI section styles — .ai-section, .ai-controls,
+  .ai-provider-select, .ai-spinner, .ai-results, .fit-score-card, score colour modifiers
+  (.score-green/.score-amber/.score-red), collapsible toggle/body/arrow, .dashboard-link.
+
+Test results: Manual testing required.
+  1. Reload the extension in chrome://extensions.
+  2. Capture a job from LinkedIn or Indeed.
+  3. Confirm the Evaluate Fit button and provider selector appear below the Save/Clear row.
+  4. Add an API key in Settings, click Evaluate Fit, verify the fit score and collapsible
+     sections render and expand correctly.
+  5. Confirm Open Dashboard opens the dashboard SPA.
+Known issues: None.
+Next steps: Manual end-to-end test. If passing, merge to main.
+
+---
+
 Session 14 — Complete
 Date: 2026-02-25
 Branch: feature-linkedin-selector-fix

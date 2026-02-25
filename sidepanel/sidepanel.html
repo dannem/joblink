@@ -67,10 +67,61 @@
     <div id="msg-success" class="msg msg--success" style="display: none;">Saved to Drive ✓</div>
     <div id="msg-error"   class="msg msg--error"   style="display: none;"></div>
 
+    <!-- Dashboard button -->
+    <button id="btn-dashboard" class="btn btn-secondary">Open Dashboard</button>
+
+    <!-- AI evaluation section -->
+    <div class="ai-section">
+      <div class="ai-controls">
+        <select id="ai-provider" class="ai-provider-select">
+          <option value="claude">Claude</option>
+          <option value="openai">GPT-4o</option>
+          <option value="gemini">Gemini</option>
+        </select>
+        <button id="btn-evaluate" class="btn btn-primary">Evaluate Fit</button>
+      </div>
+
+      <div id="ai-spinner" class="ai-spinner" style="display: none;">Evaluating…</div>
+      <div id="ai-error" class="msg msg--error" style="display: none;"></div>
+
+      <div id="ai-results" class="ai-results" style="display: none;">
+        <div class="fit-score-card">
+          <span class="fit-score-label">Fit Score</span>
+          <span id="fit-score-number" class="fit-score-number">0</span>
+          <span class="fit-score-suffix">/100</span>
+        </div>
+
+        <div class="collapsible">
+          <button class="collapsible-toggle">Correspondence <span class="collapsible-arrow">▼</span></button>
+          <div class="collapsible-body" style="display: none;">
+            <p id="ai-correspondence"></p>
+          </div>
+        </div>
+
+        <div class="collapsible">
+          <button class="collapsible-toggle">Discrepancies <span class="collapsible-arrow">▼</span></button>
+          <div class="collapsible-body" style="display: none;">
+            <p id="ai-discrepancies"></p>
+          </div>
+        </div>
+
+        <div class="collapsible">
+          <button class="collapsible-toggle">Recommendation <span class="collapsible-arrow">▼</span></button>
+          <div class="collapsible-body" style="display: none;">
+            <p id="ai-recommendation"></p>
+          </div>
+        </div>
+
+        <a id="ai-dashboard-link" href="#" target="_blank" class="dashboard-link" style="display: none;">View full report in Dashboard →</a>
+      </div>
+    </div>
+
   </div>
 
   <script src="../utils/helpers.js"></script>
   <script src="../assets/jspdf.umd.min.js"></script>
+  <script src="../utils/ai-helpers.js"></script>
+  <script src="../drive/drive-api.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 </html>

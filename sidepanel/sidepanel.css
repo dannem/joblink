@@ -272,3 +272,127 @@ body {
   border: 1px solid #fecaca;
   color: #991b1b;
 }
+
+/* ── AI section ──────────────────────────────────────────── */
+
+.ai-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 12px;
+}
+
+.ai-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.ai-provider-select {
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: white;
+  color: #374151;
+  flex: 1;
+}
+
+.ai-spinner {
+  font-size: 0.88rem;
+  color: #6b7280;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.ai-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fit-score-card {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.fit-score-label {
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.fit-score-number {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.fit-score-suffix {
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.score-green { color: #16a34a; }
+.score-amber { color: #d97706; }
+.score-red   { color: #dc2626; }
+
+.collapsible {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.collapsible-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: white;
+  border: none;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #374151;
+  text-align: left;
+}
+
+.collapsible-toggle:hover {
+  background: #f9fafb;
+}
+
+.collapsible-arrow {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  transition: transform 0.2s;
+}
+
+.collapsible-arrow.open {
+  transform: rotate(180deg);
+}
+
+.collapsible-body {
+  padding: 10px 14px;
+  background: #f9fafb;
+  font-size: 0.88rem;
+  color: #374151;
+  line-height: 1.6;
+  border-top: 1px solid #e5e7eb;
+}
+
+.dashboard-link {
+  font-size: 0.85rem;
+  color: #2563eb;
+  text-decoration: none;
+  text-align: right;
+}
+
+.dashboard-link:hover {
+  text-decoration: underline;
+}
