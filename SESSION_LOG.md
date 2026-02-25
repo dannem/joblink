@@ -140,3 +140,36 @@ What was built:
 Test results: Dashboard running at localhost:5000. Job list displays correctly. Job detail displays correctly with proper date formatting and status badge. Auto-discovery of Drive folder confirmed working.
 Known issues: None.
 Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o and Gemini).
+
+---
+
+Session 14 — Complete
+Date: 2026-02-25
+Branch: feature-linkedin-selector-fix
+What was built:
+Selector regression fix for linkedin.com/jobs/collections/recommended/?currentJobId=... layout.
+On this layout company, location, and description were all returning empty because the existing
+selectors were written for the /jobs/search/ split-panel layout only.
+
+- content-scripts/linkedin.js — extractLocation(): prepended two new selectors to bulletSelectors
+  targeting the collections layout's primary-description-without-company and
+  primary-description .tvm__text:first-child variants.
+- content-scripts/linkedin.js — extractDescription(): prepended three new selectors to descSelectors
+  covering .jobs-description-content__text--stretch (stretched variant),
+  .jobs-box__html-content .jobs-description-content__text, and
+  .job-details-about-the-job-module__description (already present but moved to higher priority).
+- content-scripts/linkedin.js — scrapeLinkedInJob() company array: prepended five new selectors
+  targeting .job-details-jobs-unified-top-card__company-name (bare class), [class*="topcard__org-name"],
+  .jobs-premium-applicant-insights__header a, .job-details-jobs-unified-top-card__primary-description a,
+  and the generic a[href*="/company/"] anchor fallback.
+- content-scripts/linkedin.js — removed the temporary DEBUG logging block from the entry-point
+  setTimeout (the block between --- DEBUG --- and --- END DEBUG --- comments).
+
+All existing selectors retained; changes are additive prepends only. No functions restructured.
+
+Test results: Manual testing required.
+  1. Navigate to linkedin.com/jobs/collections/recommended/ and select a job.
+  2. Open the side panel and confirm company, location, and description all populate.
+  3. Also verify the /jobs/search/ split-panel layout still works correctly.
+Known issues: None.
+Next steps: Manual end-to-end test on both layouts. If passing, merge to main.

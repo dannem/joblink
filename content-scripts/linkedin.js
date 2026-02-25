@@ -49,6 +49,10 @@ function extractText(selectors) {
  */
 function extractLocation() {
   const bulletSelectors = [
+    // Collections/recommended layout (2024+) — no __bullet class; location
+    // lives directly inside the primary-description or without-company variant
+    '.job-details-jobs-unified-top-card__primary-description-without-company .tvm__text',
+    '.job-details-jobs-unified-top-card__primary-description .tvm__text:first-child',
     // Unified top card used in split-panel (2024+)
     '.job-details-jobs-unified-top-card__bullet',
     // Direct tvm__text span inside the primary description container
@@ -114,10 +118,14 @@ function extractDescription() {
   const MIN_DESC_LENGTH = 100;
 
   const descSelectors = [
+    // Collections/recommended layout — stretched description variant
+    '.jobs-description-content__text--stretch',
+    '.jobs-box__html-content .jobs-description-content__text',
+    '.job-details-about-the-job-module__description',
+    // Split-panel / search layout
     '.jobs-description__content .jobs-description-content__text',
     '.jobs-description',
     '.jobs-box__html-content',
-    '.job-details-about-the-job-module__description',
     '.jobs-description-content',
     '[id*="job-details"]',
   ];
@@ -185,9 +193,15 @@ function scrapeLinkedInJob() {
   ]);
 
   const company = extractText([
+    // Collections/recommended layout — company may render without its own
+    // named container; try the primary-description link and generic anchors first
+    '.job-details-jobs-unified-top-card__company-name',
+    '[class*="topcard__org-name"]',
+    '.jobs-premium-applicant-insights__header a',
+    '.job-details-jobs-unified-top-card__primary-description a',
+    'a[href*="/company/"]',
     // Unified top card — company link (2024+)
     '.job-details-jobs-unified-top-card__company-name a',
-    '.job-details-jobs-unified-top-card__company-name',
     // Older split-panel top card
     '.jobs-unified-top-card__company-name a',
     '.jobs-unified-top-card__company-name',
@@ -315,20 +329,6 @@ function startNavigationWatcher() {
  * without a page reload.
  */
 setTimeout(() => {
-  // --- DEBUG: log raw DOM so selector issues can be diagnosed in DevTools ---
-  // Remove this block once company/location selectors are confirmed working.
-  console.log('[JobLink][DEBUG] body HTML (first 3000 chars):',
-    document.body.innerHTML.substring(0, 3000));
-  console.log('[JobLink][DEBUG] company probe [class*="company"]  :',
-    document.querySelector('[class*="company"]'));
-  console.log('[JobLink][DEBUG] company probe [class*="hiring"]   :',
-    document.querySelector('[class*="hiring"]'));
-  console.log('[JobLink][DEBUG] location probe [class*="location"]:',
-    document.querySelector('[class*="location"]'));
-  console.log('[JobLink][DEBUG] location probe [class*="workplace"]:',
-    document.querySelector('[class*="workplace"]'));
-  // --- END DEBUG ---
-
   runScrape();
   startNavigationWatcher();
 }, EXTRACTION_DELAY_MS);
