@@ -5,6 +5,37 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 29c — Complete
+Date: 2026-02-26
+Branch: feature-session29c-fetch-fix
+What was built:
+Three defensive fixes to savePreparedPackage to prevent a single step failure from
+aborting the whole operation, plus improved error logging.
+
+Files changed:
+- drive/drive-api.js (savePreparedPackage steps 3 and 4):
+    Step 3 (Preparation cleanup) wrapped in try/catch — failure logs a warning and
+      continues rather than propagating (fixes "Failed to fetch" when the Submitted
+      subfolder already exists and the copy operation conflicts).
+    Step 4 (job file saves) — each of the three uploads (JSON, HTML, PDF) now has its
+      own try/catch so one file failure doesn't abort the others or the CV/CL steps.
+- sidepanel/sidepanel.js (handlePreparePackage catch block):
+    Added console.error('[JobLink] Error stack:', err.stack) for full stack trace
+      visibility in DevTools.
+- Fix 3 (name check): generateJobSummaryHtml is already used correctly in sidepanel.js
+    (line 472) — no code change required, confirmed by grep.
+
+Testing checklist:
+  1. Reload extension.
+  2. Run Prepare Package on a job that was previously packaged (Submitted subfolder
+     already exists). Should complete without "Failed to fetch" error.
+  3. Check console — only warnings for any skipped steps, no fatal error.
+  4. Verify all 6 files present in the Submitted folder.
+Known issues: None identified.
+Next steps: Merge to main.
+
+---
+
 Session 29b — Complete
 Date: 2026-02-26
 Branch: feature-session29b-package-fixes

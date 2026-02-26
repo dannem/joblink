@@ -758,23 +758,35 @@ async function savePreparedPackage(accessToken, job, tailoredCVText, coverLetter
 
   // ── 3. If a Preparation subfolder exists, move its files then delete it ──
   if (prepFolderId) {
-    const prepJobFolderId = await findFolderByName(accessToken, prepFolderId, jobFolderName);
-    if (prepJobFolderId) {
-      await copyFolderContents(accessToken, prepJobFolderId, submittedJobFolderId);
-      await deleteFolderAndContents(accessToken, prepJobFolderId);
+    try {
+      const prepJobFolderId = await findFolderByName(accessToken, prepFolderId, jobFolderName);
+      if (prepJobFolderId) {
+        await copyFolderContents(accessToken, prepJobFolderId, submittedJobFolderId);
+        await deleteFolderAndContents(accessToken, prepJobFolderId);
+      }
+    } catch (err) {
+      console.warn('[JobLink] Could not move Preparation folder:', err.message);
     }
   }
 
   // ── 4. Save job files directly to Submitted ───────────────────────────────
-  if (jobFiles.jsonContent) {
-    await uploadTextFile(accessToken, submittedJobFolderId, 'job_info.json', jobFiles.jsonContent, 'application/json');
-  }
-  if (jobFiles.htmlContent) {
-    await uploadTextFile(accessToken, submittedJobFolderId, 'job_summary.html', jobFiles.htmlContent, 'text/html');
-  }
-  if (jobFiles.pdfBase64) {
-    await uploadBase64File(accessToken, submittedJobFolderId, 'job_summary.pdf', jobFiles.pdfBase64, 'application/pdf');
-  }
+  try {
+    if (jobFiles.jsonContent) {
+      await uploadTextFile(accessToken, submittedJobFolderId, 'job_info.json', jobFiles.jsonContent, 'application/json');
+    }
+  } catch (err) { console.warn('[JobLink] Could not save JSON:', err.message); }
+
+  try {
+    if (jobFiles.htmlContent) {
+      await uploadTextFile(accessToken, submittedJobFolderId, 'job_summary.html', jobFiles.htmlContent, 'text/html');
+    }
+  } catch (err) { console.warn('[JobLink] Could not save HTML:', err.message); }
+
+  try {
+    if (jobFiles.pdfBase64) {
+      await uploadBase64File(accessToken, submittedJobFolderId, 'job_summary.pdf', jobFiles.pdfBase64, 'application/pdf');
+    }
+  } catch (err) { console.warn('[JobLink] Could not save PDF:', err.message); }
 
   // ── 5. Save tailored CV as Google Doc + PDF ───────────────────────────────
   const cvTitle = `CV - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;

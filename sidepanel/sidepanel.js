@@ -485,6 +485,7 @@ async function handlePreparePackage() {
     packageStatus.className   = 'package-status package-error';
     packageStatus.textContent = '❌ ' + (err.message || 'Package preparation failed.');
     console.error('[JobLink] Prepare package error:', err);
+    console.error('[JobLink] Error stack:', err.stack);
   } finally {
     btnPreparePackage.disabled = false;
   }
