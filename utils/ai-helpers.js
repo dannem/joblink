@@ -76,7 +76,7 @@ async function callAnthropicAPI(apiKey, prompt) {
     },
     body: JSON.stringify({
       model: AI_MODELS.claude,
-      max_tokens: 1024,
+      max_tokens: 4096,
       messages: [{ role: 'user', content: prompt }],
     }),
   });

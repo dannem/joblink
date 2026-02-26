@@ -426,3 +426,254 @@ async function checkExistingApplication(accessToken, job) {
   if (prepMatch) return { status: 'preparation', folder: prepMatch };
   return null;
 }
+
+// ── Package save helpers ────────────────────────────────────────────────────
+
+/**
+ * Find a subfolder by exact name within a parent folder.
+ * Returns the folder ID string, or null if not found.
+ *
+ * @param {string} accessToken
+ * @param {string} parentId
+ * @param {string} name
+ * @returns {Promise<string|null>}
+ */
+async function findFolderByName(accessToken, parentId, name) {
+  const escaped = name.replace(/'/g, "\\'");
+  const q = encodeURIComponent(
+    `'${parentId}' in parents and name = '${escaped}' ` +
+    `and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+  );
+  const res = await fetch(
+    `${DRIVE_API_BASE}/files?q=${q}&fields=files(id)&pageSize=1`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.files?.[0]?.id || null;
+}
+
+/**
+ * Copy all non-folder files from one Drive folder to another.
+ * Skips subfolders — only top-level files are copied.
+ *
+ * @param {string} accessToken
+ * @param {string} sourceFolderId
+ * @param {string} destFolderId
+ * @returns {Promise<void>}
+ */
+async function copyFolderContents(accessToken, sourceFolderId, destFolderId) {
+  const q = encodeURIComponent(
+    `'${sourceFolderId}' in parents and trashed = false ` +
+    `and mimeType != 'application/vnd.google-apps.folder'`
+  );
+  const res = await fetch(
+    `${DRIVE_API_BASE}/files?q=${q}&fields=files(id,name)&pageSize=100`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) return;
+  const data = await res.json();
+  const files = data.files || [];
+
+  for (const file of files) {
+    await fetch(`${DRIVE_API_BASE}/files/${file.id}/copy`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: file.name,
+        parents: [destFolderId],
+      }),
+    });
+  }
+}
+
+/**
+ * Delete a folder and all its contents permanently.
+ *
+ * @param {string} accessToken
+ * @param {string} folderId
+ * @returns {Promise<void>}
+ */
+async function deleteFolderAndContents(accessToken, folderId) {
+  await fetch(`${DRIVE_API_BASE}/files/${folderId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+/**
+ * Create a new Google Doc with plain-text content inside a Drive folder.
+ * Uses the Drive multipart upload API — no Docs API required.
+ *
+ * @param {string} accessToken
+ * @param {string} parentFolderId
+ * @param {string} title       - Document title
+ * @param {string} plainText   - Document body content
+ * @returns {Promise<string>}  ID of the created Google Doc
+ */
+async function createGoogleDoc(accessToken, parentFolderId, title, plainText) {
+  const metadata = {
+    name: title,
+    mimeType: 'application/vnd.google-apps.document',
+    parents: [parentFolderId],
+  };
+
+  const boundary = 'joblink_boundary_' + Date.now();
+  const body = [
+    `--${boundary}`,
+    'Content-Type: application/json; charset=UTF-8',
+    '',
+    JSON.stringify(metadata),
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=UTF-8',
+    '',
+    plainText,
+    `--${boundary}--`,
+  ].join('\r\n');
+
+  const res = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+      },
+      body,
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Failed to create Google Doc: ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (!data.id) throw new Error('Google Doc created but no ID returned.');
+  return data.id;
+}
+
+/**
+ * Export a Google Doc as PDF and upload it to a Drive folder.
+ *
+ * @param {string} accessToken
+ * @param {string} docId          - ID of the Google Doc to export
+ * @param {string} parentFolderId - Folder to save the PDF in
+ * @param {string} title          - Base title (without .pdf extension)
+ * @returns {Promise<string>} ID of the uploaded PDF file
+ */
+async function exportDocAsPDF(accessToken, docId, parentFolderId, title) {
+  // Export Google Doc as PDF bytes
+  const exportRes = await fetch(
+    `${DRIVE_API_BASE}/files/${docId}/export?mimeType=application%2Fpdf`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!exportRes.ok) {
+    throw new Error(`Failed to export Google Doc as PDF: ${exportRes.status}`);
+  }
+  const pdfBlob = await exportRes.blob();
+
+  // Build multipart body using binary-safe ArrayBuffer concatenation
+  const metadata = {
+    name: `${title}.pdf`,
+    mimeType: 'application/pdf',
+    parents: [parentFolderId],
+  };
+
+  const boundary  = 'joblink_pdf_boundary_' + Date.now();
+  const metaPart  = JSON.stringify(metadata);
+  const encoder   = new TextEncoder();
+  const partHeader = encoder.encode(
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
+    metaPart +
+    `\r\n--${boundary}\r\nContent-Type: application/pdf\r\n\r\n`
+  );
+  const partFooter = encoder.encode(`\r\n--${boundary}--`);
+  const pdfBytes   = await pdfBlob.arrayBuffer();
+
+  const combined = new Uint8Array(partHeader.length + pdfBytes.byteLength + partFooter.length);
+  combined.set(partHeader, 0);
+  combined.set(new Uint8Array(pdfBytes), partHeader.length);
+  combined.set(partFooter, partHeader.length + pdfBytes.byteLength);
+
+  const uploadRes = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+      },
+      body: combined,
+    }
+  );
+
+  if (!uploadRes.ok) {
+    const err = await uploadRes.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Failed to upload PDF: ${uploadRes.status}`);
+  }
+
+  const data = await uploadRes.json();
+  return data.id;
+}
+
+/**
+ * Save a prepared application package to the Submitted folder.
+ *
+ * Steps:
+ *  1. Resolve status folder IDs from storage
+ *  2. Find the existing Preparation job subfolder
+ *  3. Create the job subfolder in Submitted
+ *  4. Copy all files from Preparation → Submitted, then delete the Preparation subfolder
+ *  5. Create the tailored CV as a Google Doc in Submitted
+ *  6. Export the CV Doc as PDF and upload to Submitted
+ *  7. Create the cover letter as a Google Doc in Submitted
+ *  8. Export the cover letter Doc as PDF and upload to Submitted
+ *
+ * @param {string} accessToken
+ * @param {Object} job               - { jobTitle, company, ... }
+ * @param {string} tailoredCVText    - Plain text of the tailored CV
+ * @param {string} coverLetterText   - Plain text of the cover letter
+ * @param {string} selectedTemplateName - Name of the CV template used (for logging)
+ * @returns {Promise<{ submittedFolderId: string }>}
+ */
+async function savePreparedPackage(accessToken, job, tailoredCVText, coverLetterText, selectedTemplateName) {
+  // ── 1. Resolve status folder IDs ─────────────────────────────────────────
+  const prepFolderId = await getStorageValue(STORAGE_KEYS.PREPARATION_FOLDER_ID);
+  const subFolderId  = await getStorageValue(STORAGE_KEYS.SUBMITTED_FOLDER_ID);
+  if (!prepFolderId) throw new Error('Preparation folder ID not found in storage.');
+  if (!subFolderId)  throw new Error('Submitted folder ID not found in storage.');
+
+  const jobFolderName = sanitiseFolderName(job.company || '', job.jobTitle || 'Job');
+
+  // ── 2. Find the existing Preparation job subfolder ───────────────────────
+  const prepJobFolderId = await findFolderByName(accessToken, prepFolderId, jobFolderName);
+
+  // ── 3. Create job subfolder in Submitted ─────────────────────────────────
+  const { id: submittedJobFolderId } = await getOrCreateNamedFolder(accessToken, jobFolderName, subFolderId);
+
+  // ── 4. Copy files from Preparation → Submitted, then remove Prep folder ──
+  if (prepJobFolderId) {
+    await copyFolderContents(accessToken, prepJobFolderId, submittedJobFolderId);
+    await deleteFolderAndContents(accessToken, prepJobFolderId);
+  }
+
+  // ── 5. Save tailored CV as Google Doc ────────────────────────────────────
+  const cvTitle = `CV - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;
+  const cvDocId = await createGoogleDoc(accessToken, submittedJobFolderId, cvTitle, tailoredCVText);
+
+  // ── 6. Export CV as PDF and upload ───────────────────────────────────────
+  await exportDocAsPDF(accessToken, cvDocId, submittedJobFolderId, cvTitle);
+
+  // ── 7. Save cover letter as Google Doc ───────────────────────────────────
+  const clTitle = `Cover Letter - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;
+  const clDocId = await createGoogleDoc(accessToken, submittedJobFolderId, clTitle, coverLetterText);
+
+  // ── 8. Export cover letter as PDF and upload ─────────────────────────────
+  await exportDocAsPDF(accessToken, clDocId, submittedJobFolderId, clTitle);
+
+  return { submittedFolderId: submittedJobFolderId };
+}

@@ -143,6 +143,64 @@ Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o a
 
 ---
 
+Session 27 — Complete
+Date: 2026-02-26
+Branch: feature-session27-drive-save
+What was built:
+Wired up the Drive save half of the Prepare Package feature. AI generation was already working
+(Session 26). This session replaces the TODO stub with a full Drive save pipeline.
+
+Pipeline (triggered after cover letter generation):
+  1. Resolve PREPARATION_FOLDER_ID and SUBMITTED_FOLDER_ID from chrome.storage.sync
+  2. Find the existing Preparation job subfolder by sanitised folder name
+  3. Create (or find) the same-named folder in Submitted
+  4. Copy all files from Preparation subfolder → Submitted subfolder
+  5. Delete the Preparation subfolder permanently
+  6. Create tailored CV as Google Doc in Submitted subfolder
+  7. Export CV Google Doc as PDF, upload to Submitted subfolder
+  8. Create cover letter as Google Doc in Submitted subfolder
+  9. Export cover letter Google Doc as PDF, upload to Submitted subfolder
+
+Files changed:
+- drive/drive-api.js: appended five helper functions and savePreparedPackage():
+    findFolderByName(accessToken, parentId, name) — returns folder ID string or null
+    copyFolderContents(accessToken, sourceFolderId, destFolderId) — copies non-folder files
+    deleteFolderAndContents(accessToken, folderId) — DELETE call on folder (Drive deletes recursively)
+    createGoogleDoc(accessToken, parentFolderId, title, plainText) — multipart upload to create
+      a Google Doc from plain text; returns doc ID
+    exportDocAsPDF(accessToken, docId, parentFolderId, title) — exports Doc as PDF bytes,
+      binary-safe ArrayBuffer concatenation for multipart upload; returns PDF file ID
+    savePreparedPackage(accessToken, job, tailoredCVText, coverLetterText, selectedTemplateName)
+      — orchestrates the full pipeline above
+  Corrections applied vs session prompt:
+    - DRIVE_PREP_FOLDER_ID → STORAGE_KEYS.PREPARATION_FOLDER_ID (actual key name)
+    - DRIVE_SUBMITTED_FOLDER_ID → STORAGE_KEYS.SUBMITTED_FOLDER_ID (actual key name)
+    - sanitiseFolderName(combined) → sanitiseFolderName(company, jobTitle) (correct 2-arg call)
+    - getOrCreateNamedFolder arg order corrected (name, parentId) + return destructured as {id}
+    - supportsAllDrives param removed from DELETE call (not needed for personal Drive)
+- sidepanel/sidepanel.js: replaced the TODO stub in handlePreparePackage with:
+    await savePreparedPackage(token, currentJob, tailoredCV, coverLetter, selectedTemplate.name);
+    packageStatus.textContent = '✅ Package saved to Submitted!';
+    setStatusBar('submitted');
+- utils/ai-helpers.js: increased max_tokens from 1024 to 4096 to accommodate full CV and
+  cover letter responses from Claude.
+
+Testing checklist:
+  1. Reload extension. Re-authenticate (drive scope added in Session 26).
+  2. Navigate to a job that is saved in Preparation (status bar shows 📝 In Preparation).
+  3. Click 📦 Prepare Package.
+  4. Watch status cycle: Reading templates → Selecting → Tailoring CV → Writing CL → Saving...
+  5. Final status should show ✅ Package saved to Submitted! and status bar → 📤 Submitted.
+  6. In Google Drive, verify:
+     - Job folder exists in Submitted (not Preparation)
+     - Folder contains job_info.json, job_summary.html, job_summary.pdf (moved from Prep)
+     - Plus: CV (Google Doc + PDF) and Cover Letter (Google Doc + PDF)
+     - Preparation subfolder for this job is gone
+Known issues: None.
+Next steps: Manual end-to-end test per checklist above. If passing, merge to main.
+
+---
+
 Session 26 — Complete
 Date: 2026-02-26
 Branch: feature-prepare-package

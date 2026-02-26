@@ -450,9 +450,10 @@ async function handlePreparePackage() {
     packageStatus.textContent = '⏳ Saving package to Drive...';
 
     // 6. Hand off to Drive (Session 27)
-    // TODO: call savePreparedPackage(token, currentJob, tailoredCV, coverLetter, selectedTemplate.name)
-    console.log('[JobLink] Package ready — CV length:', tailoredCV.length, 'CL length:', coverLetter.length);
-    packageStatus.textContent = '✅ Package generated! (Drive save coming in next session)';
+    await savePreparedPackage(token, currentJob, tailoredCV, coverLetter, selectedTemplate.name);
+
+    packageStatus.textContent = '✅ Package saved to Submitted!';
+    setStatusBar('submitted');
 
   } catch (err) {
     packageStatus.className   = 'package-status package-error';
