@@ -143,6 +143,49 @@ Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o a
 
 ---
 
+Session 21 — Complete
+Date: 2026-02-26
+Branch: feature-fix-profile-read
+What was built:
+Fixed the drive.file scope limitation that prevented readProfileFromDrive from reading Google Docs
+created by the user directly (not by the extension).
+
+Root cause:
+The drive.file OAuth scope only permits access to files that the extension itself created via the
+Drive API. Google Docs placed in My_Profile by the user are not owned by the extension, so the
+export API call (files/{id}/export?mimeType=text/plain) returned 403 Forbidden. The error was
+caught and silently swallowed inside the per-file try/catch in readProfileFromDrive, resulting in
+an empty texts array and the throw "No readable profile files found in My_Profile". This error
+propagated up to handleEvaluate(), which caught it and logged "Could not load profile — evaluating
+without it", causing Evaluate Fit to run without any profile context.
+
+Fix:
+- manifest.json: added https://www.googleapis.com/auth/drive.readonly to the oauth2.scopes array.
+  This scope grants read access to all files in the user's Drive, enabling the export endpoint to
+  return the Google Doc content. The existing drive.file and drive.metadata.readonly scopes are
+  retained. No code changes required — the existing readProfileFromDrive implementation is correct.
+
+Testing note:
+After reloading the extension, the user must re-authenticate to grant the new scope. The existing
+OAuth token will not include drive.readonly until consent is re-granted. To force re-auth:
+  Option A: Open the JobLink setup page and reconnect Google Drive.
+  Option B: Go to myaccount.google.com/permissions, revoke JobLink access, then trigger any Drive
+  action in the extension to re-prompt the OAuth consent screen.
+
+Test results: Manual testing required.
+  1. Reload the extension in chrome://extensions.
+  2. Re-authenticate to grant the new drive.readonly scope.
+  3. Ensure My_Profile folder exists in the JobLink root Drive folder, containing at least one
+     Google Doc or .txt file.
+  4. Open the side panel on a job page and click Evaluate Fit.
+  5. Confirm the evaluation runs with profile context (check console: no "Could not load profile"
+     warning should appear).
+  6. Confirm the fit score and collapsible sections render correctly.
+Known issues: None.
+Next steps: Manual end-to-end test. If passing, merge to main.
+
+---
+
 Session 20 — Complete
 Date: 2026-02-25
 Branch: feature-duplicate-check
