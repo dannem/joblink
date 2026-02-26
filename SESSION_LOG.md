@@ -5,6 +5,52 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 29b — Complete
+Date: 2026-02-26
+Branch: feature-session29b-package-fixes
+What was built:
+Two fixes to Prepare Package: (1) works on fresh jobs with no prior Save; (2) always saves
+job files (JSON, HTML, PDF) directly to Submitted regardless of Preparation state.
+
+Files changed:
+- drive/drive-api.js:
+    Added uploadTextFile(accessToken, parentFolderId, filename, content, mimeType) — uploads
+      a plain text or HTML string as a Drive file via multipart upload.
+    Added uploadBase64File(accessToken, parentFolderId, filename, base64Data, mimeType) —
+      uploads a base64-encoded binary file (used for jsPDF output) via multipart upload.
+    Replaced savePreparedPackage() — new signature adds optional jobFiles = {} as 6th param.
+      Preparation folder ID is no longer required (only Submitted ID is mandatory).
+      Step 3: copies/deletes Preparation subfolder only if it exists (was previously a hard
+        requirement, now optional cleanup).
+      Step 4 (new): saves job_info.json, job_summary.html, job_summary.pdf directly to
+        Submitted using uploadTextFile/uploadBase64File; skips any file whose content is empty.
+      Steps 5-6: CV Google Doc + PDF (unchanged).
+      Steps 7-8: Cover Letter Google Doc + PDF (unchanged).
+- sidepanel/sidepanel.js (handlePreparePackage):
+    Added jobToSave object (merges currentJob with current field values including location)
+      built before the token fetch; used for all AI prompts and saving.
+    Step 7 (new): generates job files in sidepanel context where jsPDF is available —
+      generateJobPdfBase64(jobToSave), generateJobSummaryHtml(jobToSave), JSON.stringify.
+      PDF generation is wrapped in try/catch; missing files are skipped silently.
+    Updated savePreparedPackage call to pass jobToSave (not currentJob) and jobFiles object.
+
+Architecture note: generateJobPdfBase64 requires jsPDF (window.jspdf) which is loaded in
+the sidepanel after drive-api.js. Generating files in sidepanel.js before calling
+savePreparedPackage() ensures jsPDF is available and keeps drive-api.js dependency-free.
+
+Testing checklist:
+  1. Reload extension. Re-authenticate.
+  2. Navigate to a fresh job (not previously saved). Click 📦 Prepare Package directly.
+     Verify Google Drive → Submitted → job folder contains all 6 files:
+     job_info.json, job_summary.html, job_summary.pdf, CV (Doc + PDF), Cover Letter (Doc + PDF).
+  3. Status bar should show 📤 Submitted.
+  4. Also test: save a job (→ Preparation), then Prepare Package.
+     Verify Preparation subfolder is gone, all files in Submitted.
+Known issues: None identified.
+Next steps: Manual end-to-end test per checklist above. Merge to main.
+
+---
+
 Session 29 — Complete
 Date: 2026-02-26
 Branch: feature-session29-settings-folders

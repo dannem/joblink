@@ -400,6 +400,15 @@ async function handleEvaluate() {
 async function handlePreparePackage() {
   if (!currentJob) return;
 
+  // Merge any field edits into a jobToSave object used for both AI prompts and saving
+  const jobToSave = {
+    ...currentJob,
+    jobTitle:    fieldTitle.value.trim(),
+    company:     fieldCompany.value.trim(),
+    location:    fieldLocation.value.trim(),
+    description: fieldDesc.value.trim(),
+  };
+
   btnPreparePackage.disabled  = true;
   packageStatus.className     = 'package-status';
   packageStatus.textContent   = '⏳ Reading your profile and CV templates...';
@@ -433,17 +442,11 @@ async function handlePreparePackage() {
     const cvTemplates = await readDocsFromFolder(token, cvFolderId);
     if (cvTemplates.length < 1) throw new Error('No CV template documents found in the CV Templates folder.');
 
-    const job = {
-      jobTitle:    fieldTitle.value.trim(),
-      company:     fieldCompany.value.trim(),
-      description: fieldDesc.value.trim(),
-    };
-
     // 4. Select best template (if only one, use it directly)
     let selectedTemplate = cvTemplates[0];
     if (cvTemplates.length >= 2) {
       packageStatus.textContent = '⏳ Selecting best CV template for this role...';
-      const selectPrompt = buildSelectTemplatePrompt(job, profileText, cvTemplates);
+      const selectPrompt = buildSelectTemplatePrompt(jobToSave, profileText, cvTemplates);
       const selectRaw    = await callAI('claude', selectPrompt);
       const selectResult = parseAIResponse(selectRaw);
       const idx = (selectResult?.selected ?? 1) - 1;
@@ -453,18 +456,27 @@ async function handlePreparePackage() {
 
     // 5. Generate tailored CV
     packageStatus.textContent = '⏳ Tailoring CV for this role...';
-    const cvPrompt   = buildTailorCVPrompt(job, profileText, selectedTemplate.text);
+    const cvPrompt   = buildTailorCVPrompt(jobToSave, profileText, selectedTemplate.text);
     const tailoredCV = await callAI('claude', cvPrompt);
 
     // 6. Generate cover letter
     packageStatus.textContent = '⏳ Writing cover letter...';
-    const clPrompt    = buildCoverLetterPrompt(job, profileText, tailoredCV);
+    const clPrompt    = buildCoverLetterPrompt(jobToSave, profileText, tailoredCV);
     const coverLetter = await callAI('claude', clPrompt);
 
     packageStatus.textContent = '⏳ Saving package to Drive...';
 
-    // 7. Save to Drive
-    await savePreparedPackage(token, currentJob, tailoredCV, coverLetter, selectedTemplate.name);
+    // 7. Generate job files in sidepanel context (jsPDF is available here)
+    let pdfBase64 = '';
+    try { pdfBase64 = generateJobPdfBase64(jobToSave); } catch (_) {}
+    const htmlContent = generateJobSummaryHtml(jobToSave);
+    const jsonContent = JSON.stringify(jobToSave, null, 2);
+
+    // 8. Save to Drive
+    await savePreparedPackage(
+      token, jobToSave, tailoredCV, coverLetter, selectedTemplate.name,
+      { pdfBase64, htmlContent, jsonContent }
+    );
 
     packageStatus.textContent = '✅ Package saved to Submitted!';
     setStatusBar('submitted');
