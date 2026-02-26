@@ -143,6 +143,64 @@ Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o a
 
 ---
 
+Session 19 — Complete
+Date: 2026-02-25
+Branch: feature-evaluate-fit-profile
+What was built:
+Integrated candidate profile reading from Google Drive into the Evaluate Fit flow.
+handleEvaluate() previously called buildEvaluatePrompt with no profile text; it now
+reads the user's My_Profile Drive folder first and passes the content to the prompt.
+
+- drive/drive-api.js: new readProfileFromDrive(accessToken, rootFolderId) function.
+    Step 1: searches rootFolderId for a subfolder named 'My_Profile'.
+    Step 2: lists up to 20 non-trashed files inside that folder.
+    Step 3: reads each file — Google Docs are exported as plain text via the Drive
+      export endpoint; .txt files are downloaded directly via alt=media. PDF and DOCX
+      are skipped (binary formats, future work). Each readable file is prefixed with
+      its filename as a header and joined with double newlines.
+    Throws descriptive errors if My_Profile folder is absent or no readable files exist.
+
+- utils/ai-helpers.js: buildEvaluatePrompt(job, profileText) updated to accept an
+    optional second parameter. If profileText is truthy, the prompt includes the full
+    profile text under a CANDIDATE PROFILE section. If absent/empty, the section reads
+    "(No profile provided — evaluate based on job requirements alone)" so the AI still
+    produces a useful result. Persona changed from "researcher/scientist" to a neutral
+    expert career coach whose framing is driven by the profile content rather than
+    hard-coded assumptions.
+
+- sidepanel/sidepanel.js: handleEvaluate() updated. Before building the prompt, it now:
+    1. Calls chrome.identity.getAuthToken({ interactive: false }) to get an OAuth token.
+    2. Reads DRIVE_ROOT_FOLDER_ID from chrome.storage.sync.
+    3. Calls readProfileFromDrive(token, rootFolderId) if both are available.
+    The entire profile-fetch block is wrapped in a try/catch; any error is logged as a
+    warning and profileText stays empty — evaluation still proceeds with the no-profile
+    prompt so the feature degrades gracefully.
+
+- sidepanel/sidepanel.html: added <script src="../drive/drive-api.js"></script> before
+    ai-helpers.js. Pre-load safety check confirmed: drive-api.js contains NO importScripts
+    call (importScripts is only in background/service-worker.js). The file uses only
+    fetch() and const declarations — safe to load in any extension page context.
+
+Script load order in sidepanel.html is now:
+  helpers.js → drive-api.js → ai-helpers.js → jspdf.umd.min.js → sidepanel.js
+
+Known issues:
+  - PDF and DOCX files in My_Profile are silently skipped. Only Google Docs and .txt
+    files are read. Users should store their CV as a Google Doc or plain text file.
+  - Profile load failure is non-fatal and logged to the console; the user sees no
+    explicit warning in the UI (acceptable for personal-use tool).
+Test results: Manual testing required.
+  1. Create a My_Profile folder inside the configured root Drive folder.
+  2. Add a Google Doc or .txt file with your CV/profile text.
+  3. Capture a job, click Evaluate Fit.
+  4. Confirm the AI response references details from the profile (not a generic response).
+  5. Remove My_Profile or rename it, click Evaluate Fit again — confirm evaluation still
+     runs (graceful degradation) with a console warning but no crash.
+Next steps: Manual end-to-end test. Future: surface a UI hint when profile load fails;
+add PDF support via pdf.js or a service worker handler.
+
+---
+
 Session 18 — Complete
 Date: 2026-02-25
 Branch: feature-evaluate-fit

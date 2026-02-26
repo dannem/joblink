@@ -241,3 +241,73 @@ async function uploadFileToDrive(accessToken, fileName, content, mimeType, paren
     name: data.name
   };
 }
+
+/**
+ * Read all readable profile files from the My_Profile subfolder in the user's
+ * root Drive folder.  Supports Google Docs (exported as plain text) and .txt
+ * files.  PDF and DOCX are skipped — binary formats require additional parsing.
+ *
+ * @param {string} accessToken   - OAuth access token
+ * @param {string} rootFolderId  - The user's configured root Drive folder ID
+ * @returns {Promise<string>} Concatenated text of all readable profile files,
+ *   each prefixed with its filename as a header
+ * @throws {Error} If My_Profile folder is not found, or no readable files exist
+ */
+async function readProfileFromDrive(accessToken, rootFolderId) {
+  // 1. Find the My_Profile subfolder inside rootFolderId
+  const folderQuery = encodeURIComponent(
+    `'${rootFolderId}' in parents and name = 'My_Profile' ` +
+    `and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+  );
+  const folderRes = await fetch(
+    `${DRIVE_API_BASE}/files?q=${folderQuery}&fields=files(id)`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!folderRes.ok) throw new Error('Could not find My_Profile folder');
+  const folderData = await folderRes.json();
+  const profileFolderId = folderData.files?.[0]?.id;
+  if (!profileFolderId) throw new Error('My_Profile folder not found in Drive');
+
+  // 2. List files in My_Profile
+  const filesQuery = encodeURIComponent(
+    `'${profileFolderId}' in parents and trashed = false`
+  );
+  const filesRes = await fetch(
+    `${DRIVE_API_BASE}/files?q=${filesQuery}&fields=files(id,name,mimeType)&pageSize=20`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!filesRes.ok) throw new Error('Could not list My_Profile files');
+  const filesData = await filesRes.json();
+  const files = filesData.files || [];
+
+  // 3. Read each file — Google Docs export as plain text, .txt download directly
+  const texts = [];
+  for (const file of files) {
+    try {
+      let text = '';
+      if (file.mimeType === 'application/vnd.google-apps.document') {
+        // Export Google Doc as plain text
+        const exportRes = await fetch(
+          `${DRIVE_API_BASE}/files/${file.id}/export?mimeType=text/plain`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (exportRes.ok) text = await exportRes.text();
+      } else if (file.mimeType === 'text/plain') {
+        const dlRes = await fetch(
+          `${DRIVE_API_BASE}/files/${file.id}?alt=media`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (dlRes.ok) text = await dlRes.text();
+      }
+      // Skip PDF and DOCX — binary formats need additional parsing (future work)
+      if (text.trim()) {
+        texts.push(`--- ${file.name} ---\n${text.trim()}`);
+      }
+    } catch (e) {
+      console.warn(`[JobLink] Could not read profile file ${file.name}:`, e);
+    }
+  }
+
+  if (texts.length === 0) throw new Error('No readable profile files found in My_Profile');
+  return texts.join('\n\n');
+}

@@ -214,11 +214,30 @@ async function handleEvaluate() {
 
   try {
     const provider = aiProvider.value;
-    const prompt   = buildEvaluatePrompt({
+
+    // Attempt to load the candidate profile from Drive before building the prompt.
+    // Failure is non-fatal — evaluation proceeds with a no-profile notice in the prompt.
+    let profileText = '';
+    try {
+      const token = await new Promise((resolve, reject) => {
+        chrome.identity.getAuthToken({ interactive: false }, (t) => {
+          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+          else resolve(t);
+        });
+      });
+      const rootFolderId = await getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID);
+      if (token && rootFolderId) {
+        profileText = await readProfileFromDrive(token, rootFolderId);
+      }
+    } catch (profileErr) {
+      console.warn('[JobLink] Could not load profile — evaluating without it:', profileErr.message);
+    }
+
+    const prompt = buildEvaluatePrompt({
       jobTitle:    fieldTitle.value.trim(),
       company:     fieldCompany.value.trim(),
       description: fieldDesc.value.trim(),
-    });
+    }, profileText);
 
     const rawText = await callAI(provider, prompt);
     const result  = parseAIResponse(rawText);

@@ -22,20 +22,29 @@ const AI_MODELS = {
 /**
  * Build a fit-evaluation prompt for the given job.
  *
- * @param {Object} job - { jobTitle, company, description }
+ * @param {Object} job           - { jobTitle, company, description }
+ * @param {string} [profileText] - Candidate profile text read from Drive.
+ *   If omitted or empty the prompt instructs the AI to evaluate on job
+ *   requirements alone.
  * @returns {string} Prompt ready to send to an AI provider
  */
-function buildEvaluatePrompt(job) {
-  return `You are an expert career coach evaluating job fit for a researcher/scientist candidate.
+function buildEvaluatePrompt(job, profileText) {
+  const profileSection = profileText
+    ? `--- CANDIDATE PROFILE ---\n${profileText}`
+    : `--- CANDIDATE PROFILE ---\n(No profile provided — evaluate based on job requirements alone)`;
 
-Assess how well a candidate with a research/science background matches the job posting below.
+  return `You are an expert career coach evaluating job fit.
+
+${profileSection}
+
+Assess how well this candidate matches the job posting below.
 
 Return ONLY a raw JSON object — no markdown, no code fences, no explanation outside the JSON.
 Use exactly this shape:
 {
   "score": <integer 0-100>,
-  "correspondence": "<paragraph on how the job aligns with a researcher/scientist background>",
-  "discrepancies": "<paragraph on gaps or mismatches between the role and a research profile>",
+  "correspondence": "<paragraph on how the candidate's background aligns with the role>",
+  "discrepancies": "<paragraph on gaps or mismatches between the candidate and the role>",
   "recommendation": "<one clear sentence: whether to apply and how to position the application>"
 }
 
