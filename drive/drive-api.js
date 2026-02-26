@@ -313,6 +313,64 @@ async function readProfileFromDrive(accessToken, rootFolderId) {
 }
 
 /**
+ * Read CV template Google Docs from the My_Profile folder.
+ * Returns an array of { name, text, id } objects for files whose names
+ * contain "CV", "cv", or "template" (case-insensitive).
+ * Falls back to returning ALL Google Docs if no CV-specific files are found.
+ *
+ * @param {string} accessToken  - OAuth access token
+ * @param {string} rootFolderId - The JobLink root folder ID
+ * @returns {Promise<Array<{name: string, text: string, id: string}>>}
+ * @throws {Error} If My_Profile folder is not found
+ */
+async function readCVTemplatesFromDrive(accessToken, rootFolderId) {
+  // Find My_Profile folder
+  const folderQuery = encodeURIComponent(
+    `'${rootFolderId}' in parents and name = 'My_Profile' ` +
+    `and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+  );
+  const folderRes = await fetch(
+    `${DRIVE_API_BASE}/files?q=${folderQuery}&fields=files(id)&pageSize=1`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!folderRes.ok) throw new Error('Could not find My_Profile folder');
+  const folderData = await folderRes.json();
+  const profileFolderId = folderData.files?.[0]?.id;
+  if (!profileFolderId) throw new Error('My_Profile folder not found');
+
+  // List Google Docs in My_Profile
+  const filesQuery = encodeURIComponent(
+    `'${profileFolderId}' in parents and trashed = false ` +
+    `and mimeType = 'application/vnd.google-apps.document'`
+  );
+  const filesRes = await fetch(
+    `${DRIVE_API_BASE}/files?q=${filesQuery}&fields=files(id,name)&pageSize=20`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!filesRes.ok) throw new Error('Could not list My_Profile files');
+  const filesData = await filesRes.json();
+  const allDocs = filesData.files || [];
+
+  // Filter to CV/template files; fall back to all docs if none match
+  const cvDocs    = allDocs.filter(f => /cv|template/i.test(f.name));
+  const docsToRead = cvDocs.length > 0 ? cvDocs : allDocs;
+
+  // Export each as plain text — cap at 3 to avoid excessive API calls
+  const results = [];
+  for (const doc of docsToRead.slice(0, 3)) {
+    const exportRes = await fetch(
+      `${DRIVE_API_BASE}/files/${doc.id}/export?mimeType=text%2Fplain`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (exportRes.ok) {
+      const text = await exportRes.text();
+      if (text.trim()) results.push({ id: doc.id, name: doc.name, text: text.trim() });
+    }
+  }
+  return results;
+}
+
+/**
  * Search the three job-status subfolders (Preparation, Submitted, Rejected)
  * for a folder whose name matches the given job.
  *

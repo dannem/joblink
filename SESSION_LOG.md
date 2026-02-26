@@ -143,6 +143,59 @@ Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o a
 
 ---
 
+Session 26 — Complete
+Date: 2026-02-26
+Branch: feature-prepare-package
+What was built:
+Prepare Package feature — UI, AI prompt builders, and content generation pipeline. Drive save
+is stubbed with a TODO; wired in Session 27.
+
+Overview:
+When the user clicks "Prepare Package", the extension:
+  1. Reads CV template Google Docs from My_Profile (filtered by "cv"/"template" in filename)
+  2. If two or more templates are found, asks Claude to select the most suitable one
+  3. Asks Claude to tailor the selected CV for the specific role
+  4. Asks Claude to write a cover letter using the tailored CV for context
+  5. Logs the generated content lengths (Drive save stubbed — Session 27)
+
+Files changed:
+- manifest.json: added https://www.googleapis.com/auth/drive to oauth2.scopes (full Drive
+  write access needed to save the generated package to the user's own folders in Session 27).
+- sidepanel/sidepanel.html: added .action-row--package containing #btn-prepare-package and
+  #package-status div below the existing Save/Clear action row.
+- sidepanel/sidepanel.css: added .action-row--package, .btn--package (with hover/disabled
+  states), .package-status, and .package-status.package-error styles.
+- utils/ai-helpers.js: appended three new prompt builders:
+    buildSelectTemplatePrompt(job, cv1Text, cv1Name, cv2Text, cv2Name) — returns JSON with
+      "selected" ("1" or "2") and "reason"
+    buildTailorCVPrompt(job, cvTemplateText) — returns full tailored CV as plain text
+    buildCoverLetterPrompt(job, cvText) — returns 3-4 paragraph cover letter as plain text
+- sidepanel/sidepanel.js: added btnPreparePackage and packageStatus DOM refs; added
+  btnPreparePackage click listener; added handlePreparePackage() async function implementing
+  the five-step pipeline above.
+- drive/drive-api.js: added readCVTemplatesFromDrive(accessToken, rootFolderId) inserted
+  before checkExistingApplication. Finds My_Profile, lists Google Docs, filters by
+  /cv|template/i in filename (falls back to all docs), exports up to 3 as plain text,
+  returns array of { id, name, text }.
+
+Note: Drive save is stubbed — after cover letter generation the handler logs content lengths
+and shows "Package generated! (Drive save coming in next session)". Session 27 will replace
+the TODO with a call to savePreparedPackage().
+
+Test results: Manual testing required.
+  1. Reload the extension. Re-authenticate if prompted (new drive scope).
+  2. Add at least one Google Doc CV template to My_Profile in Drive (name it with "CV" or
+     "Template" in the filename).
+  3. Navigate to a LinkedIn or Indeed job and open the side panel.
+  4. Ensure an Anthropic API key is set in Settings.
+  5. Click "Prepare Package" — confirm the status bar cycles through the steps.
+  6. Open the side panel DevTools console and confirm CV/cover letter lengths are logged.
+  7. Confirm the status shows "Package generated!" at the end.
+Known issues: Drive save not yet implemented (Session 27).
+Next steps: Session 27 — implement savePreparedPackage() in drive-api.js and wire into handler.
+
+---
+
 Session 25 — Complete
 Date: 2026-02-26
 Branch: feature-session25-scrape-on-focus

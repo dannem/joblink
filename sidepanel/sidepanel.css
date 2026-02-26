@@ -273,6 +273,41 @@ body {
   color: #991b1b;
 }
 
+/* ── Prepare Package button + status ────────────────────── */
+
+.action-row--package {
+  margin-top: 4px;
+}
+
+.btn--package {
+  width: 100%;
+  padding: 10px;
+  background: #1a56db;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn--package:hover:not(:disabled) { background: #1e429f; }
+.btn--package:disabled { background: #9ab0e8; cursor: not-allowed; }
+
+.package-status {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  margin-top: 6px;
+  background: #f0f4ff;
+  color: #1a56db;
+}
+
+.package-status.package-error {
+  background: #fde8e8;
+  color: #c81e1e;
+}
+
 /* ── Job status bar ──────────────────────────────────────── */
 
 .job-status-bar {

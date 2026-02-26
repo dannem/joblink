@@ -215,3 +215,98 @@ async function callAI(provider, prompt) {
     case 'gemini': return callGeminiAPI(apiKey, prompt);
   }
 }
+
+// ── Package preparation prompt builders ────────────────────────────────────
+
+/**
+ * Build a prompt asking Claude to select the better CV template for a job
+ * and return which one to use.
+ *
+ * @param {Object} job            - { jobTitle, company, description }
+ * @param {string} cvTemplate1Text - Full text of first CV template
+ * @param {string} cvTemplate1Name - Filename of first CV template
+ * @param {string} cvTemplate2Text - Full text of second CV template
+ * @param {string} cvTemplate2Name - Filename of second CV template
+ * @returns {string} Prompt text
+ */
+function buildSelectTemplatePrompt(job, cvTemplate1Text, cvTemplate1Name, cvTemplate2Text, cvTemplate2Name) {
+  return `You are an expert career coach. A candidate has two CV templates and needs to apply for a job.
+
+Read both CV templates and the job description, then decide which template is better suited for this specific role.
+
+Return ONLY a raw JSON object — no markdown, no code fences:
+{
+  "selected": "1" or "2",
+  "reason": "<one sentence explaining why this template is better suited>"
+}
+
+--- JOB ---
+Title: ${job.jobTitle || '(unknown)'}
+Company: ${job.company || '(unknown)'}
+${job.description || ''}
+
+--- CV TEMPLATE 1: ${cvTemplate1Name} ---
+${cvTemplate1Text}
+
+--- CV TEMPLATE 2: ${cvTemplate2Name} ---
+${cvTemplate2Text}`;
+}
+
+/**
+ * Build a prompt asking Claude to tailor a CV for a specific job.
+ *
+ * @param {Object} job           - { jobTitle, company, description }
+ * @param {string} cvTemplateText - Full text of the selected CV template
+ * @returns {string} Prompt text
+ */
+function buildTailorCVPrompt(job, cvTemplateText) {
+  return `You are an expert career coach tailoring a CV for a specific job application.
+
+Using the candidate's CV template below, produce a tailored version optimised for the job posting.
+
+Rules:
+- Keep all factual information accurate — do not invent experience or qualifications
+- Reorder or emphasise sections/bullet points that are most relevant to this role
+- Adjust the professional summary/objective to speak directly to this role
+- Use keywords from the job description naturally where they fit the candidate's real experience
+- Keep the same overall structure and formatting markers as the original
+- Return the complete tailored CV as plain text, ready to be saved as a document
+
+--- JOB ---
+Title: ${job.jobTitle || '(unknown)'}
+Company: ${job.company || '(unknown)'}
+${job.description || ''}
+
+--- CANDIDATE CV TEMPLATE ---
+${cvTemplateText}`;
+}
+
+/**
+ * Build a prompt asking Claude to write a cover letter for a job.
+ *
+ * @param {Object} job    - { jobTitle, company, description }
+ * @param {string} cvText - The tailored CV text (used for context)
+ * @returns {string} Prompt text
+ */
+function buildCoverLetterPrompt(job, cvText) {
+  return `You are an expert career coach writing a cover letter for a job application.
+
+Write a professional, compelling cover letter based on the candidate's CV and the job posting below.
+
+Rules:
+- 3-4 paragraphs, no longer than one page
+- Opening: express genuine interest in the role and company
+- Middle: connect 2-3 specific experiences from the CV to key requirements of the job
+- Closing: confident call to action
+- Tone: professional but personable, not generic
+- Do not use phrases like "I am writing to apply" or "Please find attached"
+- Return only the cover letter text, no subject line or metadata
+
+--- JOB ---
+Title: ${job.jobTitle || '(unknown)'}
+Company: ${job.company || '(unknown)'}
+${job.description || ''}
+
+--- CANDIDATE CV ---
+${cvText}`;
+}

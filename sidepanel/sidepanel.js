@@ -43,9 +43,11 @@ const fitScoreNumber    = document.getElementById('fit-score-number');
 const aiCorrespondence  = document.getElementById('ai-correspondence');
 const aiDiscrepancies   = document.getElementById('ai-discrepancies');
 const aiRecommendation  = document.getElementById('ai-recommendation');
-const jobStatusBar  = document.getElementById('job-status-bar');
-const jobStatusText = document.getElementById('job-status-text');
-const jobStatusIcon = document.getElementById('job-status-icon');
+const jobStatusBar      = document.getElementById('job-status-bar');
+const jobStatusText     = document.getElementById('job-status-text');
+const jobStatusIcon     = document.getElementById('job-status-icon');
+const btnPreparePackage = document.getElementById('btn-prepare-package');
+const packageStatus     = document.getElementById('package-status');
 
 // ── Module state ──────────────────────────────────────────────
 
@@ -122,6 +124,7 @@ chrome.runtime.onMessage.addListener((message) => {
 btnSave.addEventListener('click', handleSave);
 btnClear.addEventListener('click', handleClear);
 btnEvaluate.addEventListener('click', handleEvaluate);
+btnPreparePackage.addEventListener('click', handlePreparePackage);
 
 btnDashboard.addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('dashboard/dashboard.html') });
@@ -376,6 +379,87 @@ async function handleEvaluate() {
   } finally {
     aiSpinner.style.display = 'none';
     btnEvaluate.disabled    = false;
+  }
+}
+
+/**
+ * Prepare a tailored CV and cover letter for the current job using Claude AI.
+ *
+ * Flow:
+ *   1. Read CV templates from My_Profile in Drive
+ *   2. Ask Claude to pick the best template (if more than one)
+ *   3. Ask Claude to tailor the CV for this specific role
+ *   4. Ask Claude to write a cover letter
+ *   5. Hand off to savePreparedPackage() — wired in Session 27
+ */
+async function handlePreparePackage() {
+  if (!currentJob) return;
+
+  btnPreparePackage.disabled  = true;
+  packageStatus.className     = 'package-status';
+  packageStatus.textContent   = '⏳ Reading your CV templates...';
+  packageStatus.style.display = 'block';
+
+  try {
+    // 1. Get OAuth token
+    const token = await new Promise((resolve, reject) => {
+      chrome.identity.getAuthToken({ interactive: false }, (t) => {
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+        else resolve(t);
+      });
+    });
+
+    const rootFolderId = await getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID);
+    if (!rootFolderId) throw new Error('No Drive folder configured.');
+
+    // 2. Read CV templates from My_Profile
+    const cvTemplates = await readCVTemplatesFromDrive(token, rootFolderId);
+    if (cvTemplates.length < 1) throw new Error('No CV templates found in My_Profile.');
+
+    const job = {
+      jobTitle:    fieldTitle.value.trim(),
+      company:     fieldCompany.value.trim(),
+      description: fieldDesc.value.trim(),
+    };
+
+    // 3. Select best template (if only one, use it directly)
+    let selectedTemplate = cvTemplates[0];
+    if (cvTemplates.length >= 2) {
+      packageStatus.textContent = '⏳ Selecting best CV template for this role...';
+      const selectPrompt = buildSelectTemplatePrompt(
+        job,
+        cvTemplates[0].text, cvTemplates[0].name,
+        cvTemplates[1].text, cvTemplates[1].name
+      );
+      const selectRaw    = await callAI('claude', selectPrompt);
+      const selectResult = parseAIResponse(selectRaw);
+      if (selectResult?.selected === '2') selectedTemplate = cvTemplates[1];
+      console.log('[JobLink] Template selected:', selectedTemplate.name, '—', selectResult?.reason);
+    }
+
+    // 4. Generate tailored CV
+    packageStatus.textContent = '⏳ Tailoring CV for this role...';
+    const cvPrompt   = buildTailorCVPrompt(job, selectedTemplate.text);
+    const tailoredCV = await callAI('claude', cvPrompt);
+
+    // 5. Generate cover letter
+    packageStatus.textContent = '⏳ Writing cover letter...';
+    const clPrompt    = buildCoverLetterPrompt(job, tailoredCV);
+    const coverLetter = await callAI('claude', clPrompt);
+
+    packageStatus.textContent = '⏳ Saving package to Drive...';
+
+    // 6. Hand off to Drive (Session 27)
+    // TODO: call savePreparedPackage(token, currentJob, tailoredCV, coverLetter, selectedTemplate.name)
+    console.log('[JobLink] Package ready — CV length:', tailoredCV.length, 'CL length:', coverLetter.length);
+    packageStatus.textContent = '✅ Package generated! (Drive save coming in next session)';
+
+  } catch (err) {
+    packageStatus.className   = 'package-status package-error';
+    packageStatus.textContent = '❌ ' + (err.message || 'Package preparation failed.');
+    console.error('[JobLink] Prepare package error:', err);
+  } finally {
+    btnPreparePackage.disabled = false;
   }
 }
 
