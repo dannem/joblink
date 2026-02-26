@@ -273,17 +273,24 @@ body {
   color: #991b1b;
 }
 
-.msg--duplicate {
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  color: #92400e;
+/* ── Job status bar ──────────────────────────────────────── */
+
+.job-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  margin-bottom: 8px;
 }
 
-.msg--duplicate-serious {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
-}
+.job-status-bar.status-unknown   { background: #f0f0f0; color: #666; }
+.job-status-bar.status-new       { background: #f0f0f0; color: #555; }
+.job-status-bar.status-prep      { background: #fff8e1; color: #b45309; }
+.job-status-bar.status-submitted { background: #e8f0fe; color: #1a56db; }
+.job-status-bar.status-rejected  { background: #fde8e8; color: #c81e1e; }
 
 /* ── AI section ──────────────────────────────────────────── */
 

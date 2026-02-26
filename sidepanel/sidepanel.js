@@ -43,7 +43,9 @@ const fitScoreNumber    = document.getElementById('fit-score-number');
 const aiCorrespondence  = document.getElementById('ai-correspondence');
 const aiDiscrepancies   = document.getElementById('ai-discrepancies');
 const aiRecommendation  = document.getElementById('ai-recommendation');
-const msgDuplicate      = document.getElementById('msg-duplicate');
+const jobStatusBar  = document.getElementById('job-status-bar');
+const jobStatusText = document.getElementById('job-status-text');
+const jobStatusIcon = document.getElementById('job-status-icon');
 
 // ── Module state ──────────────────────────────────────────────
 
@@ -64,13 +66,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn('[JobLink] Could not restore job from session storage:', err);
   }
 
-  // Ask the active tab's content script to scrape immediately.
-  // Handles the case where the panel opens after the page already loaded.
+  // Send REQUEST_SCRAPE to the active tab.
+  // If session storage was empty (job not yet scraped), wait 1.5s then check again.
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
       chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_SCRAPE' })
-        .catch(() => { /* No content script on this page — not an error */ });
+        .catch(() => {});
+
+      // If panel is still empty after 1.5s, check session storage again
+      // (handles slow content script initialisation)
+      if (!currentJob) {
+        setTimeout(async () => {
+          if (currentJob) return; // Already populated by message
+          try {
+            const result = await chrome.storage.session.get(SESSION_KEYS.CURRENT_JOB);
+            if (result[SESSION_KEYS.CURRENT_JOB]) {
+              showJob(result[SESSION_KEYS.CURRENT_JOB]);
+            }
+          } catch (_) {}
+        }, 1500);
+      }
     }
   } catch (err) {
     console.warn('[JobLink] Could not send REQUEST_SCRAPE:', err.message);
@@ -147,7 +163,7 @@ function showJob(job) {
   fieldUrl.textContent = url || '—';
 
   hideMessages();
-  msgDuplicate.style.display = 'none';
+  setStatusBar('checking');
   stateEmpty.style.display = 'none';
   stateJob.style.display   = 'flex';
 
@@ -156,19 +172,35 @@ function showJob(job) {
 }
 
 /**
- * Check whether a folder matching this job already exists in any of the three
- * status subfolders and update the duplicate warning banner accordingly.
+ * Update the always-visible status bar to reflect the application state.
  *
- * Non-fatal — any failure is logged and silently ignored so the panel stays
- * functional even when Drive is unreachable or no status folders are configured.
+ * @param {'checking'|'new'|'prep'|'submitted'|'rejected'} status
+ */
+function setStatusBar(status) {
+  const states = {
+    checking:  { cls: 'status-unknown',   icon: '⏳', text: 'Checking Drive...' },
+    new:       { cls: 'status-new',       icon: '🆕', text: 'Not yet saved' },
+    prep:      { cls: 'status-prep',      icon: '📝', text: 'In Preparation' },
+    submitted: { cls: 'status-submitted', icon: '📤', text: 'Submitted' },
+    rejected:  { cls: 'status-rejected',  icon: '❌', text: 'Previously rejected' },
+  };
+  const s = states[status] || states.checking;
+  jobStatusBar.className    = 'job-status-bar ' + s.cls;
+  jobStatusIcon.textContent = s.icon;
+  jobStatusText.textContent = s.text;
+}
+
+/**
+ * Check whether a folder matching this job exists in any status subfolder and
+ * update the status bar accordingly.
  *
- * Preparation matches: amber warning, Evaluate Fit remains enabled.
- * Submitted / Rejected matches: red warning, Evaluate Fit is disabled.
+ * Non-fatal — errors fall back to 'new' so the panel stays functional even
+ * when Drive is unreachable or no status folders are configured.
  *
  * @param {Object} job - { company, jobTitle } from the current job
  */
 async function checkDuplicate(job) {
-  msgDuplicate.style.display = 'none';
+  setStatusBar('checking');
   btnEvaluate.disabled = false;
 
   try {
@@ -179,23 +211,26 @@ async function checkDuplicate(job) {
       });
     });
 
-    if (!token) return; // Not signed in — skip check
+    if (!token) { setStatusBar('new'); return; }
 
     console.log('[JobLink] Checking duplicate for:', job.company, '/', job.jobTitle);
     const match = await checkExistingApplication(token, job);
     console.log('[JobLink] Duplicate check result:', match);
-    if (!match) return;
 
-    const serious = match.status === 'submitted' || match.status === 'rejected';
-    const statusLabel = match.status.charAt(0).toUpperCase() + match.status.slice(1);
-
-    msgDuplicate.textContent = `Already in ${statusLabel}: "${match.folder.name}"`;
-    msgDuplicate.className   = 'msg ' + (serious ? 'msg--duplicate-serious' : 'msg--duplicate');
-    msgDuplicate.style.display = 'block';
-
-    if (serious) btnEvaluate.disabled = true;
+    if (!match) {
+      setStatusBar('new');
+    } else if (match.status === 'submitted') {
+      setStatusBar('submitted');
+      btnEvaluate.disabled = true;
+    } else if (match.status === 'rejected') {
+      setStatusBar('rejected');
+      btnEvaluate.disabled = true;
+    } else {
+      setStatusBar('prep');
+    }
   } catch (err) {
     console.warn('[JobLink] Duplicate check failed:', err.message);
+    setStatusBar('new');
   }
 }
 
@@ -256,10 +291,9 @@ function handleClear() {
   currentJob = null;
   chrome.storage.session.remove(SESSION_KEYS.CURRENT_JOB).catch(() => {});
   hideMessages();
-  msgDuplicate.style.display = 'none';
-  btnEvaluate.disabled       = false;
-  stateJob.style.display     = 'none';
-  stateEmpty.style.display   = 'flex';
+  btnEvaluate.disabled     = false;
+  stateJob.style.display   = 'none';
+  stateEmpty.style.display = 'flex';
 }
 
 /**

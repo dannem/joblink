@@ -143,6 +143,59 @@ Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o a
 
 ---
 
+Session 24 — Complete
+Date: 2026-02-26
+Branch: feature-session24-status-badge
+What was built:
+Two improvements: more reliable initial load and an always-visible application status bar
+replacing the previous hidden duplicate-warning banner.
+
+Fix 1 — More reliable REQUEST_SCRAPE:
+  The previous implementation fired REQUEST_SCRAPE once at panel open with no fallback. If the
+  content script hadn't finished initialising yet, the scrape was lost.
+
+  - sidepanel/sidepanel.js: replaced the single REQUEST_SCRAPE send with a version that also
+    sets a 1.5 s timeout: if currentJob is still null after that delay, it re-reads session
+    storage one more time. This covers the case where the content script was slow to start and
+    the JOB_DATA_EXTRACTED message arrived after the initial session-storage check but before
+    the timeout fires — in that case the guard (if (currentJob) return) skips the re-read.
+
+Fix 2 — Always-visible job status bar:
+  The previous approach hid the duplicate banner until a match was found, giving no feedback
+  during the Drive check. Replaced with a persistent status bar that cycles through states:
+  Checking Drive... → Not yet saved / In Preparation / Submitted / Previously rejected.
+
+  - sidepanel/sidepanel.html: replaced #msg-duplicate with #job-status-bar containing
+    #job-status-icon and #job-status-text spans.
+  - sidepanel/sidepanel.css: removed .msg--duplicate and .msg--duplicate-serious; added
+    .job-status-bar base styles and five state modifiers:
+      .status-unknown  (grey)  — initial/checking state
+      .status-new      (grey)  — not yet saved to Drive
+      .status-prep     (amber) — folder found in Preparation
+      .status-submitted (blue) — folder found in Submitted
+      .status-rejected  (red)  — folder found in Rejected
+  - sidepanel/sidepanel.js:
+    - Replaced msgDuplicate DOM ref with jobStatusBar, jobStatusText, jobStatusIcon.
+    - Added setStatusBar(status) helper.
+    - showJob(): calls setStatusBar('checking') immediately (was hiding a banner).
+    - checkDuplicate(): rewritten to use setStatusBar for all outcomes including errors
+      (falls back to 'new' on any exception).
+    - handleClear(): removed msgDuplicate hide line (status bar is inside stateJob which
+      is hidden on clear); btnEvaluate.disabled = false retained.
+
+Test results: Manual testing required.
+  1. Reload the extension in chrome://extensions.
+  2. Navigate to a LinkedIn or Indeed job page and open the side panel.
+  3. Confirm the status bar shows "Checking Drive..." briefly then "Not yet saved".
+  4. Save the job to Drive, then re-open the side panel on the same page.
+  5. Confirm the status bar shows "In Preparation".
+  6. Move the Drive folder to Submitted; confirm "Submitted" and Evaluate Fit disabled.
+  7. Move to Rejected; confirm "Previously rejected" and Evaluate Fit disabled.
+Known issues: None.
+Next steps: Manual end-to-end test. If passing, merge to main.
+
+---
+
 Session 23 — Complete
 Date: 2026-02-26
 Branch: feature-session23-fixes
