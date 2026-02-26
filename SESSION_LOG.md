@@ -143,6 +143,36 @@ Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o a
 
 ---
 
+Session 17 — Complete
+Date: 2026-02-25
+Branch: feature-linkedin-collections-selectors
+What was built:
+Targeted selector fix for linkedin.com/jobs/collections/recommended/?currentJobId=... layout,
+based on live DOM inspection results.
+
+Pre-change audit of content-scripts/linkedin.js confirmed:
+- Company: a[href*="/company/"] was already present in the array — no change needed.
+- Description: .jobs-box__html-content was already present in descSelectors — no change needed.
+- Location: .artdeco-entity-lockup__caption was absent — added as a new fallback entry.
+
+Change made:
+- content-scripts/linkedin.js — extractLocation(): appended
+  '.artdeco-entity-lockup__caption' to the end of bulletSelectors. Confirmed via live DOM
+  inspection to return 'Philadelphia, PA · Hybrid' (or similar) on the collections layout.
+  Added after all existing entries so it does not affect the /jobs/search/ split-panel layout.
+
+All existing selectors retained.
+
+Test results: Selector confirmed working via live DOM inspection on /jobs/collections/recommended/
+layout. Full manual test required:
+  1. Navigate to linkedin.com/jobs/collections/recommended/ and select a job.
+  2. Open the side panel and confirm the location field populates (e.g. 'Philadelphia, PA · Hybrid').
+  3. Also verify /jobs/search/ split-panel layout still works correctly.
+Known issues: None.
+Next steps: Manual end-to-end test on both layouts. If passing, merge to main.
+
+---
+
 Session 16 — Complete
 Date: 2026-02-25
 Branch: feature-sidepanel-script-fix

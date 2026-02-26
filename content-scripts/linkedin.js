@@ -68,6 +68,10 @@ function extractLocation() {
     '[class*="job-location"]',
     '[class*="workplace-type"]',
     '[class*="location"]',
+    // Collections/recommended layout — location rendered inside artdeco lockup
+    // caption element (confirmed via live DOM inspection: returns e.g.
+    // 'Philadelphia, PA · Hybrid')
+    '.artdeco-entity-lockup__caption',
   ];
 
   for (const selector of bulletSelectors) {
