@@ -567,6 +567,11 @@ async function handlePreparePackage() {
                 currentCLBodyParas = bodyParas.slice(1, -1);
               }
             }
+            console.log('[JobLink] CL template doc ID:', clTemplateDocId);
+            console.log('[JobLink] CL dearIdx found:', dearIdx, 'sincerelyIdx found:', sincerelyIdx);
+            console.log('[JobLink] CL opening:', currentCLOpening ? currentCLOpening.substring(0, 80) : 'EMPTY');
+            console.log('[JobLink] CL body paras count:', currentCLBodyParas.length);
+            console.log('[JobLink] CL closing:', currentCLClosing ? currentCLClosing.substring(0, 80) : 'EMPTY');
           }
         }
       } catch (err) {
@@ -585,6 +590,7 @@ async function handlePreparePackage() {
         );
         const rawClJson = await callAI('claude', clPrompt, selectedModel);
         clReplacements = parseAIResponse(rawClJson);
+        console.log('[JobLink] CL replacements parsed:', clReplacements ? 'OK' : 'NULL', clReplacements);
       } catch (err) {
         console.warn('[JobLink] Structured CL tailoring failed:', err.message);
       }

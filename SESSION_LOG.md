@@ -5,6 +5,43 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 31b — Complete
+Date: 2026-02-26
+Branch: feature-session31b-cl-fix
+What was built:
+Debug and fix for silent cover letter generation failure. Two changes made:
+
+Fix 1 — Diagnostic logging in sidepanel.js handlePreparePackage:
+  Added 5 console.log lines after the if (dearIdx >= 0 && sincerelyIdx >= 0) block to
+  expose the CL template doc ID, dearIdx/sincerelyIdx values, opening/closing extracts,
+  and body paragraph count. Added one more log after parseAIResponse to show whether
+  clReplacements was parsed OK or returned NULL.
+
+Fix 2 — More lenient skip condition in savePreparedPackage in drive-api.js:
+  Changed the cover letter branch from requiring both clData.templateDocId AND
+  clData.replacements to fall through to the skip path, to instead: if templateDocId
+  is present but replacements is null, copy the template unmodified rather than
+  skipping entirely. The new structure is:
+    if (clData.templateDocId) → tailor if replacements present, else copy unmodified
+    else if (clData.html)     → create from HTML
+    else                      → log warning and skip
+
+Files changed:
+- sidepanel/sidepanel.js: added 6 diagnostic console.log lines
+- drive/drive-api.js: updated savePreparedPackage step 6 CL branching logic
+
+Testing checklist:
+  1. Reload extension. Navigate to a job posting.
+  2. Click 📦 Prepare Package. Open DevTools console.
+  3. Verify the new CL diagnostic logs appear — check dearIdx/sincerelyIdx values,
+     opening/closing text, body paras count, and whether replacements parsed OK.
+  4. Even if replacements is NULL, confirm a CL Google Doc is now created in Drive
+     (unmodified copy of template) rather than silently skipped.
+Known issues: None introduced.
+Next steps: Check console output to identify root cause if dearIdx/sincerelyIdx are -1.
+
+---
+
 Session 31 — Complete
 Date: 2026-02-26
 Branch: feature-session31-cl-tailoring

@@ -809,18 +809,35 @@ async function savePreparedPackage(accessToken, job, cvData, clData, selectedTem
   // ── 6. Save cover letter as Google Doc (Docs API in-place tailoring) + PDF ─
   const clTitle = `Cover Letter - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;
   let clDocId;
-  if (clData.templateDocId && clData.replacements) {
-    clDocId = await tailorCLWithDocsAPI(
-      accessToken,
-      clData.templateDocId,
-      submittedJobFolderId,
-      clTitle,
-      clData.replacements
-    );
+  if (clData.templateDocId) {
+    if (clData.replacements) {
+      clDocId = await tailorCLWithDocsAPI(
+        accessToken,
+        clData.templateDocId,
+        submittedJobFolderId,
+        clTitle,
+        clData.replacements
+      );
+    } else {
+      // Replacements failed — copy template unmodified rather than skipping
+      console.warn('[JobLink] CL replacements null — copying template unmodified');
+      const copyRes = await fetch(
+        `${DRIVE_API_BASE}/files/${clData.templateDocId}/copy?fields=id`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: clTitle, parents: [submittedJobFolderId] }),
+        }
+      );
+      if (copyRes.ok) {
+        const { id } = await copyRes.json();
+        clDocId = id;
+      }
+    }
   } else if (clData.html) {
     clDocId = await createGoogleDoc(accessToken, submittedJobFolderId, clTitle, wrapHtmlDocument(clTitle, clData.html));
   } else {
-    console.warn('[JobLink] No CL data — skipping cover letter');
+    console.warn('[JobLink] No CL data at all — skipping cover letter');
     return { submittedFolderId: submittedJobFolderId };
   }
   await exportDocAsPDF(accessToken, clDocId, submittedJobFolderId, clTitle);
