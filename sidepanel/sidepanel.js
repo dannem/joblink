@@ -47,6 +47,7 @@ const jobStatusBar      = document.getElementById('job-status-bar');
 const jobStatusText     = document.getElementById('job-status-text');
 const jobStatusIcon     = document.getElementById('job-status-icon');
 const btnPreparePackage = document.getElementById('btn-prepare-package');
+const packageModel      = document.getElementById('package-model');
 const packageStatus     = document.getElementById('package-status');
 
 // ── Module state ──────────────────────────────────────────────
@@ -442,27 +443,32 @@ async function handlePreparePackage() {
     const cvTemplates = await readDocsFromFolder(token, cvFolderId);
     if (cvTemplates.length < 1) throw new Error('No CV template documents found in the CV Templates folder.');
 
-    // 4. Select best template (if only one, use it directly)
+    // 4. Resolve selected Claude model from the dropdown
+    const selectedModel = packageModel.value === 'haiku'
+      ? AI_MODELS.claudeHaiku
+      : AI_MODELS.claude;
+
+    // 5. Select best template (if only one, use it directly)
     let selectedTemplate = cvTemplates[0];
     if (cvTemplates.length >= 2) {
       packageStatus.textContent = '⏳ Selecting best CV template for this role...';
       const selectPrompt = buildSelectTemplatePrompt(jobToSave, profileText, cvTemplates);
-      const selectRaw    = await callAI('claude', selectPrompt);
+      const selectRaw    = await callAI('claude', selectPrompt, selectedModel);
       const selectResult = parseAIResponse(selectRaw);
       const idx = (selectResult?.selected ?? 1) - 1;
       if (idx > 0 && idx < cvTemplates.length) selectedTemplate = cvTemplates[idx];
       console.log('[JobLink] Template selected:', selectedTemplate.name, '—', selectResult?.reason);
     }
 
-    // 5. Generate tailored CV
+    // 6. Generate tailored CV
     packageStatus.textContent = '⏳ Tailoring CV for this role...';
     const cvPrompt   = buildTailorCVPrompt(jobToSave, profileText, selectedTemplate.text);
-    const tailoredCV = await callAI('claude', cvPrompt);
+    const tailoredCV = await callAI('claude', cvPrompt, selectedModel);
 
-    // 6. Generate cover letter
+    // 7. Generate cover letter
     packageStatus.textContent = '⏳ Writing cover letter...';
     const clPrompt    = buildCoverLetterPrompt(jobToSave, profileText, tailoredCV);
-    const coverLetter = await callAI('claude', clPrompt);
+    const coverLetter = await callAI('claude', clPrompt, selectedModel);
 
     packageStatus.textContent = '⏳ Saving package to Drive...';
 

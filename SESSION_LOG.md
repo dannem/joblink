@@ -5,6 +5,43 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 29d — Complete
+Date: 2026-02-26
+Branch: feature-session29d-haiku-option
+What was built:
+Haiku model option for the Prepare Package pipeline. A "Claude model" dropdown above the
+Prepare Package button lets the user choose between Sonnet 4.6 (best quality) and
+Haiku 4.5 (faster & cheaper) before running the pipeline.
+
+Files changed:
+- utils/ai-helpers.js:
+    Added claudeHaiku: 'claude-haiku-4-5-20251001' to AI_MODELS.
+    callAnthropicAPI() gains optional model parameter (default: AI_MODELS.claude).
+    callAI() gains optional model parameter (null by default); passes it through to
+      callAnthropicAPI for the claude provider; ignored for openai/gemini.
+- sidepanel/sidepanel.html:
+    Added .action-row--package-model div with a "Claude model" label and
+    #package-model <select> (options: Sonnet 4.6, Haiku 4.5) above the Prepare Package button.
+- sidepanel/sidepanel.css:
+    Added .action-row--package-model (flex row), .selector-label, .ai-selector styles.
+- sidepanel/sidepanel.js:
+    Added packageModel DOM reference.
+    In handlePreparePackage, resolves selectedModel from packageModel.value before the
+      AI calls; passes selectedModel to all three callAI('claude', prompt, selectedModel)
+      calls (template selection, CV tailoring, cover letter generation).
+
+Testing checklist:
+  1. Reload extension. Navigate to a job posting.
+  2. Verify "Claude model" dropdown appears above Prepare Package button.
+  3. Select "Haiku 4.5 — faster & cheaper". Click Prepare Package.
+     Confirm the pipeline completes (faster than Sonnet).
+  4. Select "Sonnet 4.6 — best quality". Repeat. Confirm higher-quality output.
+  5. Evaluate Fit button is unaffected — still uses the ai-provider dropdown.
+Known issues: None identified.
+Next steps: Merge to main.
+
+---
+
 Session 29c — Complete
 Date: 2026-02-26
 Branch: feature-session29c-fetch-fix

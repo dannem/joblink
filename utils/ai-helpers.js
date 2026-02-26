@@ -12,9 +12,10 @@
 // ── Model constants ────────────────────────────────────────────────────────
 
 const AI_MODELS = {
-  claude: 'claude-sonnet-4-6',   // Sonnet for cost efficiency
-  openai: 'gpt-4o',
-  gemini: 'gemini-1.5-flash',    // Flash for speed and cost
+  claude:      'claude-sonnet-4-6',         // Sonnet — high quality
+  claudeHaiku: 'claude-haiku-4-5-20251001', // Haiku — fast and cheap
+  openai:      'gpt-4o',
+  gemini:      'gemini-1.5-flash',          // Flash for speed and cost
 };
 
 // ── Prompt builder ─────────────────────────────────────────────────────────
@@ -62,10 +63,11 @@ ${job.description || '(no description provided)'}`;
  *
  * @param {string} apiKey - Anthropic API key
  * @param {string} prompt - Full prompt text
+ * @param {string} [model] - Model ID to use (defaults to AI_MODELS.claude)
  * @returns {Promise<string>} Model response text
  * @throws {Error} On HTTP error or missing response content
  */
-async function callAnthropicAPI(apiKey, prompt) {
+async function callAnthropicAPI(apiKey, prompt, model = AI_MODELS.claude) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -75,7 +77,7 @@ async function callAnthropicAPI(apiKey, prompt) {
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: AI_MODELS.claude,
+      model: model,
       max_tokens: 4096,
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -190,10 +192,12 @@ function parseAIResponse(text) {
  *
  * @param {'claude'|'openai'|'gemini'} provider
  * @param {string} prompt
+ * @param {string|null} [model] - Optional model override (Anthropic only).
+ *   Pass AI_MODELS.claudeHaiku to use Haiku instead of the default Sonnet.
  * @returns {Promise<string>} Raw model response text
  * @throws {Error} If the API key is not set or the API call fails
  */
-async function callAI(provider, prompt) {
+async function callAI(provider, prompt, model = null) {
   const keyMap = {
     claude: STORAGE_KEYS.ANTHROPIC_API_KEY,
     openai: STORAGE_KEYS.OPENAI_API_KEY,
@@ -210,7 +214,7 @@ async function callAI(provider, prompt) {
   }
 
   switch (provider) {
-    case 'claude': return callAnthropicAPI(apiKey, prompt);
+    case 'claude': return callAnthropicAPI(apiKey, prompt, model || AI_MODELS.claude);
     case 'openai': return callOpenAIAPI(apiKey, prompt);
     case 'gemini': return callGeminiAPI(apiKey, prompt);
   }
