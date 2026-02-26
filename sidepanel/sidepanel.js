@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_SCRAPE' })
         .catch(() => {});
 
-      // If panel is still empty after 1.5s, check session storage again
+      // If panel is still empty after 2.5s, check session storage again
       // (handles slow content script initialisation)
       if (!currentJob) {
         setTimeout(async () => {
@@ -85,11 +85,27 @@ document.addEventListener('DOMContentLoaded', async () => {
               showJob(result[SESSION_KEYS.CURRENT_JOB]);
             }
           } catch (_) {}
-        }, 1500);
+        }, 2500);
       }
     }
   } catch (err) {
     console.warn('[JobLink] Could not send REQUEST_SCRAPE:', err.message);
+  }
+});
+
+// Re-send REQUEST_SCRAPE every time the panel becomes visible.
+// DOMContentLoaded fires only once; this covers panel close/reopen and
+// tab switches that bring the panel back into view on a different job.
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible') return;
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_SCRAPE' })
+        .catch(() => {});
+    }
+  } catch (err) {
+    console.warn('[JobLink] visibilitychange REQUEST_SCRAPE failed:', err.message);
   }
 });
 

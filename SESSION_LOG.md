@@ -143,6 +143,38 @@ Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o a
 
 ---
 
+Session 25 — Complete
+Date: 2026-02-26
+Branch: feature-session25-scrape-on-focus
+What was built:
+Fixed scraping on panel reopen by adding a visibilitychange listener that fires REQUEST_SCRAPE
+every time the panel becomes visible.
+
+Root cause:
+DOMContentLoaded fires only once — when the side panel's document first loads. Closing and
+reopening the panel doesn't reload the document; Chrome preserves the panel's page state.
+This meant REQUEST_SCRAPE was only sent on the very first open. Subsequent open/close cycles
+produced a stale or empty panel even when the active tab had a new job loaded.
+
+Changes:
+- sidepanel/sidepanel.js: added a document visibilitychange listener immediately after the
+  DOMContentLoaded block. When document.visibilityState becomes 'visible', it queries the
+  active tab and sends REQUEST_SCRAPE. Errors are caught and logged. This fires on every
+  panel open after the first, covering close/reopen and tab switches.
+- sidepanel/sidepanel.js: increased the DOMContentLoaded retry timeout from 1500ms to 2500ms
+  to give content scripts more time to initialise on slow page loads.
+
+Test results: Manual testing required.
+  1. Reload the extension in chrome://extensions.
+  2. Navigate to a LinkedIn job page. Open the side panel — confirm job data appears.
+  3. Close the side panel. Navigate to a different LinkedIn job. Reopen the panel.
+  4. Confirm the panel now shows the new job (not the previous one).
+  5. Repeat on an Indeed page to confirm both content scripts respond.
+Known issues: None.
+Next steps: Manual end-to-end test. If passing, merge to main.
+
+---
+
 Session 24 — Complete
 Date: 2026-02-26
 Branch: feature-session24-status-badge
