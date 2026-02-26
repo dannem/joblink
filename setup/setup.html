@@ -122,6 +122,30 @@
         </div>
       </section>
 
+      <!-- AI API Keys -->
+      <section class="setup-section">
+        <h2>AI Provider Keys</h2>
+        <p class="section-description">
+          Add API keys to enable AI-powered job fit evaluation in the side panel.
+          Keys are stored locally in your browser and only sent to the provider you choose.
+        </p>
+
+        <div class="api-key-group">
+          <label class="field-label" for="anthropic-key">Anthropic (Claude) API Key</label>
+          <input type="password" id="anthropic-key" class="api-key-input" placeholder="sk-ant-...">
+        </div>
+
+        <div class="api-key-group">
+          <label class="field-label" for="openai-key">OpenAI (GPT-4o) API Key</label>
+          <input type="password" id="openai-key" class="api-key-input" placeholder="sk-...">
+        </div>
+
+        <div class="api-key-group">
+          <label class="field-label" for="gemini-key">Google (Gemini) API Key</label>
+          <input type="password" id="gemini-key" class="api-key-input" placeholder="AIza...">
+        </div>
+      </section>
+
       <!-- Save Button -->
       <section class="setup-section">
         <button id="save-setup-btn" class="btn btn-primary btn-large" disabled>

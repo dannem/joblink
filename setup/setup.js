@@ -50,6 +50,20 @@ function showSetupForm() {
   document.getElementById('folder-picker-close').addEventListener('click', hideFolderPicker);
   document.getElementById('folder-nav-up').addEventListener('click', handleNavigateUp);
   document.getElementById('select-current-btn').addEventListener('click', handleSelectCurrentFolder);
+
+  // Pre-fill any previously stored API keys (inputs are type=password so values are masked)
+  (async () => {
+    try {
+      const [anthropic, openai, gemini] = await Promise.all([
+        getStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY),
+        getStorageValue(STORAGE_KEYS.OPENAI_API_KEY),
+        getStorageValue(STORAGE_KEYS.GEMINI_API_KEY),
+      ]);
+      if (anthropic) document.getElementById('anthropic-key').value = anthropic;
+      if (openai)    document.getElementById('openai-key').value    = openai;
+      if (gemini)    document.getElementById('gemini-key').value    = gemini;
+    } catch (_) { /* non-fatal */ }
+  })();
 }
 
 /**
@@ -417,6 +431,15 @@ async function handleSaveSetup() {
     // Save folder selection
     await setStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID, selectedFolderId);
     await setStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_NAME, selectedFolderName);
+
+    // Save any API keys the user entered (only write non-empty values so an
+    // existing key is not accidentally overwritten with an empty string)
+    const anthropicKey = document.getElementById('anthropic-key').value.trim();
+    const openaiKey    = document.getElementById('openai-key').value.trim();
+    const geminiKey    = document.getElementById('gemini-key').value.trim();
+    if (anthropicKey) await setStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY, anthropicKey);
+    if (openaiKey)    await setStorageValue(STORAGE_KEYS.OPENAI_API_KEY,    openaiKey);
+    if (geminiKey)    await setStorageValue(STORAGE_KEYS.GEMINI_API_KEY,    geminiKey);
 
     // Mark setup as complete
     await setStorageValue(STORAGE_KEYS.SETUP_COMPLETE, true);

@@ -1,0 +1,208 @@
+/**
+ * AI provider helpers for JobLink extension.
+ *
+ * Provides direct REST calls to Claude, OpenAI, and Gemini — no SDKs,
+ * just fetch().  All functions are globals (no import/export) so this file
+ * can be loaded as a plain <script> tag.
+ *
+ * Load order requirement: helpers.js must be loaded before this file
+ * (uses STORAGE_KEYS and getStorageValue from helpers.js).
+ */
+
+// ── Model constants ────────────────────────────────────────────────────────
+
+const AI_MODELS = {
+  claude: 'claude-sonnet-4-6',   // Sonnet for cost efficiency
+  openai: 'gpt-4o',
+  gemini: 'gemini-1.5-flash',    // Flash for speed and cost
+};
+
+// ── Prompt builder ─────────────────────────────────────────────────────────
+
+/**
+ * Build a fit-evaluation prompt for the given job.
+ *
+ * @param {Object} job - { jobTitle, company, description }
+ * @returns {string} Prompt ready to send to an AI provider
+ */
+function buildEvaluatePrompt(job) {
+  return `You are an expert career coach evaluating job fit for a researcher/scientist candidate.
+
+Assess how well a candidate with a research/science background matches the job posting below.
+
+Return ONLY a raw JSON object — no markdown, no code fences, no explanation outside the JSON.
+Use exactly this shape:
+{
+  "score": <integer 0-100>,
+  "correspondence": "<paragraph on how the job aligns with a researcher/scientist background>",
+  "discrepancies": "<paragraph on gaps or mismatches between the role and a research profile>",
+  "recommendation": "<one clear sentence: whether to apply and how to position the application>"
+}
+
+--- JOB ---
+Title: ${job.jobTitle || '(unknown)'}
+Company: ${job.company || '(unknown)'}
+
+${job.description || '(no description provided)'}`;
+}
+
+// ── Low-level API callers ──────────────────────────────────────────────────
+
+/**
+ * Call the Anthropic Messages API directly from the browser.
+ *
+ * @param {string} apiKey - Anthropic API key
+ * @param {string} prompt - Full prompt text
+ * @returns {Promise<string>} Model response text
+ * @throws {Error} On HTTP error or missing response content
+ */
+async function callAnthropicAPI(apiKey, prompt) {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: AI_MODELS.claude,
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Anthropic API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const text = data.content?.[0]?.text;
+  if (!text) throw new Error('No content returned from Claude.');
+  return text;
+}
+
+/**
+ * Call the OpenAI Chat Completions API.
+ *
+ * @param {string} apiKey - OpenAI API key
+ * @param {string} prompt - Full prompt text
+ * @returns {Promise<string>} Model response text
+ * @throws {Error} On HTTP error or missing response content
+ */
+async function callOpenAIAPI(apiKey, prompt) {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: AI_MODELS.openai,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `OpenAI API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const text = data.choices?.[0]?.message?.content;
+  if (!text) throw new Error('No content returned from OpenAI.');
+  return text;
+}
+
+/**
+ * Call the Google Gemini generateContent API.
+ *
+ * @param {string} apiKey - Google AI API key
+ * @param {string} prompt - Full prompt text
+ * @returns {Promise<string>} Model response text
+ * @throws {Error} On HTTP error or missing response content
+ */
+async function callGeminiAPI(apiKey, prompt) {
+  const url =
+    `https://generativelanguage.googleapis.com/v1beta/models/` +
+    `${AI_MODELS.gemini}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Gemini API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('No content returned from Gemini.');
+  return text;
+}
+
+// ── Response parser ────────────────────────────────────────────────────────
+
+/**
+ * Strip markdown code fences and parse JSON from a model response.
+ * Falls back to finding the first {...} block if direct parse fails.
+ *
+ * @param {string} text - Raw model response text
+ * @returns {Object|null} Parsed object, or null on failure
+ */
+function parseAIResponse(text) {
+  // Strip ```json ... ``` or ``` ... ``` fences
+  let cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (_) {
+    // Fallback: find the first {...} block in the raw text
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch (_) { /* fall through */ }
+    }
+    return null;
+  }
+}
+
+// ── Provider dispatcher ────────────────────────────────────────────────────
+
+/**
+ * Read the appropriate API key from storage, then call the selected provider.
+ *
+ * @param {'claude'|'openai'|'gemini'} provider
+ * @param {string} prompt
+ * @returns {Promise<string>} Raw model response text
+ * @throws {Error} If the API key is not set or the API call fails
+ */
+async function callAI(provider, prompt) {
+  const keyMap = {
+    claude: STORAGE_KEYS.ANTHROPIC_API_KEY,
+    openai: STORAGE_KEYS.OPENAI_API_KEY,
+    gemini: STORAGE_KEYS.GEMINI_API_KEY,
+  };
+
+  const storageKey = keyMap[provider];
+  if (!storageKey) throw new Error(`Unknown AI provider: "${provider}"`);
+
+  const apiKey = await getStorageValue(storageKey);
+  if (!apiKey) {
+    const names = { claude: 'Anthropic', openai: 'OpenAI', gemini: 'Google Gemini' };
+    throw new Error(`No ${names[provider]} API key set. Open Settings to add your key.`);
+  }
+
+  switch (provider) {
+    case 'claude': return callAnthropicAPI(apiKey, prompt);
+    case 'openai': return callOpenAIAPI(apiKey, prompt);
+    case 'gemini': return callGeminiAPI(apiKey, prompt);
+  }
+}

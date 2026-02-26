@@ -143,6 +143,71 @@ Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o a
 
 ---
 
+Session 18 — Complete
+Date: 2026-02-25
+Branch: feature-evaluate-fit
+What was built:
+End-to-end wiring of the Evaluate Fit button in the side panel.
+
+- utils/helpers.js: added ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY to both
+  STORAGE_KEYS and DEFAULT_STORAGE (empty string defaults).
+
+- setup/setup.html: added "AI Provider Keys" section before the Complete Setup button,
+  with three labelled password inputs (anthropic-key, openai-key, gemini-key) and
+  placeholders (sk-ant-..., sk-..., AIza...).
+- setup/setup.css: added .api-key-group and .api-key-input styles to match the existing
+  form visual language (border, radius, focus ring).
+- setup/setup.js: handleSaveSetup() now reads and saves the three key inputs before
+  marking setup complete (only writes non-empty values to avoid overwriting stored keys
+  with blank strings). showSetupForm() fires an async IIFE that pre-fills the inputs with
+  any previously stored keys (masked, type=password).
+
+- utils/ai-helpers.js (new file): plain globals, no import/export.
+    AI_MODELS: claude-sonnet-4-6, gpt-4o, gemini-1.5-flash.
+    buildEvaluatePrompt(job): builds a structured prompt for a researcher/scientist
+      candidate. Returns raw JSON instructions and job details. Profile text not yet
+      integrated — prompt uses a general researcher/scientist persona (placeholder).
+    callAnthropicAPI(apiKey, prompt): POST to Anthropic Messages API with
+      anthropic-dangerous-direct-browser-access header for browser context.
+    callOpenAIAPI(apiKey, prompt): POST to OpenAI Chat Completions API.
+    callGeminiAPI(apiKey, prompt): POST to Gemini generateContent API (gemini-1.5-flash).
+    parseAIResponse(text): strips markdown fences, parses JSON, falls back to regex
+      {...} extraction; returns null on failure.
+    callAI(provider, prompt): reads the right key from chrome.storage.sync via
+      getStorageValue(), dispatches to the correct API caller, throws a descriptive
+      error if the key is missing.
+
+- sidepanel/sidepanel.js: added DOM references for all AI evaluation elements
+  (btnDashboard, aiProvider, btnEvaluate, aiSpinner, aiError, aiResults,
+  fitScoreNumber, aiCorrespondence, aiDiscrepancies, aiRecommendation). Added event
+  listeners for btnEvaluate, btnDashboard, and collapsible section toggles. Added
+  handleEvaluate() async function: shows spinner, calls buildEvaluatePrompt + callAI +
+  parseAIResponse, populates the score (colour-coded: ≥70 green, ≥40 amber, <40 red)
+  and the three collapsible text sections, handles errors in the ai-error banner.
+
+- sidepanel/sidepanel.html: added <script src="../utils/ai-helpers.js"></script>
+  between helpers.js and jspdf, ensuring STORAGE_KEYS and getStorageValue are available
+  when ai-helpers.js loads.
+
+Known issues:
+  - dashboard/dashboard.html does not exist on this branch; the Open Dashboard button
+    opens a blank page. Acceptable for now — dashboard SPA is on feature-fit-and-generate
+    and will be merged in a future consolidation session.
+  - buildEvaluatePrompt uses a generic researcher/scientist persona. Profile text
+    integration (reading the user's CV from Drive) is deferred to a future session.
+
+Test results: Manual testing required.
+  1. Open Settings, add at least one API key, save.
+  2. Capture a job from LinkedIn or Indeed.
+  3. Select a provider and click Evaluate Fit.
+  4. Confirm spinner shows, result populates with score and three collapsible sections.
+  5. Confirm collapsible toggles expand/collapse correctly.
+  6. Test missing-key error: clear the key, click Evaluate Fit, confirm error banner.
+Next steps: Manual end-to-end test. Future: integrate profile text into prompt; merge
+dashboard SPA from feature-fit-and-generate.
+
+---
+
 Session 17 — Complete
 Date: 2026-02-25
 Branch: feature-linkedin-collections-selectors

@@ -32,6 +32,18 @@ const msgSuccess     = document.getElementById('msg-success');
 const msgError       = document.getElementById('msg-error');
 const settingsBtn    = document.getElementById('settings-btn');
 
+// AI evaluation elements
+const btnDashboard      = document.getElementById('btn-dashboard');
+const aiProvider        = document.getElementById('ai-provider');
+const btnEvaluate       = document.getElementById('btn-evaluate');
+const aiSpinner         = document.getElementById('ai-spinner');
+const aiError           = document.getElementById('ai-error');
+const aiResults         = document.getElementById('ai-results');
+const fitScoreNumber    = document.getElementById('fit-score-number');
+const aiCorrespondence  = document.getElementById('ai-correspondence');
+const aiDiscrepancies   = document.getElementById('ai-discrepancies');
+const aiRecommendation  = document.getElementById('ai-recommendation');
+
 // ── Module state ──────────────────────────────────────────────
 
 /** The raw job object currently displayed (before user edits). */
@@ -64,11 +76,26 @@ chrome.runtime.onMessage.addListener((message) => {
 
 btnSave.addEventListener('click', handleSave);
 btnClear.addEventListener('click', handleClear);
+btnEvaluate.addEventListener('click', handleEvaluate);
+
+btnDashboard.addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('dashboard/dashboard.html') });
+});
 
 // chrome.runtime.openOptionsPage() requires options_page/options_ui in manifest.json,
 // which is not declared. Use chrome.tabs.create directly instead.
 settingsBtn.addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('setup/setup.html') });
+});
+
+document.querySelectorAll('.collapsible-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const body  = btn.nextElementSibling;
+    const arrow = btn.querySelector('.collapsible-arrow');
+    const isOpen = body.style.display !== 'none';
+    body.style.display  = isOpen ? 'none' : 'block';
+    arrow.textContent   = isOpen ? '▼' : '▲';
+  });
 });
 
 // ── UI functions ──────────────────────────────────────────────
@@ -170,6 +197,54 @@ function handleClear() {
   hideMessages();
   stateJob.style.display   = 'none';
   stateEmpty.style.display = 'flex';
+}
+
+/**
+ * Run an AI fit evaluation for the currently displayed job.
+ * Reads the API key from storage, calls the selected provider via ai-helpers.js,
+ * and renders the score and collapsible result sections.
+ */
+async function handleEvaluate() {
+  if (!currentJob) return;
+
+  aiSpinner.style.display = 'block';
+  aiError.style.display   = 'none';
+  aiResults.style.display = 'none';
+  btnEvaluate.disabled    = true;
+
+  try {
+    const provider = aiProvider.value;
+    const prompt   = buildEvaluatePrompt({
+      jobTitle:    fieldTitle.value.trim(),
+      company:     fieldCompany.value.trim(),
+      description: fieldDesc.value.trim(),
+    });
+
+    const rawText = await callAI(provider, prompt);
+    const result  = parseAIResponse(rawText);
+
+    if (!result || typeof result.score !== 'number') {
+      throw new Error('AI returned an unexpected response format.');
+    }
+
+    fitScoreNumber.textContent = result.score;
+    fitScoreNumber.className   = 'fit-score-number ' + (
+      result.score >= 70 ? 'score-green' :
+      result.score >= 40 ? 'score-amber' : 'score-red'
+    );
+
+    aiCorrespondence.textContent = result.correspondence  || '';
+    aiDiscrepancies.textContent  = result.discrepancies   || '';
+    aiRecommendation.textContent = result.recommendation  || '';
+
+    aiResults.style.display = 'block';
+  } catch (err) {
+    aiError.textContent   = err.message || 'Evaluation failed.';
+    aiError.style.display = 'block';
+  } finally {
+    aiSpinner.style.display = 'none';
+    btnEvaluate.disabled    = false;
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────
