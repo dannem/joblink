@@ -43,6 +43,7 @@ const fitScoreNumber    = document.getElementById('fit-score-number');
 const aiCorrespondence  = document.getElementById('ai-correspondence');
 const aiDiscrepancies   = document.getElementById('ai-discrepancies');
 const aiRecommendation  = document.getElementById('ai-recommendation');
+const msgDuplicate      = document.getElementById('msg-duplicate');
 
 // ── Module state ──────────────────────────────────────────────
 
@@ -134,8 +135,54 @@ function showJob(job) {
   fieldUrl.textContent = url || '—';
 
   hideMessages();
+  msgDuplicate.style.display = 'none';
   stateEmpty.style.display = 'none';
   stateJob.style.display   = 'flex';
+
+  // Fire the duplicate check in the background — non-blocking
+  checkDuplicate(job);
+}
+
+/**
+ * Check whether a folder matching this job already exists in any of the three
+ * status subfolders and update the duplicate warning banner accordingly.
+ *
+ * Non-fatal — any failure is logged and silently ignored so the panel stays
+ * functional even when Drive is unreachable or no status folders are configured.
+ *
+ * Preparation matches: amber warning, Evaluate Fit remains enabled.
+ * Submitted / Rejected matches: red warning, Evaluate Fit is disabled.
+ *
+ * @param {Object} job - { company, jobTitle } from the current job
+ */
+async function checkDuplicate(job) {
+  msgDuplicate.style.display = 'none';
+  btnEvaluate.disabled = false;
+
+  try {
+    const token = await new Promise((resolve, reject) => {
+      chrome.identity.getAuthToken({ interactive: false }, (t) => {
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+        else resolve(t);
+      });
+    });
+
+    if (!token) return; // Not signed in — skip check
+
+    const match = await checkExistingApplication(token, job);
+    if (!match) return;
+
+    const serious = match.status === 'submitted' || match.status === 'rejected';
+    const statusLabel = match.status.charAt(0).toUpperCase() + match.status.slice(1);
+
+    msgDuplicate.textContent = `Already in ${statusLabel}: "${match.folder.name}"`;
+    msgDuplicate.className   = 'msg ' + (serious ? 'msg--duplicate-serious' : 'msg--duplicate');
+    msgDuplicate.style.display = 'block';
+
+    if (serious) btnEvaluate.disabled = true;
+  } catch (err) {
+    console.warn('[JobLink] Duplicate check failed:', err.message);
+  }
 }
 
 /**
@@ -195,8 +242,10 @@ function handleClear() {
   currentJob = null;
   chrome.storage.session.remove(SESSION_KEYS.CURRENT_JOB).catch(() => {});
   hideMessages();
-  stateJob.style.display   = 'none';
-  stateEmpty.style.display = 'flex';
+  msgDuplicate.style.display = 'none';
+  btnEvaluate.disabled       = false;
+  stateJob.style.display     = 'none';
+  stateEmpty.style.display   = 'flex';
 }
 
 /**

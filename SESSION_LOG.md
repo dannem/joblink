@@ -143,6 +143,54 @@ Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o a
 
 ---
 
+Session 20 — Complete
+Date: 2026-02-25
+Branch: feature-duplicate-check
+What was built:
+Duplicate application check — when a job loads in the side panel, the extension now searches all
+three status subfolders (Preparation, Submitted, Rejected) in Google Drive for a folder matching
+the current job's sanitised name, and surfaces a warning banner if a match is found.
+
+Files changed:
+- drive/drive-api.js: Added checkExistingApplication(accessToken, job).
+  Reads PREPARATION_FOLDER_ID, SUBMITTED_FOLDER_ID, and REJECTED_FOLDER_ID from chrome.storage.sync
+  in parallel. For each non-empty folder ID, searches Drive for a child folder whose name matches
+  sanitiseFolderName(job.company, job.jobTitle). Searches all three concurrently, then returns the
+  highest-severity match (Submitted > Rejected > Preparation) as { status, folder }, or null if
+  no match is found.
+- sidepanel/sidepanel.html: Added #msg-duplicate banner between .job-meta and .fields.
+  Hidden by default via inline style="display: none;".
+- sidepanel/sidepanel.css: Added .msg--duplicate (amber, for Preparation matches) and
+  .msg--duplicate-serious (red, same palette as .msg--error, for Submitted/Rejected matches).
+- sidepanel/sidepanel.js:
+  - Added msgDuplicate DOM reference.
+  - Added checkDuplicate(job) async function: gets an OAuth token non-interactively, calls
+    checkExistingApplication, then updates the banner and conditionally disables the Evaluate Fit
+    button. Errors are non-fatal and logged to console only.
+  - showJob(): resets the duplicate banner and calls checkDuplicate(job) in the background.
+  - handleClear(): hides the duplicate banner and re-enables Evaluate Fit on clear.
+
+Behaviour:
+  - Preparation match → amber banner "Already in Preparation: "[folder name]""; Evaluate Fit enabled.
+  - Submitted/Rejected match → red banner "Already in Submitted/Rejected: "[folder name]""; Evaluate
+    Fit disabled.
+  - No match or Drive not reachable → no banner shown; no disruption to normal flow.
+
+Test results: Manual testing required.
+  1. Reload the extension in chrome://extensions.
+  2. Save a job to Drive (it will land in Preparation by default).
+  3. Navigate back to the same job posting and open the side panel.
+  4. Confirm an amber banner appears: "Already in Preparation: "[Company] - [Job Title]"".
+  5. Confirm the Evaluate Fit button is still enabled.
+  6. Manually move the Drive folder to Submitted, then reload the side panel on the same job.
+  7. Confirm a red banner appears and the Evaluate Fit button is disabled.
+  8. Confirm the Clear button hides the banner and re-enables Evaluate Fit.
+  9. Open a new job that has not been saved — confirm no banner appears.
+Known issues: None.
+Next steps: Manual end-to-end test. If passing, merge to main.
+
+---
+
 Session 19 — Complete
 Date: 2026-02-25
 Branch: feature-evaluate-fit-profile

@@ -311,3 +311,58 @@ async function readProfileFromDrive(accessToken, rootFolderId) {
   if (texts.length === 0) throw new Error('No readable profile files found in My_Profile');
   return texts.join('\n\n');
 }
+
+/**
+ * Search the three job-status subfolders (Preparation, Submitted, Rejected)
+ * for a folder whose name matches the given job.
+ *
+ * Returns the first match found, prioritising Submitted and Rejected over
+ * Preparation so that the most significant duplicate status is surfaced.
+ *
+ * @param {string} accessToken - OAuth access token
+ * @param {Object} job         - { company, jobTitle } from the scraped job
+ * @returns {Promise<{status: string, folder: {id: string, name: string}}|null>}
+ *   Match object, or null when no duplicate is found
+ */
+async function checkExistingApplication(accessToken, job) {
+  const folderName = sanitiseFolderName(job.company, job.jobTitle);
+
+  // Read all three status folder IDs from storage in parallel
+  const [prepId, subId, rejId] = await Promise.all([
+    getStorageValue(STORAGE_KEYS.PREPARATION_FOLDER_ID),
+    getStorageValue(STORAGE_KEYS.SUBMITTED_FOLDER_ID),
+    getStorageValue(STORAGE_KEYS.REJECTED_FOLDER_ID),
+  ]);
+
+  /**
+   * Search a single parent folder for a child folder matching folderName.
+   * Returns the matching folder object, or null if not found or parentId is empty.
+   */
+  async function searchInFolder(parentId) {
+    if (!parentId) return null;
+    const safeName = folderName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const query = encodeURIComponent(
+      `'${parentId}' in parents and name = '${safeName}' ` +
+      `and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+    );
+    const res = await fetch(
+      `${DRIVE_API_BASE}/files?q=${query}&fields=files(id,name)&pageSize=1`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.files?.[0] || null;
+  }
+
+  // Search all three folders concurrently
+  const [subMatch, rejMatch, prepMatch] = await Promise.all([
+    searchInFolder(subId),
+    searchInFolder(rejId),
+    searchInFolder(prepId),
+  ]);
+
+  if (subMatch)  return { status: 'submitted',   folder: subMatch };
+  if (rejMatch)  return { status: 'rejected',    folder: rejMatch };
+  if (prepMatch) return { status: 'preparation', folder: prepMatch };
+  return null;
+}
