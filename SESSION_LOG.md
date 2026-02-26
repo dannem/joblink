@@ -143,6 +143,47 @@ Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o a
 
 ---
 
+Session 16 — Complete
+Date: 2026-02-25
+Branch: feature-sidepanel-script-fix
+What was built:
+Fixed a script loading crash that caused the side panel to show the empty state on every open,
+even when already on a job page.
+
+Root cause analysis:
+Session 15 added <script src="../drive/drive-api.js"></script> and
+<script src="../utils/ai-helpers.js"></script> to sidepanel.html. drive-api.js is designed
+for and loaded by the service worker — loading it as a plain <script> tag in an extension
+page is architecturally incorrect and was causing a runtime error that prevented sidepanel.js
+from executing at all, including the DOMContentLoaded handler responsible for the session
+storage restore and the REQUEST_SCRAPE flow.
+
+Fix:
+- sidepanel/sidepanel.html: removed <script src="../drive/drive-api.js"></script> entirely.
+  Drive API functions required by the side panel (readProfileText, uploadFileToDrive) must be
+  accessed via chrome.runtime.sendMessage to the service worker, not by loading drive-api.js
+  directly.
+- sidepanel/sidepanel.html: removed <script src="../utils/ai-helpers.js"></script>. Confirmed
+  that the current sidepanel.js makes no direct calls to any ai-helpers.js functions (callAI,
+  buildEvaluatePrompt, extractJson, readProfileText). The tag will be re-added in the session
+  that wires up handleEvaluate, with correct load order: helpers.js → ai-helpers.js →
+  jspdf.umd.min.js → sidepanel.js.
+
+The Evaluate Fit UI elements (button, provider select, results section) remain in the HTML from
+Session 15 but are non-functional until sidepanel.js is updated to wire them up. This is
+intentional — the priority here is restoring the panel's core functionality.
+
+Test results: Manual testing required.
+  1. Reload the extension in chrome://extensions.
+  2. Navigate to a LinkedIn or Indeed job page.
+  3. Open the side panel — confirm it populates with job data immediately.
+  4. Confirm no console errors on load.
+Known issues: Evaluate Fit button is visible but non-functional (no handler in sidepanel.js yet).
+Next steps: Wire up handleEvaluate in sidepanel.js with service-worker message passing for
+Drive reads/writes, and re-add ai-helpers.js script tag in correct load order.
+
+---
+
 Session 15 — Complete
 Date: 2026-02-25
 Branch: feature-restore-evaluate-ui
