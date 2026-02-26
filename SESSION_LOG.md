@@ -143,6 +143,54 @@ Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o a
 
 ---
 
+Session 28 — Complete
+Date: 2026-02-26
+Branch: feature-session28-html-formatting
+What was built:
+Changed CV and cover letter output from plain text to HTML so Google Drive
+auto-converts to properly formatted Google Docs with headings, bullet points,
+and bold text.
+
+Root cause of the previous formatting problem:
+createGoogleDoc was uploading content with Content-Type: text/plain, so Drive
+converted it as a flat plain-text document regardless of what Claude returned.
+Changing the upload content-type to text/html causes Drive to interpret and
+render the HTML, producing a formatted Doc.
+
+Changes:
+- utils/ai-helpers.js — buildTailorCVPrompt():
+    Replaced the plain-text return instruction with HTML output rules.
+    Claude is instructed to use <h1>/<h2>/<h3>/<p>/<ul>/<li>/<strong>/<em>/<br>
+    and explicitly forbidden from including <html>/<head>/<body>/<style>/CSS/markdown.
+- utils/ai-helpers.js — buildCoverLetterPrompt():
+    Same change: replaced plain-text return instruction with HTML output rules.
+    Claude uses <p> for paragraphs and <strong> for emphasis only.
+- drive/drive-api.js — added wrapHtmlDocument(title, htmlBody):
+    Wraps the bare HTML fragment Claude returns in a complete <!DOCTYPE html> document
+    with inline CSS (Arial 11pt, styled h1/h2/h3, margins). Required because Google Drive
+    renders styles from the uploaded HTML document; a bare fragment loses formatting.
+    Inserted immediately before createGoogleDoc.
+- drive/drive-api.js — createGoogleDoc():
+    Added mimeType parameter with default 'text/html'. Content-Type in the multipart
+    body now uses this parameter instead of the hard-coded 'text/plain'.
+    Existing callers that don't pass mimeType automatically use text/html.
+- drive/drive-api.js — savePreparedPackage():
+    Both createGoogleDoc calls now wrap content with wrapHtmlDocument() before
+    passing it to the upload function.
+
+Test results: Manual testing required.
+  1. Reload the extension in chrome://extensions.
+  2. Navigate to a job posting, save it to Drive (lands in Preparation).
+  3. Click 📦 Prepare Package.
+  4. Open Google Drive → Submitted → job folder.
+  5. Open the CV Google Doc — verify proper headings, bullet points, bold text.
+  6. Open the Cover Letter Google Doc — verify clean paragraph formatting.
+  7. Check both PDFs export cleanly from the Google Docs.
+Known issues: None.
+Next steps: Manual end-to-end test per checklist above. If passing, merge to main.
+
+---
+
 Session 27 — Complete
 Date: 2026-02-26
 Branch: feature-session27-drive-save

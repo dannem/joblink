@@ -505,16 +505,47 @@ async function deleteFolderAndContents(accessToken, folderId) {
 }
 
 /**
- * Create a new Google Doc with plain-text content inside a Drive folder.
+ * Wrap an HTML fragment in a minimal document for Google Drive upload.
+ * Drive requires a proper HTML document to render headings and styles correctly.
+ *
+ * @param {string} title    - Document title (used in <title> tag)
+ * @param {string} htmlBody - HTML fragment (no <html>/<body> tags)
+ * @returns {string} Complete HTML document string
+ */
+function wrapHtmlDocument(title, htmlBody) {
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>${title}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.4; margin: 40px; color: #222; }
+  h1 { font-size: 20pt; margin-bottom: 4px; }
+  h2 { font-size: 13pt; border-bottom: 1px solid #aaa; padding-bottom: 2px; margin-top: 18px; }
+  h3 { font-size: 11pt; margin-bottom: 2px; }
+  ul { margin: 4px 0 4px 20px; }
+  li { margin-bottom: 2px; }
+  p  { margin: 4px 0; }
+</style>
+</head>
+<body>
+${htmlBody}
+</body>
+</html>`;
+}
+
+/**
+ * Create a new Google Doc inside a Drive folder.
  * Uses the Drive multipart upload API — no Docs API required.
+ * Pass HTML content (default) and Drive will convert it to a formatted Doc.
  *
  * @param {string} accessToken
  * @param {string} parentFolderId
  * @param {string} title       - Document title
- * @param {string} plainText   - Document body content
+ * @param {string} content     - Document body (HTML by default)
  * @returns {Promise<string>}  ID of the created Google Doc
  */
-async function createGoogleDoc(accessToken, parentFolderId, title, plainText) {
+async function createGoogleDoc(accessToken, parentFolderId, title, content, mimeType = 'text/html') {
   const metadata = {
     name: title,
     mimeType: 'application/vnd.google-apps.document',
@@ -528,9 +559,9 @@ async function createGoogleDoc(accessToken, parentFolderId, title, plainText) {
     '',
     JSON.stringify(metadata),
     `--${boundary}`,
-    'Content-Type: text/plain; charset=UTF-8',
+    `Content-Type: ${mimeType}; charset=UTF-8`,
     '',
-    plainText,
+    content,
     `--${boundary}--`,
   ].join('\r\n');
 
@@ -663,14 +694,14 @@ async function savePreparedPackage(accessToken, job, tailoredCVText, coverLetter
 
   // ── 5. Save tailored CV as Google Doc ────────────────────────────────────
   const cvTitle = `CV - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;
-  const cvDocId = await createGoogleDoc(accessToken, submittedJobFolderId, cvTitle, tailoredCVText);
+  const cvDocId = await createGoogleDoc(accessToken, submittedJobFolderId, cvTitle, wrapHtmlDocument(cvTitle, tailoredCVText));
 
   // ── 6. Export CV as PDF and upload ───────────────────────────────────────
   await exportDocAsPDF(accessToken, cvDocId, submittedJobFolderId, cvTitle);
 
   // ── 7. Save cover letter as Google Doc ───────────────────────────────────
   const clTitle = `Cover Letter - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;
-  const clDocId = await createGoogleDoc(accessToken, submittedJobFolderId, clTitle, coverLetterText);
+  const clDocId = await createGoogleDoc(accessToken, submittedJobFolderId, clTitle, wrapHtmlDocument(clTitle, coverLetterText));
 
   // ── 8. Export cover letter as PDF and upload ─────────────────────────────
   await exportDocAsPDF(accessToken, clDocId, submittedJobFolderId, clTitle);

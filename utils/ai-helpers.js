@@ -269,8 +269,18 @@ Rules:
 - Reorder or emphasise sections/bullet points that are most relevant to this role
 - Adjust the professional summary/objective to speak directly to this role
 - Use keywords from the job description naturally where they fit the candidate's real experience
-- Keep the same overall structure and formatting markers as the original
-- Return the complete tailored CV as plain text, ready to be saved as a document
+- Preserve the structure and hierarchy of the original CV exactly
+- Return the complete tailored CV as clean HTML using these elements only:
+    <h1> for the candidate's name
+    <h2> for section headings (Experience, Education, Skills, etc.)
+    <h3> for job titles / role names within sections
+    <p> for paragraph text
+    <ul> and <li> for bullet point lists
+    <strong> for bold emphasis
+    <em> for italic text
+    <br> for line breaks within a block
+- Do NOT include <html>, <head>, <body>, <style>, or any CSS
+- Do NOT include markdown, code fences, or any text outside the HTML
 
 --- JOB ---
 Title: ${job.jobTitle || '(unknown)'}
@@ -300,7 +310,11 @@ Rules:
 - Closing: confident call to action
 - Tone: professional but personable, not generic
 - Do not use phrases like "I am writing to apply" or "Please find attached"
-- Return only the cover letter text, no subject line or metadata
+- Return the cover letter as clean HTML using these elements only:
+    <p> for each paragraph
+    <strong> for any bold emphasis
+- Do NOT include <html>, <head>, <body>, <style>, or any CSS
+- Do NOT include markdown, code fences, or any text outside the HTML
 
 --- JOB ---
 Title: ${job.jobTitle || '(unknown)'}
