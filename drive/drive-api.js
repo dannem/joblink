@@ -745,7 +745,7 @@ async function uploadBase64File(accessToken, parentFolderId, filename, base64Dat
  * @param {string} [jobFiles.pdfBase64]    - Job summary PDF as base64 string
  * @returns {Promise<{ submittedFolderId: string }>}
  */
-async function savePreparedPackage(accessToken, job, tailoredCVText, coverLetterText, selectedTemplateName, jobFiles = {}) {
+async function savePreparedPackage(accessToken, job, cvData, coverLetterText, selectedTemplateName, jobFiles = {}) {
   // ── 1. Resolve status folder IDs ─────────────────────────────────────────
   const prepFolderId = await getStorageValue(STORAGE_KEYS.PREPARATION_FOLDER_ID);
   const subFolderId  = await getStorageValue(STORAGE_KEYS.SUBMITTED_FOLDER_ID);
@@ -788,9 +788,22 @@ async function savePreparedPackage(accessToken, job, tailoredCVText, coverLetter
     }
   } catch (err) { console.warn('[JobLink] Could not save PDF:', err.message); }
 
-  // ── 5. Save tailored CV as Google Doc + PDF ───────────────────────────────
+  // ── 5. Save tailored CV as Google Doc (Docs API in-place tailoring) + PDF ─
   const cvTitle = `CV - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;
-  const cvDocId = await createGoogleDoc(accessToken, submittedJobFolderId, cvTitle, wrapHtmlDocument(cvTitle, tailoredCVText));
+  let cvDocId;
+  if (cvData.templateDocId) {
+    cvDocId = await tailorCVWithDocsAPI(
+      accessToken,
+      cvData.templateDocId,
+      submittedJobFolderId,
+      cvTitle,
+      cvData.newSummary,
+      cvData.newBullets
+    );
+  } else {
+    // Fallback: create from HTML if no template doc ID available
+    cvDocId = await createGoogleDoc(accessToken, submittedJobFolderId, cvTitle, wrapHtmlDocument(cvTitle, cvData.html || ''));
+  }
   await exportDocAsPDF(accessToken, cvDocId, submittedJobFolderId, cvTitle);
 
   // ── 6. Save cover letter as Google Doc + PDF ─────────────────────────────
@@ -799,4 +812,143 @@ async function savePreparedPackage(accessToken, job, tailoredCVText, coverLetter
   await exportDocAsPDF(accessToken, clDocId, submittedJobFolderId, clTitle);
 
   return { submittedFolderId: submittedJobFolderId };
+}
+
+/**
+ * Tailor a CV template in-place using the Docs API batchUpdate.
+ * Copies the template Doc, then replaces only the Professional Summary
+ * paragraph and the most recent role's bullet points.
+ *
+ * @param {string} accessToken
+ * @param {string} templateDocId   - Google Doc ID of the chosen CV template
+ * @param {string} parentFolderId  - Folder to save the copy in
+ * @param {string} title           - Title for the copied Doc
+ * @param {string} newSummary      - Replacement Professional Summary text (plain)
+ * @param {string[]} newBullets    - Array of replacement bullet strings for Director role (plain)
+ * @returns {Promise<string>} ID of the tailored copy
+ */
+async function tailorCVWithDocsAPI(accessToken, templateDocId, parentFolderId, title, newSummary, newBullets) {
+  // ── 1. Copy the template into the target folder ───────────────────────────
+  const copyRes = await fetch(
+    `${DRIVE_API_BASE}/files/${templateDocId}/copy?fields=id`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: title, parents: [parentFolderId] }),
+    }
+  );
+  if (!copyRes.ok) {
+    const err = await copyRes.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Failed to copy template: ${copyRes.status}`);
+  }
+  const { id: copiedDocId } = await copyRes.json();
+
+  // ── 2. Read the copied document to find exact paragraph text ─────────────
+  const docRes = await fetch(
+    `https://docs.googleapis.com/v1/documents/${copiedDocId}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!docRes.ok) {
+    const err = await docRes.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Failed to read copied doc: ${docRes.status}`);
+  }
+  const doc = await docRes.json();
+
+  // ── 3. Helper: extract plain text from a paragraph element ───────────────
+  function getParagraphText(paragraph) {
+    return (paragraph.elements || [])
+      .map(e => e.textRun?.content || '')
+      .join('')
+      .replace(/\n$/, '');
+  }
+
+  // ── 4. Build replaceAllText requests ─────────────────────────────────────
+  const requests = [];
+  const body = doc.body.content;
+
+  // Find Professional Summary: the first non-empty paragraph after "PROFESSIONAL SUMMARY"
+  let foundSummaryHeading = false;
+  let summaryText = null;
+  for (const block of body) {
+    if (!block.paragraph) continue;
+    const text = getParagraphText(block.paragraph);
+    if (text.includes('PROFESSIONAL SUMMARY')) {
+      foundSummaryHeading = true;
+      continue;
+    }
+    if (foundSummaryHeading && text.trim().length > 20) {
+      summaryText = text;
+      break;
+    }
+  }
+  if (summaryText) {
+    requests.push({
+      replaceAllText: {
+        containsText: { text: summaryText, matchCase: true },
+        replaceText: newSummary,
+      },
+    });
+  }
+
+  // Find Director role bullets: list items after "Director of Bioimaging" paragraph
+  let foundDirectorRole = false;
+  let bulletCount = 0;
+  const originalBullets = [];
+  for (const block of body) {
+    if (!block.paragraph) continue;
+    const text = getParagraphText(block.paragraph);
+    if (text.includes('Director of Bioimaging')) {
+      foundDirectorRole = true;
+      continue;
+    }
+    if (foundDirectorRole) {
+      if (block.paragraph.bullet && text.trim().length > 0) {
+        originalBullets.push(text);
+        bulletCount++;
+        if (bulletCount >= 4) break;
+      } else if (!block.paragraph.bullet && text.trim().length > 0) {
+        break; // hit next section heading
+      }
+    }
+  }
+
+  const bulletReplaceCount = Math.min(originalBullets.length, newBullets.length);
+  for (let i = 0; i < bulletReplaceCount; i++) {
+    if (originalBullets[i] && newBullets[i] && originalBullets[i] !== newBullets[i]) {
+      requests.push({
+        replaceAllText: {
+          containsText: { text: originalBullets[i], matchCase: true },
+          replaceText: newBullets[i],
+        },
+      });
+    }
+  }
+
+  // ── 5. Apply all replacements in one batchUpdate ─────────────────────────
+  if (requests.length === 0) {
+    console.warn('[JobLink] No replacements found — returning unmodified copy');
+    return copiedDocId;
+  }
+
+  const batchRes = await fetch(
+    `https://docs.googleapis.com/v1/documents/${copiedDocId}:batchUpdate`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ requests }),
+    }
+  );
+  if (!batchRes.ok) {
+    const err = await batchRes.json().catch(() => ({}));
+    throw new Error(err.error?.message || `batchUpdate failed: ${batchRes.status}`);
+  }
+
+  console.log(`[JobLink] CV tailored: ${requests.length} replacements applied to doc ${copiedDocId}`);
+  return copiedDocId;
 }

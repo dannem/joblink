@@ -460,27 +460,84 @@ async function handlePreparePackage() {
       console.log('[JobLink] Template selected:', selectedTemplate.name, '—', selectResult?.reason);
     }
 
-    // 6. Generate tailored CV
-    packageStatus.textContent = '⏳ Tailoring CV for this role...';
-    const cvPrompt   = buildTailorCVPrompt(jobToSave, profileText, selectedTemplate.text);
-    const tailoredCV = await callAI('claude', cvPrompt, selectedModel);
+    // 6. Read current summary and bullets from selected template via Docs API
+    packageStatus.textContent = '📄 Reading template structure...';
+    let currentSummary = '';
+    const currentBullets = [];
 
-    // 7. Generate cover letter
+    try {
+      const docRes = await fetch(
+        `https://docs.googleapis.com/v1/documents/${selectedTemplate.id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (docRes.ok) {
+        const doc = await docRes.json();
+        const body = doc.body.content;
+
+        function getParagraphText(paragraph) {
+          return (paragraph.elements || [])
+            .map(e => e.textRun?.content || '')
+            .join('')
+            .replace(/\n$/, '');
+        }
+
+        let foundSummaryHeading = false;
+        let foundDirectorRole = false;
+        let bulletCount = 0;
+
+        for (const block of body) {
+          if (!block.paragraph) continue;
+          const text = getParagraphText(block.paragraph);
+          if (text.includes('PROFESSIONAL SUMMARY')) { foundSummaryHeading = true; continue; }
+          if (foundSummaryHeading && !currentSummary && text.trim().length > 20) {
+            currentSummary = text;
+          }
+          if (text.includes('Director of Bioimaging')) { foundDirectorRole = true; continue; }
+          if (foundDirectorRole && block.paragraph.bullet && text.trim().length > 0 && bulletCount < 4) {
+            currentBullets.push(text);
+            bulletCount++;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[JobLink] Could not read template structure:', err.message);
+    }
+
+    // 7. Ask Claude for structured replacements (summary + bullets as JSON)
+    packageStatus.textContent = '✍️ Tailoring CV content...';
+    let newSummary = currentSummary;
+    let newBullets = [...currentBullets];
+
+    if (currentSummary) {
+      try {
+        const structuredPrompt = buildTailorCVStructuredPrompt(jobToSave, profileText, currentSummary, currentBullets);
+        const rawJson = await callAI('claude', structuredPrompt, selectedModel);
+        const parsed = parseAIResponse(rawJson);
+        if (parsed && parsed.summary) newSummary = parsed.summary;
+        if (parsed && Array.isArray(parsed.bullets) && parsed.bullets.length > 0) newBullets = parsed.bullets;
+      } catch (err) {
+        console.warn('[JobLink] Structured CV tailoring failed, using originals:', err.message);
+      }
+    }
+
+    // 8. Generate cover letter (uses plain text CV for context)
     packageStatus.textContent = '⏳ Writing cover letter...';
-    const clPrompt    = buildCoverLetterPrompt(jobToSave, profileText, tailoredCV);
+    const clPrompt    = buildCoverLetterPrompt(jobToSave, profileText, selectedTemplate.text);
     const coverLetter = await callAI('claude', clPrompt, selectedModel);
 
     packageStatus.textContent = '⏳ Saving package to Drive...';
 
-    // 7. Generate job files in sidepanel context (jsPDF is available here)
+    // 9. Generate job files in sidepanel context (jsPDF is available here)
     let pdfBase64 = '';
     try { pdfBase64 = generateJobPdfBase64(jobToSave); } catch (_) {}
     const htmlContent = generateJobSummaryHtml(jobToSave);
     const jsonContent = JSON.stringify(jobToSave, null, 2);
 
-    // 8. Save to Drive
+    // 10. Save to Drive
     await savePreparedPackage(
-      token, jobToSave, tailoredCV, coverLetter, selectedTemplate.name,
+      token, jobToSave,
+      { templateDocId: selectedTemplate.id, newSummary, newBullets },
+      coverLetter, selectedTemplate.name,
       { pdfBase64, htmlContent, jsonContent }
     );
 

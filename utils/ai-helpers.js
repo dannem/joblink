@@ -337,3 +337,47 @@ ${job.description || ''}
 --- CANDIDATE CV ---
 ${cvText}`;
 }
+
+/**
+ * Build a prompt that asks Claude to return structured CV replacements as JSON.
+ * Used for Docs API tailoring — returns only the sections that change, preserving
+ * all other formatting in the original Google Doc.
+ *
+ * @param {Object} job
+ * @param {string} profileText
+ * @param {string} currentSummary   - Current Professional Summary text from the template
+ * @param {string[]} currentBullets - Current Director role bullet texts from the template
+ * @returns {string} Prompt string
+ */
+function buildTailorCVStructuredPrompt(job, profileText, currentSummary, currentBullets) {
+  return `You are tailoring a CV for a specific job application. Return ONLY a JSON object — no explanation, no markdown, no code fences.
+
+JOB:
+Title: ${job.jobTitle || 'N/A'}
+Company: ${job.company || 'N/A'}
+Description: ${job.description || 'N/A'}
+
+CANDIDATE PROFILE:
+${profileText}
+
+CURRENT PROFESSIONAL SUMMARY:
+${currentSummary}
+
+CURRENT DIRECTOR ROLE BULLETS:
+${currentBullets.map((b, i) => `${i + 1}. ${b}`).join('\n')}
+
+TASK:
+1. Rewrite the Professional Summary (2-3 sentences, plain text, no bullet points) to better match the job requirements while staying truthful to the candidate's background.
+2. Rewrite each Director role bullet (plain text, no bullet symbols, no markdown) to emphasise aspects most relevant to this job. Keep the same number of bullets. Each bullet should be concise (one line).
+
+Return this exact JSON structure:
+{
+  "summary": "rewritten summary text here",
+  "bullets": [
+    "rewritten bullet 1",
+    "rewritten bullet 2",
+    "rewritten bullet 3",
+    "rewritten bullet 4"
+  ]
+}`;
+}

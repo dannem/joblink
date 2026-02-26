@@ -5,6 +5,60 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 30 — Complete
+Date: 2026-02-26
+Branch: feature-session30-docs-api
+What was built:
+Docs API in-place CV tailoring. Instead of generating full HTML and uploading as a new
+Doc, the pipeline now: (1) copies the chosen template Google Doc; (2) reads its current
+Professional Summary and Director role bullet text via the Docs API; (3) asks Claude for
+structured JSON replacements only; (4) applies them with batchUpdate replaceAllText.
+All fonts, formatting, tables, and layout from the original template are preserved.
+
+Files changed:
+- drive/drive-api.js:
+    Added tailorCVWithDocsAPI(accessToken, templateDocId, parentFolderId, title,
+      newSummary, newBullets): copies template, reads structure, builds replaceAllText
+      requests for the Professional Summary and up to 4 Director role bullets, applies
+      all replacements in a single batchUpdate call.
+    Updated savePreparedPackage() signature: third param renamed tailoredCVText → cvData
+      (object with templateDocId, newSummary, newBullets or html fallback).
+    Step 5 updated: uses tailorCVWithDocsAPI when cvData.templateDocId present;
+      falls back to createGoogleDoc with HTML if not.
+- utils/ai-helpers.js:
+    Added buildTailorCVStructuredPrompt(job, profileText, currentSummary, currentBullets):
+      returns a prompt asking Claude for { summary, bullets[] } JSON — no HTML, no
+      formatting instructions, just the text that needs to change.
+- sidepanel/sidepanel.js (handlePreparePackage):
+    Step 6 (new): reads template Doc structure via Docs API to extract currentSummary
+      and currentBullets before calling Claude.
+    Step 7 (new): calls buildTailorCVStructuredPrompt → parseAIResponse; falls back to
+      original text if the call fails or returns unexpected structure.
+    Step 8: cover letter prompt now uses selectedTemplate.text for context (plain text
+      export) rather than the HTML tailored CV.
+    Step 10: savePreparedPackage call updated to pass cvData object.
+
+Architecture note: getParagraphText is defined locally inside tailorCVWithDocsAPI in
+drive-api.js and also inside the Docs API reading block in handlePreparePackage. The
+duplication is intentional — both contexts are self-contained and the function is trivial.
+
+Testing checklist:
+  1. Reload extension. Re-authenticate (documents scope already added in Session 29).
+  2. Set CV Templates folder in Settings to a folder containing at least one Google Doc
+     CV template that has "PROFESSIONAL SUMMARY" and "Director of Bioimaging" sections.
+  3. Navigate to a job posting. Click 📦 Prepare Package.
+  4. Watch status: Reading template structure → Tailoring CV content → Writing cover
+     letter → Saving...
+  5. In Google Drive → Submitted → job folder, open the CV Google Doc.
+     Verify: Professional Summary is rewritten for the role; Director bullets are updated;
+     all other sections, fonts, formatting, tables unchanged.
+  6. Verify the CV PDF is also present.
+Known issues: Heading markers ("PROFESSIONAL SUMMARY", "Director of Bioimaging") are
+  hardcoded — will not work if templates use different text. Generalisation deferred.
+Next steps: Merge to main. Test with real CV template.
+
+---
+
 Session 29d — Complete
 Date: 2026-02-26
 Branch: feature-session29d-haiku-option
