@@ -63,6 +63,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (err) {
     console.warn('[JobLink] Could not restore job from session storage:', err);
   }
+
+  // Ask the active tab's content script to scrape immediately.
+  // Handles the case where the panel opens after the page already loaded.
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_SCRAPE' })
+        .catch(() => { /* No content script on this page — not an error */ });
+    }
+  } catch (err) {
+    console.warn('[JobLink] Could not send REQUEST_SCRAPE:', err.message);
+  }
 });
 
 // ── Incoming messages ─────────────────────────────────────────
@@ -169,7 +181,9 @@ async function checkDuplicate(job) {
 
     if (!token) return; // Not signed in — skip check
 
+    console.log('[JobLink] Checking duplicate for:', job.company, '/', job.jobTitle);
     const match = await checkExistingApplication(token, job);
+    console.log('[JobLink] Duplicate check result:', match);
     if (!match) return;
 
     const serious = match.status === 'submitted' || match.status === 'rejected';

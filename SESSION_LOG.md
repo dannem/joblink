@@ -143,6 +143,46 @@ Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o a
 
 ---
 
+Session 23 — Complete
+Date: 2026-02-26
+Branch: feature-session23-fixes
+What was built:
+Two fixes: on-demand scraping when the side panel opens, and debug logging for the duplicate
+application check.
+
+Fix 1 — On-demand scrape on panel open:
+  The side panel was showing empty when opened on a page that had already loaded, because the
+  initial auto-scrape ran before the panel existed and session storage was empty.
+
+  - sidepanel/sidepanel.js: In DOMContentLoaded, after the session storage restore block, added
+    a chrome.tabs.query call to find the active tab and send it a REQUEST_SCRAPE message. If no
+    content script is present on the tab (e.g. a non-job page), the sendMessage promise rejects
+    silently via .catch(). Errors from the tabs.query call are caught and logged.
+  - content-scripts/linkedin.js: Added chrome.runtime.onMessage listener at the bottom of the
+    file. Calls runScrape() when a REQUEST_SCRAPE message is received.
+  - content-scripts/indeed.js: Same listener added, also calling runScrape().
+
+Fix 2 — Duplicate check debug logging:
+  Added console.log statements to help diagnose cases where the duplicate check silently finds
+  nothing even though a matching folder should exist.
+
+  - sidepanel/sidepanel.js, checkDuplicate(): Logs job.company / job.jobTitle before calling
+    checkExistingApplication, and logs the raw match result immediately after.
+  - drive/drive-api.js, checkExistingApplication(): Logs the sanitised folder name and all three
+    status folder IDs (prepId, subId, rejId) after reading them from storage. This makes it
+    immediately visible in the console whether the IDs are populated or empty strings.
+
+Test results: Manual testing required.
+  1. Reload the extension in chrome://extensions.
+  2. Navigate to a LinkedIn or Indeed job page (let it fully load first).
+  3. Open the side panel — confirm job data appears immediately without needing to reload the page.
+  4. Open DevTools on the side panel and check the console for the duplicate check log lines.
+  5. Confirm the folder name and IDs are logged correctly when Evaluate Fit runs.
+Known issues: None.
+Next steps: Manual end-to-end test. If passing, merge to main.
+
+---
+
 Session 22 — Complete
 Date: 2026-02-26
 Branch: main (merge session)

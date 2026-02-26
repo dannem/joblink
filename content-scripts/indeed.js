@@ -219,3 +219,9 @@ setTimeout(() => {
   runScrape();
   startNavigationWatcher();
 }, EXTRACTION_DELAY_MS);
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === 'REQUEST_SCRAPE') {
+    runScrape();
+  }
+});

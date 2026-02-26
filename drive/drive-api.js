@@ -334,6 +334,8 @@ async function checkExistingApplication(accessToken, job) {
     getStorageValue(STORAGE_KEYS.REJECTED_FOLDER_ID),
   ]);
 
+  console.log('[JobLink] Searching for duplicate folder:', folderName, 'in prepId:', prepId, 'subId:', subId, 'rejId:', rejId);
+
   /**
    * Search a single parent folder for a child folder matching folderName.
    * Returns the matching folder object, or null if not found or parentId is empty.
