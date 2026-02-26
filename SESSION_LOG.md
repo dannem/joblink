@@ -143,6 +143,36 @@ Next steps: Session 11 — wire up AI tailoring (Claude API first, then GPT-4o a
 
 ---
 
+Session 22 — Complete
+Date: 2026-02-26
+Branch: main (merge session)
+What was built:
+Merged all outstanding feature branches from Sessions 16–21 into main. All merges were
+fast-forwards with no conflicts.
+
+Branches merged (in order):
+  feature-sidepanel-script-fix           → Session 16: remove bad script tags from sidepanel.html
+  feature-linkedin-collections-selectors → Session 17: add location selector for collections layout
+  feature-evaluate-fit                   → Session 18: wire up Evaluate Fit end-to-end
+  feature-evaluate-fit-profile           → Session 19: read candidate profile from Drive
+  feature-fix-profile-read               → Session 21: add drive.readonly scope to manifest
+  feature-duplicate-check                → Session 20: duplicate application check in side panel
+    (already included in feature-fix-profile-read — reported "Already up to date")
+
+State of main after merge: all Sessions 1–21 present and integrated.
+
+Test results: No automated tests. Manual end-to-end test recommended:
+  1. Reload extension from chrome://extensions.
+  2. Re-authenticate to pick up the new drive.readonly scope.
+  3. Navigate to a LinkedIn job page, open side panel — confirm job data populates.
+  4. Click Evaluate Fit — confirm fit score and collapsibles render.
+  5. Save to Drive — confirm job folder and files created correctly.
+  6. Re-open the same job — confirm duplicate warning banner appears.
+Known issues: None.
+Next steps: End-to-end manual smoke test across all features.
+
+---
+
 Session 21 — Complete
 Date: 2026-02-26
 Branch: feature-fix-profile-read
