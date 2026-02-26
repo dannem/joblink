@@ -5,6 +5,82 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 29 — Complete
+Date: 2026-02-26
+Branch: feature-session29-settings-folders
+What was built:
+Settings page gains two functional folder pickers (CV Templates, Cover Letter Templates).
+Profile and template reading unified using the new readDocsFromFolder() helper.
+All AI prompt builders updated to include candidate profile context.
+
+Files changed:
+- utils/helpers.js:
+    Added CV_TEMPLATES_FOLDER_ID: 'cvTemplatesFolderId' and
+    CL_TEMPLATES_FOLDER_ID: 'clTemplatesFolderId' to STORAGE_KEYS and DEFAULT_STORAGE.
+- setup/setup.html:
+    Replaced "Coming Soon" section with functional "Application Materials" section containing
+    two folder picker rows — CV Templates Folder and Cover Letter Templates Folder.
+- setup/setup.css:
+    Added .field-group, .field-input, .field-input[readonly], .folder-picker-row,
+    .folder-picker-row .field-input, .field-status classes.
+- setup/setup.js:
+    Added pendingPickContext state variable.
+    Added getFolderName(token, folderId) helper — resolves folder name from Drive ID.
+    Added pickFolder(inputId, statusId, storageKey) helper — opens shared folder picker
+      for a secondary field, sets pendingPickContext.
+    Refactored selectFolderAndClose() to branch on pendingPickContext: if set, saves folder
+      ID to the specified storage key and updates the specified input; if not set, uses
+      original main-folder behavior.
+    Updated hideFolderPicker() to also clear pendingPickContext.
+    Updated showSetupForm() async IIFE to pre-fill CV/CL folder names on load (silently
+      gets auth token; no-ops if user not yet authenticated).
+    Added click listeners for btn-pick-cv-templates and btn-pick-cl-templates.
+- drive/drive-api.js:
+    Deleted readCVTemplatesFromDrive() (replaced by the general readDocsFromFolder).
+    Added readDocsFromFolder(accessToken, folderId, maxFiles=10) — lists and exports all
+      Google Docs in a folder as plain text; unreadable files silently skipped.
+- utils/ai-helpers.js:
+    buildSelectTemplatePrompt() refactored from 5-arg (two hardcoded templates) to
+      (job, profileText, templates[]) — accepts any number of templates, returns
+      { "selected": <integer 1..N>, "reason": "..." }.
+    buildTailorCVPrompt() — added profileText as second parameter (before cvTemplateText).
+    buildCoverLetterPrompt() — added profileText as second parameter (before cvText).
+    All three prompt builders now include a CANDIDATE PROFILE section.
+- sidepanel/sidepanel.js:
+    handleEvaluate() — replaced readProfileFromDrive call with
+      findFolderByName + readDocsFromFolder pattern for consistency.
+    handlePreparePackage() — replaced readCVTemplatesFromDrive with:
+      (1) reads My_Profile docs via findFolderByName + readDocsFromFolder (non-fatal);
+      (2) reads CV templates from CV_TEMPLATES_FOLDER_ID storage key;
+      Updated buildSelectTemplatePrompt, buildTailorCVPrompt, buildCoverLetterPrompt
+      calls to pass profileText as second argument.
+- manifest.json:
+    Added https://www.googleapis.com/auth/documents to oauth2.scopes.
+
+Architecture decision: readDocsFromFolder() is a general-purpose Drive folder reader.
+Profile reading, CV template reading, and future CL template reading all use the same
+function — just with different folder IDs. This replaces the old approach of hard-coding
+folder-name filters inside readCVTemplatesFromDrive.
+
+Testing checklist:
+  1. Reload extension. Re-authenticate (new documents scope added).
+  2. Open Settings page. Connect Drive. Verify "Application Materials" section is visible.
+  3. Click "Choose" next to "CV Templates Folder". Select a folder. Verify:
+     - Input shows folder name
+     - Status briefly shows "Saved."
+     - Closing settings and reopening pre-fills the folder name.
+  4. Repeat for "Cover Letter Templates Folder".
+  5. Navigate to a job. Click "Evaluate Fit". Verify profile is loaded from My_Profile
+     (check console for any profile warnings).
+  6. Click "Prepare Package". Verify status cycles through:
+     Reading profile and CV templates → Selecting template → Tailoring CV →
+     Writing cover letter → Saving...
+  7. Verify final ✅ status and check Drive for correct files.
+Known issues: None identified.
+Next steps: End-to-end manual test. If passing, merge to main.
+
+---
+
 Session 1 — Complete
 Date: 2026-02-18
 Branch: feature-scaffolding

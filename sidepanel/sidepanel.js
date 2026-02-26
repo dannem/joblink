@@ -343,7 +343,11 @@ async function handleEvaluate() {
       });
       const rootFolderId = await getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID);
       if (token && rootFolderId) {
-        profileText = await readProfileFromDrive(token, rootFolderId);
+        const profileFolderId = await findFolderByName(token, rootFolderId, 'My_Profile');
+        if (profileFolderId) {
+          const profileDocs = await readDocsFromFolder(token, profileFolderId);
+          profileText = profileDocs.map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
+        }
       }
     } catch (profileErr) {
       console.warn('[JobLink] Could not load profile — evaluating without it:', profileErr.message);
@@ -386,18 +390,19 @@ async function handleEvaluate() {
  * Prepare a tailored CV and cover letter for the current job using Claude AI.
  *
  * Flow:
- *   1. Read CV templates from My_Profile in Drive
- *   2. Ask Claude to pick the best template (if more than one)
- *   3. Ask Claude to tailor the CV for this specific role
- *   4. Ask Claude to write a cover letter
- *   5. Hand off to savePreparedPackage() — wired in Session 27
+ *   1. Read candidate profile from My_Profile folder in Drive
+ *   2. Read CV templates from the configured CV Templates folder
+ *   3. Ask Claude to pick the best template (if more than one)
+ *   4. Ask Claude to tailor the CV for this specific role
+ *   5. Ask Claude to write a cover letter
+ *   6. Save the package to Drive via savePreparedPackage()
  */
 async function handlePreparePackage() {
   if (!currentJob) return;
 
   btnPreparePackage.disabled  = true;
   packageStatus.className     = 'package-status';
-  packageStatus.textContent   = '⏳ Reading your CV templates...';
+  packageStatus.textContent   = '⏳ Reading your profile and CV templates...';
   packageStatus.style.display = 'block';
 
   try {
@@ -412,9 +417,21 @@ async function handlePreparePackage() {
     const rootFolderId = await getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID);
     if (!rootFolderId) throw new Error('No Drive folder configured.');
 
-    // 2. Read CV templates from My_Profile
-    const cvTemplates = await readCVTemplatesFromDrive(token, rootFolderId);
-    if (cvTemplates.length < 1) throw new Error('No CV templates found in My_Profile.');
+    // 2. Read candidate profile from My_Profile (non-fatal)
+    let profileText = '';
+    try {
+      const profileFolderId = await findFolderByName(token, rootFolderId, 'My_Profile');
+      if (profileFolderId) {
+        const profileDocs = await readDocsFromFolder(token, profileFolderId);
+        profileText = profileDocs.map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
+      }
+    } catch (_) { /* non-fatal — proceed without profile */ }
+
+    // 3. Read CV templates from the configured folder
+    const cvFolderId = await getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID);
+    if (!cvFolderId) throw new Error('No CV Templates folder configured. Open Settings to add it.');
+    const cvTemplates = await readDocsFromFolder(token, cvFolderId);
+    if (cvTemplates.length < 1) throw new Error('No CV template documents found in the CV Templates folder.');
 
     const job = {
       jobTitle:    fieldTitle.value.trim(),
@@ -422,34 +439,31 @@ async function handlePreparePackage() {
       description: fieldDesc.value.trim(),
     };
 
-    // 3. Select best template (if only one, use it directly)
+    // 4. Select best template (if only one, use it directly)
     let selectedTemplate = cvTemplates[0];
     if (cvTemplates.length >= 2) {
       packageStatus.textContent = '⏳ Selecting best CV template for this role...';
-      const selectPrompt = buildSelectTemplatePrompt(
-        job,
-        cvTemplates[0].text, cvTemplates[0].name,
-        cvTemplates[1].text, cvTemplates[1].name
-      );
+      const selectPrompt = buildSelectTemplatePrompt(job, profileText, cvTemplates);
       const selectRaw    = await callAI('claude', selectPrompt);
       const selectResult = parseAIResponse(selectRaw);
-      if (selectResult?.selected === '2') selectedTemplate = cvTemplates[1];
+      const idx = (selectResult?.selected ?? 1) - 1;
+      if (idx > 0 && idx < cvTemplates.length) selectedTemplate = cvTemplates[idx];
       console.log('[JobLink] Template selected:', selectedTemplate.name, '—', selectResult?.reason);
     }
 
-    // 4. Generate tailored CV
+    // 5. Generate tailored CV
     packageStatus.textContent = '⏳ Tailoring CV for this role...';
-    const cvPrompt   = buildTailorCVPrompt(job, selectedTemplate.text);
+    const cvPrompt   = buildTailorCVPrompt(job, profileText, selectedTemplate.text);
     const tailoredCV = await callAI('claude', cvPrompt);
 
-    // 5. Generate cover letter
+    // 6. Generate cover letter
     packageStatus.textContent = '⏳ Writing cover letter...';
-    const clPrompt    = buildCoverLetterPrompt(job, tailoredCV);
+    const clPrompt    = buildCoverLetterPrompt(job, profileText, tailoredCV);
     const coverLetter = await callAI('claude', clPrompt);
 
     packageStatus.textContent = '⏳ Saving package to Drive...';
 
-    // 6. Hand off to Drive (Session 27)
+    // 7. Save to Drive
     await savePreparedPackage(token, currentJob, tailoredCV, coverLetter, selectedTemplate.name);
 
     packageStatus.textContent = '✅ Package saved to Submitted!';

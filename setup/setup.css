@@ -421,6 +421,47 @@ body {
   border-top: 1px solid #e5e7eb;
 }
 
+/* Field Groups (Application Materials section) */
+.field-group {
+  margin-bottom: 16px;
+}
+
+.field-group:last-child {
+  margin-bottom: 0;
+}
+
+.field-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #1a1a1a;
+  background: white;
+}
+
+.field-input[readonly] {
+  background: #f9fafb;
+  color: #666;
+}
+
+.folder-picker-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.folder-picker-row .field-input {
+  flex: 1;
+}
+
+.field-status {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-top: 4px;
+  min-height: 1em;
+}
+
 /* Phase 2 Section */
 .phase2-section {
   padding-top: 24px;

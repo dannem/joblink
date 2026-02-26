@@ -7,6 +7,8 @@
 let accessToken = null;
 let selectedFolderId = null;
 let selectedFolderName = null;
+// When set, the next selectFolderAndClose call targets this picker instead of the main folder
+let pendingPickContext = null; // { inputId, statusId, storageKey }
 
 // Folder navigation state
 // Each item: { id: string, name: string }
@@ -51,17 +53,47 @@ function showSetupForm() {
   document.getElementById('folder-nav-up').addEventListener('click', handleNavigateUp);
   document.getElementById('select-current-btn').addEventListener('click', handleSelectCurrentFolder);
 
-  // Pre-fill any previously stored API keys (inputs are type=password so values are masked)
+  // Wire up secondary folder picker buttons
+  document.getElementById('btn-pick-cv-templates').addEventListener('click', () => {
+    pickFolder('cv-templates-folder-name', 'cv-templates-status', STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID);
+  });
+  document.getElementById('btn-pick-cl-templates').addEventListener('click', () => {
+    pickFolder('cl-templates-folder-name', 'cl-templates-status', STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID);
+  });
+
+  // Pre-fill any previously stored API keys and folder names
   (async () => {
     try {
-      const [anthropic, openai, gemini] = await Promise.all([
+      const [anthropic, openai, gemini, cvFolderId, clFolderId] = await Promise.all([
         getStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY),
         getStorageValue(STORAGE_KEYS.OPENAI_API_KEY),
         getStorageValue(STORAGE_KEYS.GEMINI_API_KEY),
+        getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID),
+        getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID),
       ]);
       if (anthropic) document.getElementById('anthropic-key').value = anthropic;
       if (openai)    document.getElementById('openai-key').value    = openai;
       if (gemini)    document.getElementById('gemini-key').value    = gemini;
+
+      // Load saved folder names by resolving their IDs via Drive API
+      if (cvFolderId || clFolderId) {
+        try {
+          const token = await new Promise((resolve, reject) => {
+            chrome.identity.getAuthToken({ interactive: false }, (t) => {
+              if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+              else resolve(t);
+            });
+          });
+          if (cvFolderId) {
+            const name = await getFolderName(token, cvFolderId);
+            if (name) document.getElementById('cv-templates-folder-name').value = name;
+          }
+          if (clFolderId) {
+            const name = await getFolderName(token, clFolderId);
+            if (name) document.getElementById('cl-templates-folder-name').value = name;
+          }
+        } catch (_) { /* silently ignore if not authenticated */ }
+      }
     } catch (_) { /* non-fatal */ }
   })();
 }
@@ -328,6 +360,10 @@ function handleSelectCurrentFolder() {
 
 /**
  * Select a folder and close the picker.
+ * If pendingPickContext is set, saves the folder to the specified storage key
+ * and updates the specified input field.
+ * Otherwise, updates the main save-location folder selector.
+ *
  * @param {string} folderId - Selected folder ID
  * @param {string} folderName - Selected folder name
  */
@@ -352,21 +388,77 @@ function selectFolderAndClose(folderId, folderName) {
     }
   }
 
-  selectedFolderId = folderId;
-  selectedFolderName = fullPathName;
+  if (pendingPickContext) {
+    // Secondary folder picker (CV templates, CL templates)
+    const { inputId, statusId, storageKey } = pendingPickContext;
+    pendingPickContext = null;
 
-  // Update UI
-  const folderSelector = document.querySelector('.setup-section:nth-of-type(3) .folder-selector');
-  const selectedFolderEl = document.getElementById('selected-folder');
+    document.getElementById(inputId).value = fullPathName;
+    const statusEl = document.getElementById(statusId);
+    if (statusEl) statusEl.textContent = '';
 
-  folderSelector.classList.add('selected');
-  selectedFolderEl.textContent = fullPathName;
-  selectedFolderEl.classList.add('selected');
+    setStorageValue(storageKey, folderId)
+      .then(() => {
+        if (statusEl) statusEl.textContent = 'Saved.';
+      })
+      .catch(err => {
+        if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
+      });
+  } else {
+    // Main save-location folder picker
+    selectedFolderId = folderId;
+    selectedFolderName = fullPathName;
 
-  // Hide picker
+    const folderSelector = document.querySelector('.setup-section:nth-of-type(2) .folder-selector');
+    const selectedFolderEl = document.getElementById('selected-folder');
+    if (folderSelector) folderSelector.classList.add('selected');
+    selectedFolderEl.textContent = fullPathName;
+    selectedFolderEl.classList.add('selected');
+
+    updateCompleteButtonState();
+  }
+
   hideFolderPicker();
+}
 
-  updateCompleteButtonState();
+/**
+ * Look up a folder's name by its Drive ID.
+ * Returns null if the ID is invalid or the request fails.
+ *
+ * @param {string} token    - OAuth access token
+ * @param {string} folderId - Drive folder ID
+ * @returns {Promise<string|null>}
+ */
+async function getFolderName(token, folderId) {
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${folderId}?fields=name`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.name || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Open the shared folder picker for a secondary folder field.
+ * Sets pendingPickContext so selectFolderAndClose saves to the right place.
+ *
+ * @param {string} inputId   - ID of the <input> element to update on selection
+ * @param {string} statusId  - ID of the status <p> element for feedback
+ * @param {string} storageKey - STORAGE_KEYS key to save the selected folder ID
+ */
+function pickFolder(inputId, statusId, storageKey) {
+  if (!accessToken) {
+    const statusEl = document.getElementById(statusId);
+    if (statusEl) statusEl.textContent = 'Please connect Google Drive first.';
+    return;
+  }
+  pendingPickContext = { inputId, statusId, storageKey };
+  handleOpenFolderPicker();
 }
 
 /**
@@ -412,10 +504,11 @@ function updateNavButtons() {
 }
 
 /**
- * Hide the folder picker.
+ * Hide the folder picker and clear any pending pick context.
  */
 function hideFolderPicker() {
   document.getElementById('folder-picker').style.display = 'none';
+  pendingPickContext = null;
 }
 
 /**

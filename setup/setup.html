@@ -92,33 +92,30 @@
         </div>
       </section>
 
-      <!-- Phase 2 Coming Soon -->
-      <section class="setup-section phase2-section">
-        <h2>Coming Soon</h2>
+      <!-- Application Materials Folders -->
+      <section class="setup-section">
+        <h2>Application Materials</h2>
         <p class="section-description">
-          These features will be available in a future update.
+          Select the Drive folders containing your CV and cover letter templates.
+          These are used when preparing an application package.
         </p>
 
-        <div class="coming-soon-item">
-          <label class="field-label disabled">CV Folder</label>
-          <div class="folder-selector disabled">
-            <div class="folder-display">
-              <span class="folder-icon">&#128193;</span>
-              <span class="folder-name">Not available yet</span>
-            </div>
-            <button class="btn btn-secondary" disabled>Select</button>
+        <div class="field-group">
+          <label class="field-label" for="cv-templates-folder-name">CV Templates Folder</label>
+          <div class="folder-picker-row">
+            <input type="text" id="cv-templates-folder-name" class="field-input" readonly placeholder="No folder selected">
+            <button id="btn-pick-cv-templates" class="btn btn-secondary btn-small">Choose</button>
           </div>
+          <p id="cv-templates-status" class="field-status"></p>
         </div>
 
-        <div class="coming-soon-item">
-          <label class="field-label disabled">Templates Folder</label>
-          <div class="folder-selector disabled">
-            <div class="folder-display">
-              <span class="folder-icon">&#128193;</span>
-              <span class="folder-name">Not available yet</span>
-            </div>
-            <button class="btn btn-secondary" disabled>Select</button>
+        <div class="field-group">
+          <label class="field-label" for="cl-templates-folder-name">Cover Letter Templates Folder</label>
+          <div class="folder-picker-row">
+            <input type="text" id="cl-templates-folder-name" class="field-input" readonly placeholder="No folder selected">
+            <button id="btn-pick-cl-templates" class="btn btn-secondary btn-small">Choose</button>
           </div>
+          <p id="cl-templates-status" class="field-status"></p>
         </div>
       </section>
 

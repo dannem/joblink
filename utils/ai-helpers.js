@@ -219,47 +219,49 @@ async function callAI(provider, prompt) {
 // ── Package preparation prompt builders ────────────────────────────────────
 
 /**
- * Build a prompt asking Claude to select the better CV template for a job
- * and return which one to use.
+ * Build a prompt asking the AI to select the best CV template for a job
+ * from an array of templates.
  *
- * @param {Object} job            - { jobTitle, company, description }
- * @param {string} cvTemplate1Text - Full text of first CV template
- * @param {string} cvTemplate1Name - Filename of first CV template
- * @param {string} cvTemplate2Text - Full text of second CV template
- * @param {string} cvTemplate2Name - Filename of second CV template
+ * @param {Object} job         - { jobTitle, company, description }
+ * @param {string} profileText - Candidate profile text (may be empty)
+ * @param {Array<{name: string, text: string}>} templates - CV template objects
  * @returns {string} Prompt text
  */
-function buildSelectTemplatePrompt(job, cvTemplate1Text, cvTemplate1Name, cvTemplate2Text, cvTemplate2Name) {
-  return `You are an expert career coach. A candidate has two CV templates and needs to apply for a job.
+function buildSelectTemplatePrompt(job, profileText, templates) {
+  const templateBlocks = templates.map((t, i) =>
+    `--- TEMPLATE ${i + 1}: ${t.name} ---\n${t.text}`
+  ).join('\n\n');
 
-Read both CV templates and the job description, then decide which template is better suited for this specific role.
+  return `You are an expert career coach. A candidate has ${templates.length} CV template${templates.length !== 1 ? 's' : ''} and needs to apply for a job.
+
+Read all CV templates and the job description, then decide which template is best suited for this specific role.
 
 Return ONLY a raw JSON object — no markdown, no code fences:
 {
-  "selected": "1" or "2",
+  "selected": <integer 1 to ${templates.length}>,
   "reason": "<one sentence explaining why this template is better suited>"
 }
+
+--- CANDIDATE PROFILE ---
+${profileText || '(no profile provided)'}
 
 --- JOB ---
 Title: ${job.jobTitle || '(unknown)'}
 Company: ${job.company || '(unknown)'}
 ${job.description || ''}
 
---- CV TEMPLATE 1: ${cvTemplate1Name} ---
-${cvTemplate1Text}
-
---- CV TEMPLATE 2: ${cvTemplate2Name} ---
-${cvTemplate2Text}`;
+${templateBlocks}`;
 }
 
 /**
  * Build a prompt asking Claude to tailor a CV for a specific job.
  *
  * @param {Object} job           - { jobTitle, company, description }
+ * @param {string} profileText   - Candidate profile text (may be empty)
  * @param {string} cvTemplateText - Full text of the selected CV template
  * @returns {string} Prompt text
  */
-function buildTailorCVPrompt(job, cvTemplateText) {
+function buildTailorCVPrompt(job, profileText, cvTemplateText) {
   return `You are an expert career coach tailoring a CV for a specific job application.
 
 Using the candidate's CV template below, produce a tailored version optimised for the job posting.
@@ -282,6 +284,9 @@ Rules:
 - Do NOT include <html>, <head>, <body>, <style>, or any CSS
 - Do NOT include markdown, code fences, or any text outside the HTML
 
+--- CANDIDATE PROFILE ---
+${profileText || '(no profile provided)'}
+
 --- JOB ---
 Title: ${job.jobTitle || '(unknown)'}
 Company: ${job.company || '(unknown)'}
@@ -294,14 +299,15 @@ ${cvTemplateText}`;
 /**
  * Build a prompt asking Claude to write a cover letter for a job.
  *
- * @param {Object} job    - { jobTitle, company, description }
- * @param {string} cvText - The tailored CV text (used for context)
+ * @param {Object} job         - { jobTitle, company, description }
+ * @param {string} profileText - Candidate profile text (may be empty)
+ * @param {string} cvText      - The tailored CV text (used for context)
  * @returns {string} Prompt text
  */
-function buildCoverLetterPrompt(job, cvText) {
+function buildCoverLetterPrompt(job, profileText, cvText) {
   return `You are an expert career coach writing a cover letter for a job application.
 
-Write a professional, compelling cover letter based on the candidate's CV and the job posting below.
+Write a professional, compelling cover letter based on the candidate's profile, CV, and the job posting below.
 
 Rules:
 - 3-4 paragraphs, no longer than one page
@@ -315,6 +321,9 @@ Rules:
     <strong> for any bold emphasis
 - Do NOT include <html>, <head>, <body>, <style>, or any CSS
 - Do NOT include markdown, code fences, or any text outside the HTML
+
+--- CANDIDATE PROFILE ---
+${profileText || '(no profile provided)'}
 
 --- JOB ---
 Title: ${job.jobTitle || '(unknown)'}
