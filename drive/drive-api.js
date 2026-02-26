@@ -745,7 +745,7 @@ async function uploadBase64File(accessToken, parentFolderId, filename, base64Dat
  * @param {string} [jobFiles.pdfBase64]    - Job summary PDF as base64 string
  * @returns {Promise<{ submittedFolderId: string }>}
  */
-async function savePreparedPackage(accessToken, job, cvData, coverLetterText, selectedTemplateName, jobFiles = {}) {
+async function savePreparedPackage(accessToken, job, cvData, clData, selectedTemplateName, jobFiles = {}) {
   // ── 1. Resolve status folder IDs ─────────────────────────────────────────
   const prepFolderId = await getStorageValue(STORAGE_KEYS.PREPARATION_FOLDER_ID);
   const subFolderId  = await getStorageValue(STORAGE_KEYS.SUBMITTED_FOLDER_ID);
@@ -806,9 +806,23 @@ async function savePreparedPackage(accessToken, job, cvData, coverLetterText, se
   }
   await exportDocAsPDF(accessToken, cvDocId, submittedJobFolderId, cvTitle);
 
-  // ── 6. Save cover letter as Google Doc + PDF ─────────────────────────────
+  // ── 6. Save cover letter as Google Doc (Docs API in-place tailoring) + PDF ─
   const clTitle = `Cover Letter - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;
-  const clDocId = await createGoogleDoc(accessToken, submittedJobFolderId, clTitle, wrapHtmlDocument(clTitle, coverLetterText));
+  let clDocId;
+  if (clData.templateDocId && clData.replacements) {
+    clDocId = await tailorCLWithDocsAPI(
+      accessToken,
+      clData.templateDocId,
+      submittedJobFolderId,
+      clTitle,
+      clData.replacements
+    );
+  } else if (clData.html) {
+    clDocId = await createGoogleDoc(accessToken, submittedJobFolderId, clTitle, wrapHtmlDocument(clTitle, clData.html));
+  } else {
+    console.warn('[JobLink] No CL data — skipping cover letter');
+    return { submittedFolderId: submittedJobFolderId };
+  }
   await exportDocAsPDF(accessToken, clDocId, submittedJobFolderId, clTitle);
 
   return { submittedFolderId: submittedJobFolderId };
@@ -950,5 +964,164 @@ async function tailorCVWithDocsAPI(accessToken, templateDocId, parentFolderId, t
   }
 
   console.log(`[JobLink] CV tailored: ${requests.length} replacements applied to doc ${copiedDocId}`);
+  return copiedDocId;
+}
+
+/**
+ * Tailor a cover letter template in-place using the Docs API batchUpdate.
+ * Copies the template Doc, then replaces the company address block,
+ * opening paragraph, body paragraphs, and closing paragraph.
+ *
+ * @param {string} accessToken
+ * @param {string} templateDocId   - Google Doc ID of the CL template
+ * @param {string} parentFolderId  - Folder to save the copy in
+ * @param {string} title           - Title for the copied Doc
+ * @param {Object} replacements    - { companyBlock, openingParagraph, bodyParagraphs[], closingParagraph }
+ * @returns {Promise<string>} ID of the tailored copy
+ */
+async function tailorCLWithDocsAPI(accessToken, templateDocId, parentFolderId, title, replacements) {
+  // ── 1. Copy the template ──────────────────────────────────────────────────
+  const copyRes = await fetch(
+    `${DRIVE_API_BASE}/files/${templateDocId}/copy?fields=id`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: title, parents: [parentFolderId] }),
+    }
+  );
+  if (!copyRes.ok) {
+    const err = await copyRes.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Failed to copy CL template: ${copyRes.status}`);
+  }
+  const { id: copiedDocId } = await copyRes.json();
+
+  // ── 2. Read the document structure ───────────────────────────────────────
+  const docRes = await fetch(
+    `https://docs.googleapis.com/v1/documents/${copiedDocId}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!docRes.ok) {
+    const err = await docRes.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Failed to read copied CL doc: ${docRes.status}`);
+  }
+  const doc = await docRes.json();
+
+  function getParagraphText(paragraph) {
+    return (paragraph.elements || [])
+      .map(e => e.textRun?.content || '')
+      .join('')
+      .replace(/\n$/, '');
+  }
+
+  // ── 3. Extract current paragraph texts ───────────────────────────────────
+  const paragraphs = [];
+  for (const block of doc.body.content) {
+    if (!block.paragraph) continue;
+    paragraphs.push(getParagraphText(block.paragraph));
+  }
+
+  let hiringManagerIdx = -1;
+  let dearIdx          = -1;
+  let sincerelyIdx     = -1;
+
+  for (let i = 0; i < paragraphs.length; i++) {
+    if (paragraphs[i].trim() === 'Hiring Manager')          hiringManagerIdx = i;
+    if (paragraphs[i].startsWith('Dear Hiring Manager'))    dearIdx          = i;
+    if (paragraphs[i].trim() === 'Sincerely,')              sincerelyIdx     = i;
+  }
+
+  const requests = [];
+
+  // Company block: non-blank lines between "Hiring Manager" and "Dear Hiring Manager,"
+  if (hiringManagerIdx >= 0 && dearIdx >= 0 && replacements.companyBlock) {
+    const companyLines = [];
+    for (let i = hiringManagerIdx + 1; i < dearIdx; i++) {
+      if (paragraphs[i].trim().length > 0) companyLines.push(paragraphs[i]);
+    }
+    const newCompanyLines = replacements.companyBlock;
+    const replaceCount = Math.min(companyLines.length, newCompanyLines.length);
+    for (let i = 0; i < replaceCount; i++) {
+      if (companyLines[i] && newCompanyLines[i] && companyLines[i] !== newCompanyLines[i]) {
+        requests.push({
+          replaceAllText: {
+            containsText: { text: companyLines[i], matchCase: true },
+            replaceText: newCompanyLines[i],
+          },
+        });
+      }
+    }
+  }
+
+  // Body paragraphs: everything between "Dear..." and "Sincerely,"
+  if (dearIdx >= 0 && sincerelyIdx >= 0) {
+    const bodyParas = [];
+    for (let i = dearIdx + 1; i < sincerelyIdx; i++) {
+      if (paragraphs[i].trim().length > 30) bodyParas.push(paragraphs[i]);
+    }
+
+    // Opening paragraph (first body para)
+    if (bodyParas[0] && replacements.openingParagraph && bodyParas[0] !== replacements.openingParagraph) {
+      requests.push({
+        replaceAllText: {
+          containsText: { text: bodyParas[0], matchCase: true },
+          replaceText: replacements.openingParagraph,
+        },
+      });
+    }
+
+    // Middle body paragraphs
+    if (replacements.bodyParagraphs && Array.isArray(replacements.bodyParagraphs)) {
+      const bodyOnly = bodyParas.slice(1, -1);
+      const replaceCount = Math.min(bodyOnly.length, replacements.bodyParagraphs.length);
+      for (let i = 0; i < replaceCount; i++) {
+        if (bodyOnly[i] && replacements.bodyParagraphs[i] && bodyOnly[i] !== replacements.bodyParagraphs[i]) {
+          requests.push({
+            replaceAllText: {
+              containsText: { text: bodyOnly[i], matchCase: true },
+              replaceText: replacements.bodyParagraphs[i],
+            },
+          });
+        }
+      }
+    }
+
+    // Closing paragraph (last body para before Sincerely)
+    const lastPara = bodyParas[bodyParas.length - 1];
+    if (lastPara && replacements.closingParagraph && lastPara !== replacements.closingParagraph) {
+      requests.push({
+        replaceAllText: {
+          containsText: { text: lastPara, matchCase: true },
+          replaceText: replacements.closingParagraph,
+        },
+      });
+    }
+  }
+
+  // ── 4. Apply batchUpdate ──────────────────────────────────────────────────
+  if (requests.length === 0) {
+    console.warn('[JobLink] No CL replacements found — returning unmodified copy');
+    return copiedDocId;
+  }
+
+  const batchRes = await fetch(
+    `https://docs.googleapis.com/v1/documents/${copiedDocId}:batchUpdate`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ requests }),
+    }
+  );
+  if (!batchRes.ok) {
+    const err = await batchRes.json().catch(() => ({}));
+    throw new Error(err.error?.message || `CL batchUpdate failed: ${batchRes.status}`);
+  }
+
+  console.log(`[JobLink] CL tailored: ${requests.length} replacements applied to doc ${copiedDocId}`);
   return copiedDocId;
 }

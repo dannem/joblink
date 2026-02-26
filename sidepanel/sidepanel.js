@@ -520,24 +520,90 @@ async function handlePreparePackage() {
       }
     }
 
-    // 8. Generate cover letter (uses plain text CV for context)
-    packageStatus.textContent = '⏳ Writing cover letter...';
-    const clPrompt    = buildCoverLetterPrompt(jobToSave, profileText, selectedTemplate.text);
-    const coverLetter = await callAI('claude', clPrompt, selectedModel);
+    // 8. Read CL template structure via Docs API
+    packageStatus.textContent = '📄 Reading cover letter template...';
+    let clTemplateDocId = null;
+    let currentCLOpening = '';
+    let currentCLBodyParas = [];
+    let currentCLClosing = '';
+
+    const clFolderId = await getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID);
+    if (clFolderId) {
+      try {
+        const clDocs = await readDocsFromFolder(token, clFolderId, 3);
+        if (clDocs.length > 0) {
+          clTemplateDocId = clDocs[0].id;
+
+          const clDocRes = await fetch(
+            `https://docs.googleapis.com/v1/documents/${clTemplateDocId}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (clDocRes.ok) {
+            const clDoc = await clDocRes.json();
+            const clParas = [];
+            for (const block of clDoc.body.content) {
+              if (!block.paragraph) continue;
+              const text = (block.paragraph.elements || [])
+                .map(e => e.textRun?.content || '')
+                .join('')
+                .replace(/\n$/, '');
+              clParas.push(text);
+            }
+
+            let dearIdx = -1, sincerelyIdx = -1;
+            for (let i = 0; i < clParas.length; i++) {
+              if (clParas[i].startsWith('Dear Hiring Manager')) dearIdx = i;
+              if (clParas[i].trim() === 'Sincerely,') sincerelyIdx = i;
+            }
+
+            if (dearIdx >= 0 && sincerelyIdx >= 0) {
+              const bodyParas = [];
+              for (let i = dearIdx + 1; i < sincerelyIdx; i++) {
+                if (clParas[i].trim().length > 30) bodyParas.push(clParas[i]);
+              }
+              if (bodyParas.length >= 2) {
+                currentCLOpening = bodyParas[0];
+                currentCLClosing = bodyParas[bodyParas.length - 1];
+                currentCLBodyParas = bodyParas.slice(1, -1);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[JobLink] Could not read CL template:', err.message);
+      }
+    }
+
+    // 9. Ask Claude for structured CL replacements
+    packageStatus.textContent = '✍️ Writing cover letter...';
+    let clReplacements = null;
+
+    if (clTemplateDocId && currentCLOpening) {
+      try {
+        const clPrompt = buildTailorCLStructuredPrompt(
+          jobToSave, profileText, currentCLOpening, currentCLBodyParas, currentCLClosing
+        );
+        const rawClJson = await callAI('claude', clPrompt, selectedModel);
+        clReplacements = parseAIResponse(rawClJson);
+      } catch (err) {
+        console.warn('[JobLink] Structured CL tailoring failed:', err.message);
+      }
+    }
 
     packageStatus.textContent = '⏳ Saving package to Drive...';
 
-    // 9. Generate job files in sidepanel context (jsPDF is available here)
+    // 10. Generate job files in sidepanel context (jsPDF is available here)
     let pdfBase64 = '';
     try { pdfBase64 = generateJobPdfBase64(jobToSave); } catch (_) {}
     const htmlContent = generateJobSummaryHtml(jobToSave);
     const jsonContent = JSON.stringify(jobToSave, null, 2);
 
-    // 10. Save to Drive
+    // 11. Save to Drive
     await savePreparedPackage(
       token, jobToSave,
       { templateDocId: selectedTemplate.id, newSummary, newBullets },
-      coverLetter, selectedTemplate.name,
+      { templateDocId: clTemplateDocId, replacements: clReplacements },
+      selectedTemplate.name,
       { pdfBase64, htmlContent, jsonContent }
     );
 

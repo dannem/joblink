@@ -381,3 +381,58 @@ Return this exact JSON structure:
   ]
 }`;
 }
+
+/**
+ * Build a prompt for structured cover letter tailoring.
+ * Returns JSON with targeted paragraph replacements only.
+ *
+ * @param {Object} job
+ * @param {string} profileText
+ * @param {string} currentOpening      - Current opening paragraph text
+ * @param {string[]} currentBodyParas  - Current body paragraph texts (middle paras)
+ * @param {string} currentClosing      - Current closing paragraph text
+ * @returns {string}
+ */
+function buildTailorCLStructuredPrompt(job, profileText, currentOpening, currentBodyParas, currentClosing) {
+  return `You are tailoring a cover letter for a specific job application. Return ONLY a JSON object — no explanation, no markdown, no code fences.
+
+JOB:
+Title: ${job.jobTitle || 'N/A'}
+Company: ${job.company || 'N/A'}
+Location: ${job.location || 'N/A'}
+Description: ${job.description || 'N/A'}
+
+CANDIDATE PROFILE:
+${profileText}
+
+CURRENT OPENING PARAGRAPH:
+${currentOpening}
+
+CURRENT BODY PARAGRAPHS:
+${currentBodyParas.map((p, i) => `[${i + 1}] ${p}`).join('\n\n')}
+
+CURRENT CLOSING PARAGRAPH:
+${currentClosing}
+
+TASK:
+Rewrite the cover letter paragraphs to target this specific job and company. Keep the same professional tone. Be specific and truthful — only reference experience the candidate actually has.
+
+Rules:
+- Opening: mention the exact job title and company name, state a compelling reason for interest
+- Body paragraphs: rewrite each to emphasise the most relevant aspects of the candidate's background for THIS job; keep the same number of paragraphs
+- Closing: mention the job location naturally if relevant, express enthusiasm for this specific role
+- All text must be plain — no markdown, no bullet points, no bold, no line breaks within a paragraph
+
+Return this exact JSON structure:
+{
+  "companyBlock": ["${job.company || 'Company Name'}", "Department Name", "${job.location || 'City, State'}"],
+  "openingParagraph": "rewritten opening paragraph",
+  "bodyParagraphs": [
+    "rewritten body paragraph 1",
+    "rewritten body paragraph 2",
+    "rewritten body paragraph 3",
+    "rewritten body paragraph 4"
+  ],
+  "closingParagraph": "rewritten closing paragraph"
+}`;
+}

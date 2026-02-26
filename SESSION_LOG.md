@@ -5,6 +5,58 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 31 — Complete
+Date: 2026-02-26
+Branch: feature-session31-cl-tailoring
+What was built:
+Docs API in-place cover letter tailoring. Mirrors the CV tailoring approach from Session 30.
+The pipeline now: (1) reads the CL template Google Doc structure via Docs API; (2) extracts
+the company address block, opening paragraph, body paragraphs, and closing paragraph by
+anchoring on "Hiring Manager" / "Dear Hiring Manager," / "Sincerely," markers; (3) asks
+Claude for structured JSON replacements; (4) applies them with tailorCLWithDocsAPI using
+replaceAllText batchUpdate. All original formatting, fonts, and layout are preserved.
+
+Files changed:
+- drive/drive-api.js:
+    Added tailorCLWithDocsAPI(accessToken, templateDocId, parentFolderId, title,
+      replacements): copies CL template, reads paragraph structure, builds replaceAllText
+      requests for companyBlock lines, openingParagraph, each bodyParagraph, and
+      closingParagraph; applies all in a single batchUpdate call.
+    Updated savePreparedPackage() signature: sixth param renamed coverLetterText → clData
+      (object with templateDocId + replacements, or html fallback).
+    Step 6 updated: uses tailorCLWithDocsAPI when clData.templateDocId && clData.replacements
+      present; falls back to createGoogleDoc with HTML if not; skips with warning if neither.
+- utils/ai-helpers.js:
+    Added buildTailorCLStructuredPrompt(job, profileText, currentOpening, currentBodyParas,
+      currentClosing): returns a prompt asking Claude for
+      { companyBlock[], openingParagraph, bodyParagraphs[], closingParagraph } JSON —
+      no HTML, no formatting instructions, just the text that needs to change.
+- sidepanel/sidepanel.js (handlePreparePackage):
+    Step 8 (new): reads CL template Doc structure via Docs API to extract currentCLOpening,
+      currentCLBodyParas[], and currentCLClosing before calling Claude.
+    Step 9 (new): calls buildTailorCLStructuredPrompt → parseAIResponse; falls back silently
+      if the call fails or returns unexpected structure.
+    savePreparedPackage call updated to pass clData = { templateDocId, replacements } object.
+
+Architecture note: CL template parsing anchors on plain-text paragraph markers
+("Hiring Manager" for company block, "Dear Hiring Manager," for opening, "Sincerely," for
+closing). Body paragraphs are everything between opening and closing. These markers are
+hardcoded and assumed to match the specific CL template in use.
+
+Testing checklist:
+  1. Reload extension. Ensure CL Templates folder is set in Settings.
+  2. Navigate to a job posting. Click 📦 Prepare Package.
+  3. Watch status: Reading cover letter template → Writing cover letter → Saving...
+  4. In Google Drive → Submitted → job folder, open the Cover Letter Google Doc.
+     Verify: company block, opening, body, and closing are all rewritten for the role;
+     all other formatting, fonts, and layout unchanged.
+  5. Check CV Doc is also present and correctly tailored.
+Known issues: CL paragraph markers hardcoded — will not work if template uses different
+  anchor text. Generalisation deferred.
+Next steps: Merge to main. Test end-to-end with real CL template.
+
+---
+
 Session 30 — Complete
 Date: 2026-02-26
 Branch: feature-session30-docs-api
