@@ -557,18 +557,22 @@ async function handlePreparePackage() {
     const jsonContent = JSON.stringify(jobToSave, null, 2);
 
     // 11. Save to Drive
+    console.log('[JobLink] job fields:', Object.keys(jobToSave));
+    console.log('[JobLink] job company/location:', jobToSave.company, jobToSave.location);
+    const clData = {
+      templateDocId: clTemplateDocId,
+      companyBlock: {
+        name: jobToSave.company || '',
+        department: '',
+        location: jobToSave.location || '',
+      },
+      bodyParagraphs: clBodyParagraphs,
+    };
+    console.log('[JobLink] CL companyBlock:', clData.companyBlock);
     await savePreparedPackage(
       token, jobToSave,
       { templateDocId: selectedTemplate.id, newSummary, newBullets },
-      {
-        templateDocId: clTemplateDocId,
-        companyBlock: {
-          name: jobToSave.company || '',
-          department: '',
-          location: jobToSave.location || '',
-        },
-        bodyParagraphs: clBodyParagraphs,
-      },
+      clData,
       selectedTemplate.name,
       { pdfBase64, htmlContent, jsonContent }
     );
