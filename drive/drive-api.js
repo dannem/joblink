@@ -810,30 +810,14 @@ async function savePreparedPackage(accessToken, job, cvData, clData, selectedTem
   const clTitle = `Cover Letter - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;
   let clDocId;
   if (clData.templateDocId) {
-    if (clData.replacements) {
-      clDocId = await tailorCLWithDocsAPI(
-        accessToken,
-        clData.templateDocId,
-        submittedJobFolderId,
-        clTitle,
-        clData.replacements
-      );
-    } else {
-      // Replacements failed — copy template unmodified rather than skipping
-      console.warn('[JobLink] CL replacements null — copying template unmodified');
-      const copyRes = await fetch(
-        `${DRIVE_API_BASE}/files/${clData.templateDocId}/copy?fields=id`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: clTitle, parents: [submittedJobFolderId] }),
-        }
-      );
-      if (copyRes.ok) {
-        const { id } = await copyRes.json();
-        clDocId = id;
-      }
-    }
+    clDocId = await tailorCLWithDocsAPI(
+      accessToken,
+      clData.templateDocId,
+      submittedJobFolderId,
+      clTitle,
+      clData.companyBlock || {},
+      clData.bodyParagraphs || []
+    );
   } else if (clData.html) {
     clDocId = await createGoogleDoc(accessToken, submittedJobFolderId, clTitle, wrapHtmlDocument(clTitle, clData.html));
   } else {
@@ -985,19 +969,20 @@ async function tailorCVWithDocsAPI(accessToken, templateDocId, parentFolderId, t
 }
 
 /**
- * Tailor a cover letter template in-place using the Docs API batchUpdate.
- * Copies the template Doc, then replaces the company address block,
- * opening paragraph, body paragraphs, and closing paragraph.
+ * Tailor a cover letter template using a hybrid approach:
+ * - replaceAllText to fill {{COMPANY_NAME}}, {{DEPARTMENT}}, {{LOCATION}} placeholders
+ * - insertText in reverse order to add body paragraphs before "Sincerely,"
  *
  * @param {string} accessToken
- * @param {string} templateDocId   - Google Doc ID of the CL template
- * @param {string} parentFolderId  - Folder to save the copy in
- * @param {string} title           - Title for the copied Doc
- * @param {Object} replacements    - { companyBlock, openingParagraph, bodyParagraphs[], closingParagraph }
+ * @param {string} templateDocId    - Google Doc ID of the CL template
+ * @param {string} parentFolderId   - Folder to save the copy in
+ * @param {string} title            - Title for the copied Doc
+ * @param {Object} companyBlock     - { name, department, location }
+ * @param {string[]} bodyParagraphs - Paragraph strings to insert as the letter body
  * @returns {Promise<string>} ID of the tailored copy
  */
-async function tailorCLWithDocsAPI(accessToken, templateDocId, parentFolderId, title, replacements) {
-  // ── 1. Copy the template ──────────────────────────────────────────────────
+async function tailorCLWithDocsAPI(accessToken, templateDocId, parentFolderId, title, companyBlock, bodyParagraphs) {
+  // ── 1. Copy the template into the target folder ───────────────────────────
   const copyRes = await fetch(
     `${DRIVE_API_BASE}/files/${templateDocId}/copy?fields=id`,
     {
@@ -1015,7 +1000,51 @@ async function tailorCLWithDocsAPI(accessToken, templateDocId, parentFolderId, t
   }
   const { id: copiedDocId } = await copyRes.json();
 
-  // ── 2. Read the document structure ───────────────────────────────────────
+  // ── 2. Replace {{COMPANY_NAME}}, {{DEPARTMENT}}, {{LOCATION}} placeholders ─
+  const replaceRequests = [
+    {
+      replaceAllText: {
+        containsText: { text: '{{COMPANY_NAME}}', matchCase: false },
+        replaceText: companyBlock.name || '',
+      },
+    },
+    {
+      replaceAllText: {
+        containsText: { text: '{{DEPARTMENT}}', matchCase: false },
+        replaceText: companyBlock.department || '',
+      },
+    },
+    {
+      replaceAllText: {
+        containsText: { text: '{{LOCATION}}', matchCase: false },
+        replaceText: companyBlock.location || '',
+      },
+    },
+  ];
+
+  const replaceRes = await fetch(
+    `https://docs.googleapis.com/v1/documents/${copiedDocId}:batchUpdate`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ requests: replaceRequests }),
+    }
+  );
+  if (!replaceRes.ok) {
+    const err = await replaceRes.json().catch(() => ({}));
+    console.warn('[JobLink] CL placeholder replace failed:', err.error?.message || replaceRes.status);
+  }
+
+  // ── 3. Skip body insertion if no paragraphs provided ─────────────────────
+  if (!bodyParagraphs || bodyParagraphs.length === 0) {
+    console.warn('[JobLink] No CL body paragraphs — returning copy with placeholders replaced');
+    return copiedDocId;
+  }
+
+  // ── 4. Read the doc to find the start index of "Sincerely," ──────────────
   const docRes = await fetch(
     `https://docs.googleapis.com/v1/documents/${copiedDocId}`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -1026,104 +1055,35 @@ async function tailorCLWithDocsAPI(accessToken, templateDocId, parentFolderId, t
   }
   const doc = await docRes.json();
 
-  function getParagraphText(paragraph) {
-    return (paragraph.elements || [])
+  let sincerelyStartIndex = null;
+  for (const el of doc.body.content) {
+    if (!el.paragraph) continue;
+    const text = (el.paragraph.elements || [])
       .map(e => e.textRun?.content || '')
       .join('')
       .replace(/\n$/, '');
-  }
-
-  // ── 3. Extract current paragraph texts ───────────────────────────────────
-  const paragraphs = [];
-  for (const block of doc.body.content) {
-    if (!block.paragraph) continue;
-    paragraphs.push(getParagraphText(block.paragraph));
-  }
-
-  let hiringManagerIdx = -1;
-  let dearIdx          = -1;
-  let sincerelyIdx     = -1;
-
-  for (let i = 0; i < paragraphs.length; i++) {
-    if (paragraphs[i].trim() === 'Hiring Manager')          hiringManagerIdx = i;
-    if (paragraphs[i].includes('Hiring Manager')) dearIdx = i;
-    if (paragraphs[i].trim() === 'Sincerely,')              sincerelyIdx     = i;
-  }
-
-  const requests = [];
-
-  // Company block: non-blank lines between "Hiring Manager" and "Dear Hiring Manager,"
-  if (hiringManagerIdx >= 0 && dearIdx >= 0 && replacements.companyBlock) {
-    const companyLines = [];
-    for (let i = hiringManagerIdx + 1; i < dearIdx; i++) {
-      if (paragraphs[i].trim().length > 0) companyLines.push(paragraphs[i]);
-    }
-    const newCompanyLines = replacements.companyBlock;
-    const replaceCount = Math.min(companyLines.length, newCompanyLines.length);
-    for (let i = 0; i < replaceCount; i++) {
-      if (companyLines[i] && newCompanyLines[i] && companyLines[i] !== newCompanyLines[i]) {
-        requests.push({
-          replaceAllText: {
-            containsText: { text: companyLines[i], matchCase: true },
-            replaceText: newCompanyLines[i],
-          },
-        });
-      }
+    if (text.trim().startsWith('Sincerely')) {
+      sincerelyStartIndex = el.startIndex;
+      break;
     }
   }
 
-  // Body paragraphs: everything between "Dear..." and "Sincerely,"
-  if (dearIdx >= 0 && sincerelyIdx >= 0) {
-    const bodyParas = [];
-    for (let i = dearIdx + 1; i < sincerelyIdx; i++) {
-      if (paragraphs[i].trim().length > 30) bodyParas.push(paragraphs[i]);
-    }
-
-    // Opening paragraph (first body para)
-    if (bodyParas[0] && replacements.openingParagraph && bodyParas[0] !== replacements.openingParagraph) {
-      requests.push({
-        replaceAllText: {
-          containsText: { text: bodyParas[0], matchCase: true },
-          replaceText: replacements.openingParagraph,
-        },
-      });
-    }
-
-    // Middle body paragraphs
-    if (replacements.bodyParagraphs && Array.isArray(replacements.bodyParagraphs)) {
-      const bodyOnly = bodyParas.slice(1, -1);
-      const replaceCount = Math.min(bodyOnly.length, replacements.bodyParagraphs.length);
-      for (let i = 0; i < replaceCount; i++) {
-        if (bodyOnly[i] && replacements.bodyParagraphs[i] && bodyOnly[i] !== replacements.bodyParagraphs[i]) {
-          requests.push({
-            replaceAllText: {
-              containsText: { text: bodyOnly[i], matchCase: true },
-              replaceText: replacements.bodyParagraphs[i],
-            },
-          });
-        }
-      }
-    }
-
-    // Closing paragraph (last body para before Sincerely)
-    const lastPara = bodyParas[bodyParas.length - 1];
-    if (lastPara && replacements.closingParagraph && lastPara !== replacements.closingParagraph) {
-      requests.push({
-        replaceAllText: {
-          containsText: { text: lastPara, matchCase: true },
-          replaceText: replacements.closingParagraph,
-        },
-      });
-    }
-  }
-
-  // ── 4. Apply batchUpdate ──────────────────────────────────────────────────
-  if (requests.length === 0) {
-    console.warn('[JobLink] No CL replacements found — returning unmodified copy');
+  if (sincerelyStartIndex === null) {
+    console.warn('[JobLink] Could not find "Sincerely," paragraph — returning copy with placeholders replaced');
     return copiedDocId;
   }
 
-  const batchRes = await fetch(
+  // ── 5. Insert body paragraphs in reverse order before "Sincerely," ────────
+  // Inserting in reverse at the same index causes each new paragraph to be
+  // prepended before the previously inserted text, yielding correct final order.
+  const insertRequests = [...bodyParagraphs].reverse().map(para => ({
+    insertText: {
+      location: { index: sincerelyStartIndex },
+      text: para + '\n',
+    },
+  }));
+
+  const insertRes = await fetch(
     `https://docs.googleapis.com/v1/documents/${copiedDocId}:batchUpdate`,
     {
       method: 'POST',
@@ -1131,14 +1091,14 @@ async function tailorCLWithDocsAPI(accessToken, templateDocId, parentFolderId, t
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ requests }),
+      body: JSON.stringify({ requests: insertRequests }),
     }
   );
-  if (!batchRes.ok) {
-    const err = await batchRes.json().catch(() => ({}));
-    throw new Error(err.error?.message || `CL batchUpdate failed: ${batchRes.status}`);
+  if (!insertRes.ok) {
+    const err = await insertRes.json().catch(() => ({}));
+    throw new Error(err.error?.message || `CL insertText batchUpdate failed: ${insertRes.status}`);
   }
 
-  console.log(`[JobLink] CL tailored: ${requests.length} replacements applied to doc ${copiedDocId}`);
+  console.log(`[JobLink] CL tailored: ${bodyParagraphs.length} paragraphs inserted before "Sincerely," in doc ${copiedDocId}`);
   return copiedDocId;
 }

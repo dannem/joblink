@@ -383,18 +383,21 @@ Return this exact JSON structure:
 }
 
 /**
- * Build a prompt for structured cover letter tailoring.
- * Returns JSON with targeted paragraph replacements only.
+ * Build a prompt asking Claude to write the body paragraphs of a cover letter.
+ * Returns a JSON array of paragraph strings — Claude decides the count (typically 3–4).
  *
- * @param {Object} job
- * @param {string} profileText
- * @param {string} currentOpening      - Current opening paragraph text
- * @param {string[]} currentBodyParas  - Current body paragraph texts (middle paras)
- * @param {string} currentClosing      - Current closing paragraph text
- * @returns {string}
+ * @param {Object} job       - { jobTitle, company, location, description }
+ * @param {string} cvSummary - Candidate's tailored CV summary for context
+ * @returns {string} Prompt text
  */
-function buildTailorCLStructuredPrompt(job, profileText, currentOpening, currentBodyParas, currentClosing) {
-  return `You are tailoring a cover letter for a specific job application. Return ONLY a JSON object — no explanation, no markdown, no code fences.
+function buildCLBodyPrompt(job, cvSummary) {
+  return `You are writing the body of a professional cover letter for a job application.
+
+Return ONLY a valid JSON array of paragraph strings — no markdown, no code fences, no explanation.
+Each element in the array is one paragraph. You decide how many paragraphs to include (typically 3–4).
+
+Example format:
+["First paragraph text here.", "Second paragraph text here.", "Third paragraph text here."]
 
 JOB:
 Title: ${job.jobTitle || 'N/A'}
@@ -402,37 +405,13 @@ Company: ${job.company || 'N/A'}
 Location: ${job.location || 'N/A'}
 Description: ${job.description || 'N/A'}
 
-CANDIDATE PROFILE:
-${profileText}
+CANDIDATE CV SUMMARY:
+${cvSummary || '(no summary provided)'}
 
-CURRENT OPENING PARAGRAPH:
-${currentOpening}
-
-CURRENT BODY PARAGRAPHS:
-${currentBodyParas.map((p, i) => `[${i + 1}] ${p}`).join('\n\n')}
-
-CURRENT CLOSING PARAGRAPH:
-${currentClosing}
-
-TASK:
-Rewrite the cover letter paragraphs to target this specific job and company. Keep the same professional tone. Be specific and truthful — only reference experience the candidate actually has.
-
-Rules:
-- Opening: mention the exact job title and company name, state a compelling reason for interest
-- Body paragraphs: rewrite each to emphasise the most relevant aspects of the candidate's background for THIS job; keep the same number of paragraphs
-- Closing: mention the job location naturally if relevant, express enthusiasm for this specific role
-- All text must be plain — no markdown, no bullet points, no bold, no line breaks within a paragraph
-
-Return this exact JSON structure:
-{
-  "companyBlock": ["${job.company || 'Company Name'}", "Department Name", "${job.location || 'City, State'}"],
-  "openingParagraph": "rewritten opening paragraph",
-  "bodyParagraphs": [
-    "rewritten body paragraph 1",
-    "rewritten body paragraph 2",
-    "rewritten body paragraph 3",
-    "rewritten body paragraph 4"
-  ],
-  "closingParagraph": "rewritten closing paragraph"
-}`;
+Write compelling, specific paragraphs that:
+- Open by connecting the candidate's background to this specific role and company
+- Highlight 2–3 relevant experiences or achievements that match the job requirements
+- Close with enthusiasm for the role and a confident call to action
+- Are professional but personable, not generic or formulaic
+- Contain no markdown, no bullet points, no bold — plain prose only`;
 }

@@ -520,80 +520,31 @@ async function handlePreparePackage() {
       }
     }
 
-    // 8. Read CL template structure via Docs API
+    // 8. Get CL template doc ID
     packageStatus.textContent = '📄 Reading cover letter template...';
     let clTemplateDocId = null;
-    let currentCLOpening = '';
-    let currentCLBodyParas = [];
-    let currentCLClosing = '';
-
     const clFolderId = await getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID);
     if (clFolderId) {
       try {
         const clDocs = await readDocsFromFolder(token, clFolderId, 3);
-        if (clDocs.length > 0) {
-          clTemplateDocId = clDocs[0].id;
-
-          const clDocRes = await fetch(
-            `https://docs.googleapis.com/v1/documents/${clTemplateDocId}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          if (clDocRes.ok) {
-            const clDoc = await clDocRes.json();
-            const clParas = [];
-            for (const block of clDoc.body.content) {
-              if (!block.paragraph) continue;
-              const text = (block.paragraph.elements || [])
-                .map(e => e.textRun?.content || '')
-                .join('')
-                .replace(/\n$/, '');
-              clParas.push(text);
-            }
-            console.log('[JobLink] CL all paragraphs:', clParas.map((p, i) => `${i}: "${p.substring(0, 60)}"`));
-
-            let dearIdx = -1, sincerelyIdx = -1;
-            for (let i = 0; i < clParas.length; i++) {
-              if (clParas[i].includes('Hiring Manager')) dearIdx = i;
-              if (clParas[i].trim() === 'Sincerely,') sincerelyIdx = i;
-            }
-
-            if (dearIdx >= 0 && sincerelyIdx >= 0) {
-              const bodyParas = [];
-              for (let i = dearIdx + 1; i < sincerelyIdx; i++) {
-                if (clParas[i].trim().length > 30) bodyParas.push(clParas[i]);
-              }
-              if (bodyParas.length >= 2) {
-                currentCLOpening = bodyParas[0];
-                currentCLClosing = bodyParas[bodyParas.length - 1];
-                currentCLBodyParas = bodyParas.slice(1, -1);
-              }
-            }
-            console.log('[JobLink] CL template doc ID:', clTemplateDocId);
-            console.log('[JobLink] CL dearIdx found:', dearIdx, 'sincerelyIdx found:', sincerelyIdx);
-            console.log('[JobLink] CL opening:', currentCLOpening ? currentCLOpening.substring(0, 80) : 'EMPTY');
-            console.log('[JobLink] CL body paras count:', currentCLBodyParas.length);
-            console.log('[JobLink] CL closing:', currentCLClosing ? currentCLClosing.substring(0, 80) : 'EMPTY');
-          }
-        }
+        if (clDocs.length > 0) clTemplateDocId = clDocs[0].id;
       } catch (err) {
-        console.warn('[JobLink] Could not read CL template:', err.message);
+        console.warn('[JobLink] Could not read CL template folder:', err.message);
       }
     }
 
-    // 9. Ask Claude for structured CL replacements
+    // 9. Ask Claude for cover letter body paragraphs
     packageStatus.textContent = '✍️ Writing cover letter...';
-    let clReplacements = null;
-
-    if (clTemplateDocId && currentCLOpening) {
+    let clBodyParagraphs = null;
+    if (clTemplateDocId) {
       try {
-        const clPrompt = buildTailorCLStructuredPrompt(
-          jobToSave, profileText, currentCLOpening, currentCLBodyParas, currentCLClosing
-        );
+        const clPrompt = buildCLBodyPrompt(jobToSave, newSummary);
         const rawClJson = await callAI('claude', clPrompt, selectedModel);
-        clReplacements = parseAIResponse(rawClJson);
-        console.log('[JobLink] CL replacements parsed:', clReplacements ? 'OK' : 'NULL', clReplacements);
+        const parsed = parseAIResponse(rawClJson);
+        if (Array.isArray(parsed) && parsed.length > 0) clBodyParagraphs = parsed;
+        console.log('[JobLink] CL body paragraphs:', clBodyParagraphs ? clBodyParagraphs.length + ' paras' : 'NULL');
       } catch (err) {
-        console.warn('[JobLink] Structured CL tailoring failed:', err.message);
+        console.warn('[JobLink] CL body generation failed:', err.message);
       }
     }
 
@@ -609,7 +560,15 @@ async function handlePreparePackage() {
     await savePreparedPackage(
       token, jobToSave,
       { templateDocId: selectedTemplate.id, newSummary, newBullets },
-      { templateDocId: clTemplateDocId, replacements: clReplacements },
+      {
+        templateDocId: clTemplateDocId,
+        companyBlock: {
+          name: jobToSave.company || '',
+          department: '',
+          location: jobToSave.location || '',
+        },
+        bodyParagraphs: clBodyParagraphs,
+      },
       selectedTemplate.name,
       { pdfBase64, htmlContent, jsonContent }
     );
