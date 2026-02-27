@@ -16,8 +16,9 @@ const AI_MODELS = {
   claudeHaiku:  'claude-haiku-4-5-20251001', // Haiku — fast and cheap
   openai:       'gpt-4o',
   gemini:       'gemini-1.5-flash',          // Flash — general evaluation
-  geminiFlash:  'gemini-2.0-flash',          // Flash 2.0 — fast and cheap
-  geminiPro:    'gemini-2.0-pro-exp-02-05',  // Pro 2.0 experimental — highest quality
+  geminiFlash:   'gemini-2.0-flash',          // Flash 2.0 — fast and cheap
+  geminiPro:     'gemini-2.0-pro-exp-02-05', // Pro 2.0 experimental — highest quality
+  geminiFlash15: 'gemini-1.5-flash',         // Flash 1.5 — stable fallback
 };
 
 // ── Prompt builder ─────────────────────────────────────────────────────────

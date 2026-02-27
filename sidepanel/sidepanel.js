@@ -445,10 +445,11 @@ async function handlePreparePackage() {
 
     // 4. Resolve selected model from the dropdown
     const modelMap = {
-      sonnet:      AI_MODELS.claude,
-      haiku:       AI_MODELS.claudeHaiku,
-      geminiFlash: AI_MODELS.geminiFlash,
-      geminiPro:   AI_MODELS.geminiPro,
+      sonnet:            AI_MODELS.claude,
+      haiku:             AI_MODELS.claudeHaiku,
+      geminiFlash:       AI_MODELS.geminiFlash,
+      geminiPro:         AI_MODELS.geminiPro,
+      'gemini-1.5-flash': AI_MODELS.geminiFlash15,
     };
     const selectedModel = modelMap[packageModel.value] || AI_MODELS.claude;
 
