@@ -1000,7 +1000,8 @@ async function tailorCLWithDocsAPI(accessToken, templateDocId, parentFolderId, t
   }
   const { id: copiedDocId } = await copyRes.json();
 
-  // ── 2. Replace {{COMPANY_NAME}}, {{DEPARTMENT}}, {{LOCATION}} placeholders ─
+  // ── 2. Replace {{COMPANY_NAME}}, {{DEPARTMENT}}, {{LOCATION}}, date placeholders ─
+  const todayStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const replaceRequests = [
     {
       replaceAllText: {
@@ -1018,6 +1019,12 @@ async function tailorCLWithDocsAPI(accessToken, templateDocId, parentFolderId, t
       replaceAllText: {
         containsText: { text: '{{LOCATION}}', matchCase: false },
         replaceText: companyBlock.location || '',
+      },
+    },
+    {
+      replaceAllText: {
+        containsText: { text: 'January 29, 2026', matchCase: false },
+        replaceText: todayStr,
       },
     },
   ];
