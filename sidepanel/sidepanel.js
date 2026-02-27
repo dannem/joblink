@@ -552,7 +552,7 @@ async function handlePreparePackage() {
 
             let dearIdx = -1, sincerelyIdx = -1;
             for (let i = 0; i < clParas.length; i++) {
-              if (clParas[i].startsWith('Dear Hiring Manager')) dearIdx = i;
+              if (clParas[i].includes('Dear') && clParas[i].includes('Hiring Manager')) dearIdx = i;
               if (clParas[i].trim() === 'Sincerely,') sincerelyIdx = i;
             }
 
