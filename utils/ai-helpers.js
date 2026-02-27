@@ -12,10 +12,12 @@
 // ── Model constants ────────────────────────────────────────────────────────
 
 const AI_MODELS = {
-  claude:      'claude-sonnet-4-6',         // Sonnet — high quality
-  claudeHaiku: 'claude-haiku-4-5-20251001', // Haiku — fast and cheap
-  openai:      'gpt-4o',
-  gemini:      'gemini-1.5-flash',          // Flash for speed and cost
+  claude:       'claude-sonnet-4-6',         // Sonnet — high quality
+  claudeHaiku:  'claude-haiku-4-5-20251001', // Haiku — fast and cheap
+  openai:       'gpt-4o',
+  gemini:       'gemini-1.5-flash',          // Flash — general evaluation
+  geminiFlash:  'gemini-2.0-flash',          // Flash 2.0 — fast and cheap
+  geminiPro:    'gemini-2.0-pro',            // Pro 2.0 — highest quality
 };
 
 // ── Prompt builder ─────────────────────────────────────────────────────────
@@ -131,13 +133,14 @@ async function callOpenAIAPI(apiKey, prompt) {
  *
  * @param {string} apiKey - Google AI API key
  * @param {string} prompt - Full prompt text
+ * @param {string} [model] - Model ID to use (defaults to AI_MODELS.gemini)
  * @returns {Promise<string>} Model response text
  * @throws {Error} On HTTP error or missing response content
  */
-async function callGeminiAPI(apiKey, prompt) {
+async function callGeminiAPI(apiKey, prompt, model = AI_MODELS.gemini) {
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/` +
-    `${AI_MODELS.gemini}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    `${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -190,14 +193,26 @@ function parseAIResponse(text) {
 /**
  * Read the appropriate API key from storage, then call the selected provider.
  *
+ * When the package pipeline passes a Gemini model ID via the model parameter
+ * (e.g. AI_MODELS.geminiFlash) with provider='claude', this function detects
+ * the Gemini model and re-routes to callGeminiAPI using the stored Gemini key.
+ *
  * @param {'claude'|'openai'|'gemini'} provider
  * @param {string} prompt
- * @param {string|null} [model] - Optional model override (Anthropic only).
- *   Pass AI_MODELS.claudeHaiku to use Haiku instead of the default Sonnet.
+ * @param {string|null} [model] - Optional model override. Gemini model IDs
+ *   (starting with 'gemini-') are routed to Gemini regardless of provider.
  * @returns {Promise<string>} Raw model response text
  * @throws {Error} If the API key is not set or the API call fails
  */
 async function callAI(provider, prompt, model = null) {
+  // Gemini models selected via the package dropdown arrive with provider='claude'.
+  // Detect them by model ID prefix and re-route before the normal key lookup.
+  if (model && model.startsWith('gemini-')) {
+    const geminiKey = await getStorageValue(STORAGE_KEYS.GEMINI_API_KEY);
+    if (!geminiKey) throw new Error('No Google Gemini API key set. Open Settings to add your key.');
+    return callGeminiAPI(geminiKey, prompt, model);
+  }
+
   const keyMap = {
     claude: STORAGE_KEYS.ANTHROPIC_API_KEY,
     openai: STORAGE_KEYS.OPENAI_API_KEY,
@@ -216,7 +231,7 @@ async function callAI(provider, prompt, model = null) {
   switch (provider) {
     case 'claude': return callAnthropicAPI(apiKey, prompt, model || AI_MODELS.claude);
     case 'openai': return callOpenAIAPI(apiKey, prompt);
-    case 'gemini': return callGeminiAPI(apiKey, prompt);
+    case 'gemini': return callGeminiAPI(apiKey, prompt, model || AI_MODELS.gemini);
   }
 }
 

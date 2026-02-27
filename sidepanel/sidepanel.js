@@ -443,10 +443,14 @@ async function handlePreparePackage() {
     const cvTemplates = await readDocsFromFolder(token, cvFolderId);
     if (cvTemplates.length < 1) throw new Error('No CV template documents found in the CV Templates folder.');
 
-    // 4. Resolve selected Claude model from the dropdown
-    const selectedModel = packageModel.value === 'haiku'
-      ? AI_MODELS.claudeHaiku
-      : AI_MODELS.claude;
+    // 4. Resolve selected model from the dropdown
+    const modelMap = {
+      sonnet:      AI_MODELS.claude,
+      haiku:       AI_MODELS.claudeHaiku,
+      geminiFlash: AI_MODELS.geminiFlash,
+      geminiPro:   AI_MODELS.geminiPro,
+    };
+    const selectedModel = modelMap[packageModel.value] || AI_MODELS.claude;
 
     // 5. Select best template (if only one, use it directly)
     let selectedTemplate = cvTemplates[0];
