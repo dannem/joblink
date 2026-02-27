@@ -5,6 +5,33 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 33 — Complete
+Date: 2026-02-27
+Branch: main (committed directly)
+What was built:
+Cover letter company block now extracted by Claude from the job description rather than
+relying on scraped fields. Previously, {{COMPANY_NAME}}, {{DEPARTMENT}}, and {{LOCATION}}
+were populated from jobToSave.company and jobToSave.location — which are often incomplete
+or missing the department entirely. Claude now extracts all three from the raw job
+description text as part of the same prompt that writes the letter body.
+
+Files changed:
+- utils/ai-helpers.js: buildCLBodyPrompt updated to return a JSON object with two keys:
+    companyBlock: { name, department, location } — extracted from the job description
+    bodyParagraphs: [] — variable-length array of letter body paragraphs (unchanged)
+    Prompt instructs Claude to read company name, department/division, and city/state
+    directly from the description text.
+- sidepanel/sidepanel.js: step 9 now initialises clCompanyBlock as a fallback from
+    jobToSave fields, then overwrites with parsed.companyBlock if Claude returns a valid
+    object. Passes clCompanyBlock into clData.companyBlock. Debug log for CL companyBlock
+    removed after verification.
+
+Also removed in this session: several debug console.log lines added during the
+31b/32 debugging cycle (job fields, job company/location, jobToSave full, CL companyBlock).
+Next steps: None — pipeline complete and clean.
+
+---
+
 Session 32 — Complete
 Date: 2026-02-26
 Branch: feature-session32-cl-hybrid

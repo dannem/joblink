@@ -548,7 +548,6 @@ async function handlePreparePackage() {
         if (parsed && parsed.companyBlock && typeof parsed.companyBlock === 'object') {
           clCompanyBlock = parsed.companyBlock;
         }
-        console.log('[JobLink] CL companyBlock:', clCompanyBlock);
         console.log('[JobLink] CL body paragraphs:', clBodyParagraphs ? clBodyParagraphs.length + ' paras' : 'NULL');
       } catch (err) {
         console.warn('[JobLink] CL generation failed:', err.message);
