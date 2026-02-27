@@ -1046,7 +1046,7 @@ async function tailorCLWithDocsAPI(accessToken, templateDocId, parentFolderId, t
 
   for (let i = 0; i < paragraphs.length; i++) {
     if (paragraphs[i].trim() === 'Hiring Manager')          hiringManagerIdx = i;
-    if (paragraphs[i].includes('Dear') && paragraphs[i].includes('Hiring Manager')) dearIdx = i;
+    if (paragraphs[i].includes('Hiring Manager')) dearIdx = i;
     if (paragraphs[i].trim() === 'Sincerely,')              sincerelyIdx     = i;
   }
 
