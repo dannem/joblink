@@ -559,6 +559,7 @@ async function handlePreparePackage() {
     // 11. Save to Drive
     console.log('[JobLink] job fields:', Object.keys(jobToSave));
     console.log('[JobLink] job company/location:', jobToSave.company, jobToSave.location);
+    console.log('[JobLink] jobToSave full:', JSON.stringify(jobToSave, null, 2));
     const clData = {
       templateDocId: clTemplateDocId,
       companyBlock: {
