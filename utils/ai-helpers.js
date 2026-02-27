@@ -17,7 +17,7 @@ const AI_MODELS = {
   openai:       'gpt-4o',
   gemini:       'gemini-1.5-flash',          // Flash — general evaluation
   geminiFlash:  'gemini-2.0-flash',          // Flash 2.0 — fast and cheap
-  geminiPro:    'gemini-2.0-pro',            // Pro 2.0 — highest quality
+  geminiPro:    'gemini-2.0-pro-exp-02-05',  // Pro 2.0 experimental — highest quality
 };
 
 // ── Prompt builder ─────────────────────────────────────────────────────────
