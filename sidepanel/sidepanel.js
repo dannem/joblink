@@ -533,18 +533,25 @@ async function handlePreparePackage() {
       }
     }
 
-    // 9. Ask Claude for cover letter body paragraphs
+    // 9. Ask Claude for CL company block + body paragraphs
     packageStatus.textContent = '✍️ Writing cover letter...';
     let clBodyParagraphs = null;
+    let clCompanyBlock = { name: jobToSave.company || '', department: '', location: jobToSave.location || '' };
     if (clTemplateDocId) {
       try {
         const clPrompt = buildCLBodyPrompt(jobToSave, newSummary);
         const rawClJson = await callAI('claude', clPrompt, selectedModel);
         const parsed = parseAIResponse(rawClJson);
-        if (Array.isArray(parsed) && parsed.length > 0) clBodyParagraphs = parsed;
+        if (parsed && Array.isArray(parsed.bodyParagraphs) && parsed.bodyParagraphs.length > 0) {
+          clBodyParagraphs = parsed.bodyParagraphs;
+        }
+        if (parsed && parsed.companyBlock && typeof parsed.companyBlock === 'object') {
+          clCompanyBlock = parsed.companyBlock;
+        }
+        console.log('[JobLink] CL companyBlock:', clCompanyBlock);
         console.log('[JobLink] CL body paragraphs:', clBodyParagraphs ? clBodyParagraphs.length + ' paras' : 'NULL');
       } catch (err) {
-        console.warn('[JobLink] CL body generation failed:', err.message);
+        console.warn('[JobLink] CL generation failed:', err.message);
       }
     }
 
@@ -557,19 +564,11 @@ async function handlePreparePackage() {
     const jsonContent = JSON.stringify(jobToSave, null, 2);
 
     // 11. Save to Drive
-    console.log('[JobLink] job fields:', Object.keys(jobToSave));
-    console.log('[JobLink] job company/location:', jobToSave.company, jobToSave.location);
-    console.log('[JobLink] jobToSave full:', JSON.stringify(jobToSave, null, 2));
     const clData = {
       templateDocId: clTemplateDocId,
-      companyBlock: {
-        name: jobToSave.company || '',
-        department: '',
-        location: jobToSave.location || '',
-      },
+      companyBlock: clCompanyBlock,
       bodyParagraphs: clBodyParagraphs,
     };
-    console.log('[JobLink] CL companyBlock:', clData.companyBlock);
     await savePreparedPackage(
       token, jobToSave,
       { templateDocId: selectedTemplate.id, newSummary, newBullets },

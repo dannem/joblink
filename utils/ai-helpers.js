@@ -383,21 +383,38 @@ Return this exact JSON structure:
 }
 
 /**
- * Build a prompt asking Claude to write the body paragraphs of a cover letter.
- * Returns a JSON array of paragraph strings — Claude decides the count (typically 3–4).
+ * Build a prompt asking Claude to extract the company address block and write
+ * the body paragraphs of a cover letter, returned as a single JSON object.
  *
  * @param {Object} job       - { jobTitle, company, location, description }
  * @param {string} cvSummary - Candidate's tailored CV summary for context
  * @returns {string} Prompt text
  */
 function buildCLBodyPrompt(job, cvSummary) {
-  return `You are writing the body of a professional cover letter for a job application.
+  return `You are preparing content for a professional cover letter for a job application.
 
-Return ONLY a valid JSON array of paragraph strings — no markdown, no code fences, no explanation.
-Each element in the array is one paragraph. You decide how many paragraphs to include (typically 3–4).
+Return ONLY a valid JSON object — no markdown, no code fences, no explanation.
+
+The object must have exactly two keys:
+1. "companyBlock" — an object with three string fields extracted from the job description:
+   - "name": the company name
+   - "department": the department or division hiring (e.g. "Research Department", "Engineering Division"); use empty string if not mentioned
+   - "location": the city and state/country where the role is based (e.g. "Boston, MA"); use empty string if not mentioned
+2. "bodyParagraphs" — a variable-length array of paragraph strings (typically 3–4) forming the letter body
 
 Example format:
-["First paragraph text here.", "Second paragraph text here.", "Third paragraph text here."]
+{
+  "companyBlock": {
+    "name": "Acme Corp",
+    "department": "Research Department",
+    "location": "Boston, MA"
+  },
+  "bodyParagraphs": [
+    "First paragraph text here.",
+    "Second paragraph text here.",
+    "Third paragraph text here."
+  ]
+}
 
 JOB:
 Title: ${job.jobTitle || 'N/A'}
@@ -408,7 +425,8 @@ Description: ${job.description || 'N/A'}
 CANDIDATE CV SUMMARY:
 ${cvSummary || '(no summary provided)'}
 
-Write compelling, specific paragraphs that:
+For companyBlock: extract the company name, department, and location directly from the job description above.
+For bodyParagraphs: write compelling, specific paragraphs that:
 - Open by connecting the candidate's background to this specific role and company
 - Highlight 2–3 relevant experiences or achievements that match the job requirements
 - Close with enthusiasm for the role and a confident call to action
