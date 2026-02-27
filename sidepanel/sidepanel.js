@@ -549,6 +549,7 @@ async function handlePreparePackage() {
                 .replace(/\n$/, '');
               clParas.push(text);
             }
+            console.log('[JobLink] CL all paragraphs:', clParas.map((p, i) => `${i}: "${p.substring(0, 60)}"`));
 
             let dearIdx = -1, sincerelyIdx = -1;
             for (let i = 0; i < clParas.length; i++) {
