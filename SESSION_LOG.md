@@ -5,40 +5,71 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 32 — Complete
+Date: 2026-02-26
+Branch: feature-session32-cl-hybrid
+What was built:
+Hybrid CL tailoring — replaceAllText for company block + insertText for body paragraphs.
+Replaced the brittle paragraph-extraction approach entirely with a two-phase Docs API strategy
+that does not depend on finding anchor text in the template body:
+
+Phase 1 — replaceAllText: fills {{COMPANY_NAME}}, {{DEPARTMENT}}, {{LOCATION}} placeholders
+  in the address block of the copied template.
+Phase 2 — insertText (reverse order): re-reads the copied doc to find the character startIndex
+  of the "Sincerely," paragraph, then inserts each Claude-generated body paragraph at that
+  index in reverse order so the final paragraph sequence is correct without tracking shifts.
+
+All debug console.log lines from the 31b debugging session were removed as part of this rewrite.
+The full Prepare Package pipeline (profile read → CV template selection → CV Docs API tailoring
+→ CL body generation → CL Docs API hybrid tailoring → save to Submitted) is now working
+end-to-end.
+
+Files changed:
+- utils/ai-helpers.js: removed buildTailorCLStructuredPrompt; added buildCLBodyPrompt(job,
+    cvSummary) which asks Claude for a plain JSON array of paragraph strings (Claude decides
+    the count, typically 3–4); no reference to existing template content required.
+- sidepanel/sidepanel.js: removed all old CL structure-reading code (Docs API fetch, clParas
+    loop, dearIdx/sincerelyIdx search, bodyPara extraction, all debug logs); step 8 now just
+    gets the template doc ID; step 9 calls buildCLBodyPrompt with job data + newSummary;
+    clData passed as { templateDocId, companyBlock: { name, department, location },
+    bodyParagraphs }.
+- drive/drive-api.js: rewrote tailorCLWithDocsAPI with new 5-step flow; savePreparedPackage
+    step 6 simplified — always calls tailorCLWithDocsAPI when templateDocId present.
+
+Template requirement: the CL Google Doc template must contain {{COMPANY_NAME}},
+  {{DEPARTMENT}}, and {{LOCATION}} as literal placeholder strings in the address block.
+Next steps: None — pipeline complete.
+
+---
+
 Session 31b — Complete
 Date: 2026-02-26
 Branch: feature-session31b-cl-fix
 What was built:
-Debug and fix for silent cover letter generation failure. Two changes made:
+Debugging and fixing the cover letter anchor matching. Multiple fixes applied across commits:
 
 Fix 1 — Diagnostic logging in sidepanel.js handlePreparePackage:
-  Added 5 console.log lines after the if (dearIdx >= 0 && sincerelyIdx >= 0) block to
-  expose the CL template doc ID, dearIdx/sincerelyIdx values, opening/closing extracts,
-  and body paragraph count. Added one more log after parseAIResponse to show whether
-  clReplacements was parsed OK or returned NULL.
+  Added console.log lines to expose CL template doc ID, dearIdx/sincerelyIdx values,
+  opening/closing extracts, body paragraph count, and all paragraph text after extraction.
+  (These logs were removed in Session 32 once the root cause was resolved.)
 
 Fix 2 — More lenient skip condition in savePreparedPackage in drive-api.js:
-  Changed the cover letter branch from requiring both clData.templateDocId AND
-  clData.replacements to fall through to the skip path, to instead: if templateDocId
-  is present but replacements is null, copy the template unmodified rather than
-  skipping entirely. The new structure is:
-    if (clData.templateDocId) → tailor if replacements present, else copy unmodified
-    else if (clData.html)     → create from HTML
-    else                      → log warning and skip
+  Changed the cover letter branch so that if templateDocId is present but replacements is
+  null, the template is copied unmodified rather than skipped entirely.
+
+Fix 3 — Anchor matching improved:
+  Changed dearIdx detection from startsWith('Dear Hiring Manager') to
+  includes('Dear') && includes('Hiring Manager'), then further simplified to
+  includes('Hiring Manager') alone after logs showed the paragraph containing
+  that string was the correct anchor regardless of leading characters.
 
 Files changed:
-- sidepanel/sidepanel.js: added 6 diagnostic console.log lines
-- drive/drive-api.js: updated savePreparedPackage step 6 CL branching logic
+- sidepanel/sidepanel.js: diagnostic logs (later removed); dearIdx condition updated
+- drive/drive-api.js: savePreparedPackage step 6 branching; dearIdx condition updated
 
 Testing checklist:
-  1. Reload extension. Navigate to a job posting.
-  2. Click 📦 Prepare Package. Open DevTools console.
-  3. Verify the new CL diagnostic logs appear — check dearIdx/sincerelyIdx values,
-     opening/closing text, body paras count, and whether replacements parsed OK.
-  4. Even if replacements is NULL, confirm a CL Google Doc is now created in Drive
-     (unmodified copy of template) rather than silently skipped.
-Known issues: None introduced.
-Next steps: Check console output to identify root cause if dearIdx/sincerelyIdx are -1.
+  Superseded by Session 32 rewrite — anchor matching is no longer needed.
+Known issues: None — root cause resolved by switching to insertText approach in Session 32.
 
 ---
 
