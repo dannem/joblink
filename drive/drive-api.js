@@ -243,6 +243,42 @@ async function uploadFileToDrive(accessToken, fileName, content, mimeType, paren
 }
 
 /**
+ * Recursively list all files matching the given mimeTypes within a Drive folder
+ * and all of its subfolders.
+ *
+ * The function makes one API call per folder level.  Each call fetches up to
+ * 100 items (files + subfolders).  Subfolders are detected by their mimeType
+ * and recursed into; only files whose mimeType is in the mimeTypes array are
+ * collected and returned.
+ *
+ * @param {string}   accessToken - OAuth access token
+ * @param {string}   folderId    - Drive folder ID to start from
+ * @param {string[]} mimeTypes   - Array of mimeType strings to collect
+ * @returns {Promise<Array<{id: string, name: string, mimeType: string}>>}
+ */
+async function listFilesRecursively(accessToken, folderId, mimeTypes) {
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+  const res = await fetch(
+    `${DRIVE_API_BASE}/files?q=${q}&fields=files(id,name,mimeType)&pageSize=100`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  const items = data.files || [];
+
+  const collected = [];
+  for (const item of items) {
+    if (item.mimeType === 'application/vnd.google-apps.folder') {
+      const nested = await listFilesRecursively(accessToken, item.id, mimeTypes);
+      collected.push(...nested);
+    } else if (mimeTypes.includes(item.mimeType)) {
+      collected.push(item);
+    }
+  }
+  return collected;
+}
+
+/**
  * Read all readable profile files from the My_Profile subfolder in the user's
  * root Drive folder.  Supports Google Docs (exported as plain text) and .txt
  * files.  PDF and DOCX are skipped — binary formats require additional parsing.
@@ -268,17 +304,12 @@ async function readProfileFromDrive(accessToken, rootFolderId) {
   const profileFolderId = folderData.files?.[0]?.id;
   if (!profileFolderId) throw new Error('My_Profile folder not found in Drive');
 
-  // 2. List files in My_Profile
-  const filesQuery = encodeURIComponent(
-    `'${profileFolderId}' in parents and trashed = false`
+  // 2. List files in My_Profile (recursively, including subfolders)
+  const files = await listFilesRecursively(
+    accessToken,
+    profileFolderId,
+    ['application/vnd.google-apps.document', 'text/plain']
   );
-  const filesRes = await fetch(
-    `${DRIVE_API_BASE}/files?q=${filesQuery}&fields=files(id,name,mimeType)&pageSize=20`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
-  if (!filesRes.ok) throw new Error('Could not list My_Profile files');
-  const filesData = await filesRes.json();
-  const files = filesData.files || [];
 
   // 3. Read each file — Google Docs export as plain text, .txt download directly
   const texts = [];
@@ -396,27 +427,20 @@ async function findFolderByName(accessToken, parentId, name) {
 }
 
 /**
- * List and export all Google Docs from a Drive folder as plain text.
- * Returns up to maxFiles documents as { id, name, text } objects.
+ * List and export all Google Docs from a Drive folder (and its subfolders)
+ * as plain text.  Returns up to 100 documents as { id, name, text } objects.
  * Files that fail to export are silently skipped.
  *
  * @param {string} accessToken - OAuth access token
  * @param {string} folderId    - Drive folder ID to read from
- * @param {number} [maxFiles]  - Maximum number of documents to return (default 10)
  * @returns {Promise<Array<{id: string, name: string, text: string}>>}
  */
-async function readDocsFromFolder(accessToken, folderId, maxFiles = 10) {
-  const q = encodeURIComponent(
-    `'${folderId}' in parents and trashed = false ` +
-    `and mimeType = 'application/vnd.google-apps.document'`
+async function readDocsFromFolder(accessToken, folderId) {
+  const files = await listFilesRecursively(
+    accessToken,
+    folderId,
+    ['application/vnd.google-apps.document']
   );
-  const res = await fetch(
-    `${DRIVE_API_BASE}/files?q=${q}&fields=files(id,name)&pageSize=${maxFiles}`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
-  if (!res.ok) throw new Error(`Could not list folder contents (${res.status})`);
-  const data = await res.json();
-  const files = data.files || [];
 
   const results = [];
   for (const file of files) {
