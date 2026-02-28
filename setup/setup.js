@@ -64,16 +64,18 @@ function showSetupForm() {
   // Pre-fill any previously stored API keys and folder names
   (async () => {
     try {
-      const [anthropic, openai, gemini, cvFolderId, clFolderId] = await Promise.all([
+      const [anthropic, openai, gemini, defaultModel, cvFolderId, clFolderId] = await Promise.all([
         getStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY),
         getStorageValue(STORAGE_KEYS.OPENAI_API_KEY),
         getStorageValue(STORAGE_KEYS.GEMINI_API_KEY),
+        getStorageValue(STORAGE_KEYS.DEFAULT_AI_MODEL),
         getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID),
         getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID),
       ]);
-      if (anthropic) document.getElementById('anthropic-key').value = anthropic;
-      if (openai)    document.getElementById('openai-key').value    = openai;
-      if (gemini)    document.getElementById('gemini-key').value    = gemini;
+      if (anthropic)    document.getElementById('anthropic-key').value    = anthropic;
+      if (openai)       document.getElementById('openai-key').value       = openai;
+      if (gemini)       document.getElementById('gemini-key').value       = gemini;
+      if (defaultModel) document.getElementById('default-ai-model').value = defaultModel;
 
       // Load saved folder names by resolving their IDs via Drive API
       if (cvFolderId || clFolderId) {
@@ -533,6 +535,10 @@ async function handleSaveSetup() {
     if (anthropicKey) await setStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY, anthropicKey);
     if (openaiKey)    await setStorageValue(STORAGE_KEYS.OPENAI_API_KEY,    openaiKey);
     if (geminiKey)    await setStorageValue(STORAGE_KEYS.GEMINI_API_KEY,    geminiKey);
+
+    // Save default AI model (always write — the dropdown always has a value)
+    const defaultModel = document.getElementById('default-ai-model').value;
+    await setStorageValue(STORAGE_KEYS.DEFAULT_AI_MODEL, defaultModel);
 
     // Mark setup as complete
     await setStorageValue(STORAGE_KEYS.SETUP_COMPLETE, true);

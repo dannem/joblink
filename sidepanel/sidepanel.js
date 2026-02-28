@@ -50,13 +50,6 @@ const btnPreparePackage  = document.getElementById('btn-prepare-package');
 const packageModel       = document.getElementById('package-model');
 const packageStatus      = document.getElementById('package-status');
 
-// Settings modal elements
-const settingsModal     = document.getElementById('settings-modal');
-const settingsClose     = document.getElementById('settings-close');
-const settingsSave      = document.getElementById('settings-save');
-const settingsOpenSetup = document.getElementById('settings-open-setup');
-const defaultAiModel    = document.getElementById('default-ai-model');
-
 // ── Module state ──────────────────────────────────────────────
 
 /** The raw job object currently displayed (before user edits). */
@@ -79,10 +72,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load saved default AI model and pre-set the Prepare Package dropdown.
   try {
     const savedModel = await getStorageValue(STORAGE_KEYS.DEFAULT_AI_MODEL);
-    if (savedModel) {
-      packageModel.value   = savedModel;
-      defaultAiModel.value = savedModel;
-    }
+    if (savedModel) packageModel.value = savedModel;
   } catch (_) { /* non-fatal — dropdown stays at HTML default */ }
 
   // Send REQUEST_SCRAPE to the active tab.
@@ -147,31 +137,9 @@ btnDashboard.addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('dashboard/dashboard.html') });
 });
 
-// Gear icon opens the settings modal.
+// Gear icon opens the settings / setup page in a new tab.
 settingsBtn.addEventListener('click', () => {
-  settingsModal.style.display = 'flex';
-});
-
-settingsClose.addEventListener('click', () => {
-  settingsModal.style.display = 'none';
-});
-
-// Click on the dim overlay (outside the panel) closes the modal.
-settingsModal.addEventListener('click', (e) => {
-  if (e.target === settingsModal) settingsModal.style.display = 'none';
-});
-
-// "Settings" button inside the modal opens the full setup page.
-settingsOpenSetup.addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('setup/setup.html') });
-});
-
-// Save the chosen default model to storage and sync it to the package dropdown.
-settingsSave.addEventListener('click', async () => {
-  const model = defaultAiModel.value;
-  await chrome.storage.sync.set({ [STORAGE_KEYS.DEFAULT_AI_MODEL]: model });
-  packageModel.value = model;
-  settingsModal.style.display = 'none';
 });
 
 document.querySelectorAll('.collapsible-toggle').forEach(btn => {
