@@ -142,6 +142,31 @@
 
   </div>
 
+  <!-- ── Settings modal ─────────────────────────────────────── -->
+  <div id="settings-modal" class="settings-overlay" style="display:none;" role="dialog" aria-modal="true" aria-label="Settings">
+    <div class="settings-panel">
+      <div class="settings-header">
+        <span class="settings-title">Settings</span>
+        <button id="settings-close" class="icon-btn settings-close-btn" aria-label="Close settings">&times;</button>
+      </div>
+      <div class="settings-body">
+        <div class="field-group">
+          <label class="field-label" for="default-ai-model">Default AI Model</label>
+          <select id="default-ai-model" class="ai-selector">
+            <option value="sonnet">Sonnet 4.6 — best quality</option>
+            <option value="haiku">Haiku 4.5 — faster &amp; cheaper</option>
+            <option value="geminiFlash">Gemini 2.0 Flash — Google</option>
+            <option value="geminiFlash25">Gemini 2.5 Flash — Google</option>
+          </select>
+        </div>
+      </div>
+      <div class="settings-footer">
+        <button id="settings-save" class="btn btn-primary">Save</button>
+        <button id="settings-open-setup" class="btn btn-secondary">Settings</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../utils/helpers.js"></script>
   <script src="../drive/drive-api.js"></script>
   <script src="../utils/ai-helpers.js"></script>
