@@ -34,8 +34,6 @@ const settingsBtn    = document.getElementById('settings-btn');
 
 // AI evaluation elements
 const btnDashboard      = document.getElementById('btn-dashboard');
-const aiProvider        = document.getElementById('ai-provider');
-const btnEvaluate       = document.getElementById('btn-evaluate');
 const aiSpinner         = document.getElementById('ai-spinner');
 const aiError           = document.getElementById('ai-error');
 const aiResults         = document.getElementById('ai-results');
@@ -130,7 +128,6 @@ chrome.runtime.onMessage.addListener((message) => {
 
 btnSave.addEventListener('click', handleSave);
 btnClear.addEventListener('click', handleClear);
-btnEvaluate.addEventListener('click', handleEvaluate);
 btnPreparePackage.addEventListener('click', handlePreparePackage);
 
 btnDashboard.addEventListener('click', () => {
@@ -226,7 +223,6 @@ function setStatusBar(status) {
  */
 async function checkDuplicate(job) {
   setStatusBar('checking');
-  btnEvaluate.disabled = false;
 
   try {
     const token = await new Promise((resolve, reject) => {
@@ -246,10 +242,8 @@ async function checkDuplicate(job) {
       setStatusBar('new');
     } else if (match.status === 'submitted') {
       setStatusBar('submitted');
-      btnEvaluate.disabled = true;
     } else if (match.status === 'rejected') {
       setStatusBar('rejected');
-      btnEvaluate.disabled = true;
     } else {
       setStatusBar('prep');
     }
@@ -316,7 +310,6 @@ function handleClear() {
   currentJob = null;
   chrome.storage.session.remove(SESSION_KEYS.CURRENT_JOB).catch(() => {});
   hideMessages();
-  btnEvaluate.disabled     = false;
   stateJob.style.display   = 'none';
   stateEmpty.style.display = 'flex';
 }
@@ -332,10 +325,9 @@ async function handleEvaluate() {
   aiSpinner.style.display = 'block';
   aiError.style.display   = 'none';
   aiResults.style.display = 'none';
-  btnEvaluate.disabled    = true;
 
   try {
-    const provider = aiProvider.value;
+    const provider = 'claude';
 
     // Attempt to load the candidate profile from Drive before building the prompt.
     // Failure is non-fatal — evaluation proceeds with a no-profile notice in the prompt.
@@ -388,7 +380,6 @@ async function handleEvaluate() {
     aiError.style.display = 'block';
   } finally {
     aiSpinner.style.display = 'none';
-    btnEvaluate.disabled    = false;
   }
 }
 
