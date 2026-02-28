@@ -143,6 +143,8 @@ async function callGeminiAPI(apiKey, prompt, model = AI_MODELS.gemini) {
     `https://generativelanguage.googleapis.com/v1beta/models/` +
     `${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
+  console.log('[JobLink] Gemini URL:', url);
+
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -152,8 +154,9 @@ async function callGeminiAPI(apiKey, prompt, model = AI_MODELS.gemini) {
   });
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error?.message || `Gemini API error: ${response.status}`);
+    const errBody = await response.json().catch(() => ({}));
+    console.error('[JobLink] Gemini error response:', JSON.stringify(errBody));
+    throw new Error(errBody.error?.message || `Gemini API error: ${response.status}`);
   }
 
   const data = await response.json();
