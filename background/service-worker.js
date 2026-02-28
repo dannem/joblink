@@ -211,6 +211,13 @@ async function handleSaveToDrive(job, pdfBase64) {
     console.log('[JobLink] No PDF data provided — skipping PDF upload.');
   }
 
+  // 9. Save a Google Doc version of the job listing — skip gracefully on failure.
+  try {
+    await saveJobAsGoogleDoc(job, folder.id, token);
+  } catch (docErr) {
+    console.warn('[JobLink] Google Doc save failed:', docErr.message);
+  }
+
   console.log(`[JobLink] Saved to Drive: Preparation/${folderName} (folder ID: ${folder.id})`);
   return { success: true };
 }

@@ -568,6 +568,89 @@ async function createGoogleDoc(accessToken, parentFolderId, title, content, mime
 }
 
 /**
+ * Create a new Google Doc in a Drive folder and populate it with job data.
+ *
+ * Step 1: Creates an empty Google Doc via the Drive files API.
+ * Step 2: Inserts formatted job data as plain text via the Docs batchUpdate API.
+ *
+ * @param {Object} jobData   - Standard scraper output object (jobTitle, company, etc.)
+ * @param {string} folderId  - Drive folder ID to create the doc in
+ * @param {string} token     - OAuth access token
+ * @returns {Promise<string>} ID of the created Google Doc
+ * @throws {Error} If the Drive or Docs API call fails
+ */
+async function saveJobAsGoogleDoc(jobData, folderId, token) {
+  // ── 1. Create an empty Google Doc ─────────────────────────────────────────
+  const createRes = await fetch(`${DRIVE_API_BASE}/files`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: jobData.jobTitle || 'Job Listing',
+      mimeType: 'application/vnd.google-apps.document',
+      parents: [folderId],
+    }),
+  });
+
+  if (!createRes.ok) {
+    const err = await createRes.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Failed to create Google Doc: ${createRes.status}`);
+  }
+
+  const { id: docId } = await createRes.json();
+
+  // ── 2. Build the formatted plain-text body ────────────────────────────────
+  const separator = '─'.repeat(60);
+  const text = [
+    jobData.jobTitle || '',
+    '',
+    `Company:   ${jobData.company || ''}`,
+    `Location:  ${jobData.location || ''}`,
+    `Source:    ${jobData.source || ''}`,
+    `Scraped:   ${jobData.scrapedAt || ''}`,
+    `URL:       ${jobData.applicationUrl || ''}`,
+    '',
+    separator,
+    '',
+    'JOB DESCRIPTION',
+    '',
+    jobData.description || '',
+  ].join('\n');
+
+  // ── 3. Populate the doc with a single insertText batchUpdate ──────────────
+  const batchRes = await fetch(
+    `https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            insertText: {
+              location: { index: 1 },
+              text,
+            },
+          },
+        ],
+      }),
+    }
+  );
+
+  if (!batchRes.ok) {
+    const err = await batchRes.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Failed to populate Google Doc: ${batchRes.status}`);
+  }
+
+  console.log(`[JobLink] Job saved as Google Doc: ${docId}`);
+  return docId;
+}
+
+/**
  * Export a Google Doc as PDF and upload it to a Drive folder.
  *
  * @param {string} accessToken
