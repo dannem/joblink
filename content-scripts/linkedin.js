@@ -20,13 +20,13 @@
 const EXTRACTION_DELAY_MS = 500;
 
 /** Delay (ms) after a URL change before the first scrape attempt. */
-const NAV_EXTRACTION_DELAY_MS = 1500;
+const NAV_EXTRACTION_DELAY_MS = 2500;
 
 /** Delay (ms) between description-empty retry attempts. */
-const RETRY_DELAY_MS = 1000;
+const RETRY_DELAY_MS = 1500;
 
 /** Maximum number of retry attempts after an empty description. */
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 5;
 
 /**
  * Try each CSS selector in order and return the trimmed text of the first
@@ -298,8 +298,33 @@ async function runScrape() {
     }
   }
 
-  console.log('[JobLink] All retries exhausted — sending with empty description');
-  sendJobData(jobData);
+  // All timed retries exhausted — fall back to a one-time MutationObserver
+  // that fires runScrape() the moment .jobs-description appears in the DOM.
+  // Disconnects itself after the first match or after 30 s to avoid leaking.
+  console.log('[JobLink] All retries exhausted — watching DOM for .jobs-description');
+  sendJobData(jobData); // send what we have so the panel is not left blank
+
+  let domWatchTimer = null;
+  const domWatcher = new MutationObserver(() => {
+    const el = document.querySelector('.jobs-description');
+    if (!el) return;
+
+    // Element appeared — debounce by 500 ms to let content finish rendering
+    clearTimeout(domWatchTimer);
+    domWatchTimer = setTimeout(() => {
+      console.log('[JobLink] .jobs-description appeared in DOM — re-scraping');
+      domWatcher.disconnect();
+      runScrape();
+    }, 500);
+  });
+
+  domWatcher.observe(document.body, { childList: true, subtree: true });
+
+  // Safety disconnect after 30 s so the observer does not run indefinitely
+  setTimeout(() => {
+    domWatcher.disconnect();
+    console.log('[JobLink] DOM watcher timed out after 30 s');
+  }, 30000);
 }
 
 // ── Navigation watcher (SPA navigation detection) ─────────────────────────────
