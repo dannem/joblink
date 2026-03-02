@@ -145,6 +145,7 @@ function extractDescription() {
 
   for (const selector of descSelectors) {
     const el = document.querySelector(selector);
+    console.log('[JobLink] desc selector', selector, ':', el?.innerText?.substring(0, 100));
     if (el) {
       const byInnerText   = (el.innerText   || '').trim();
       const byTextContent = (el.textContent || '').trim();
