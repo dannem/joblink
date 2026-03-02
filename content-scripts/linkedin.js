@@ -288,6 +288,7 @@ async function runScrape() {
     console.log(`[JobLink] Description empty — retry ${attempt}/${MAX_RETRIES} in ${RETRY_DELAY_MS} ms`);
     await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
     jobData.description = extractDescription();
+    console.log(`[JobLink] runScrape attempt ${attempt + 1} description length:`, jobData.description.length);
     console.log(`[JobLink] Retry ${attempt} result:`, jobData.description ? 'got description' : 'still empty');
     if (jobData.description) {
       sendJobData(jobData);
@@ -331,6 +332,7 @@ function startNavigationWatcher() {
     }
 
     lastSeenHref = currentHref;
+    console.log('[JobLink] URL changed, new jobId detected:', currentHref);
 
     // Debounce: cancel any pending scrape and restart the timer.
     // NAV_EXTRACTION_DELAY_MS (1500ms) gives LinkedIn's async content swap
