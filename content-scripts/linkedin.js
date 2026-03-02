@@ -128,16 +128,17 @@ function extractLocation() {
  * @returns {string} Description text, or '' if not found
  */
 function extractDescription() {
-  const MIN_DESC_LENGTH = 100;
+  const MIN_DESC_LENGTH = 50;
 
   const descSelectors = [
+    // List-view layout — broad container confirmed working via debug logging
+    '.jobs-description',
     // Collections/recommended layout — stretched description variant
     '.jobs-description-content__text--stretch',
     '.jobs-box__html-content .jobs-description-content__text',
     '.job-details-about-the-job-module__description',
     // Split-panel / search layout
     '.jobs-description__content .jobs-description-content__text',
-    '.jobs-description',
     '.jobs-box__html-content',
     '.jobs-description-content',
     '[id*="job-details"]',
