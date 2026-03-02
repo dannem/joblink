@@ -278,7 +278,6 @@ async function enrichCompanyMetadata(job) {
     const modelMap = {
       sonnet:           AI_MODELS.claude,
       haiku:            AI_MODELS.claudeHaiku,
-      geminiFlash:      AI_MODELS.geminiFlash,
       geminiFlash25:    AI_MODELS.geminiFlash25,
       'gemini-2.5-pro': AI_MODELS.geminiPro,
     };
@@ -334,7 +333,6 @@ async function handleSave() {
       const modelMap = {
         sonnet:           AI_MODELS.claude,
         haiku:            AI_MODELS.claudeHaiku,
-        geminiFlash:      AI_MODELS.geminiFlash,
         geminiFlash25:    AI_MODELS.geminiFlash25,
         'gemini-2.5-pro': AI_MODELS.geminiPro,
       };
@@ -410,7 +408,6 @@ async function handleEvaluate() {
     const modelMap = {
       sonnet:           AI_MODELS.claude,
       haiku:            AI_MODELS.claudeHaiku,
-      geminiFlash:      AI_MODELS.geminiFlash,
       geminiFlash25:    AI_MODELS.geminiFlash25,
       'gemini-2.5-pro': AI_MODELS.geminiPro,
     };
@@ -530,7 +527,6 @@ async function handlePreparePackage() {
     const modelMap = {
       sonnet:        AI_MODELS.claude,
       haiku:         AI_MODELS.claudeHaiku,
-      geminiFlash:   AI_MODELS.geminiFlash,
       geminiFlash25: AI_MODELS.geminiFlash25,
       'gemini-2.5-pro': AI_MODELS.geminiPro,
     };

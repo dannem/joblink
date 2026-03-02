@@ -15,7 +15,6 @@ const AI_MODELS = {
   claude:       'claude-sonnet-4-6',         // Sonnet — high quality
   claudeHaiku:  'claude-haiku-4-5-20251001', // Haiku — fast and cheap
   openai:       'gpt-4o',
-  geminiFlash:  'gemini-2.0-flash', // Flash 2.0
   geminiFlash25: 'gemini-2.5-flash', // Flash 2.5
   geminiPro:     'gemini-2.5-pro', // Pro 2.5
 };
@@ -197,7 +196,7 @@ function parseAIResponse(text) {
  * Read the appropriate API key from storage, then call the selected provider.
  *
  * When the package pipeline passes a Gemini model ID via the model parameter
- * (e.g. AI_MODELS.geminiFlash) with provider='claude', this function detects
+ * (e.g. AI_MODELS.geminiFlash25) with provider='claude', this function detects
  * the Gemini model and re-routes to callGeminiAPI using the stored Gemini key.
  *
  * @param {'claude'|'openai'|'gemini'} provider
