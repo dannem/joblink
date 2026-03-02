@@ -191,8 +191,9 @@ function showJob(job) {
   stateEmpty.style.display = 'none';
   stateJob.style.display   = 'flex';
 
-  // Fire the duplicate check in the background — non-blocking
+  // Fire background tasks — non-blocking
   checkDuplicate(job);
+  enrichCompanyMetadata(job);
 }
 
 /**
@@ -252,6 +253,51 @@ async function checkDuplicate(job) {
   } catch (err) {
     console.warn('[JobLink] Duplicate check failed:', err.message);
     setStatusBar('new');
+  }
+}
+
+/**
+ * If the scraped company is missing or looks like a LinkedIn DOM artefact,
+ * ask the AI to extract the real company name and location from the description.
+ * Runs non-blocking after showJob() — updates currentJob and the visible fields
+ * in place when the result arrives.
+ *
+ * The currentJob === job guard prevents a stale response from overwriting a
+ * newer job if the user navigated to a different posting before the call returned.
+ *
+ * @param {Object} job - The job object as returned by the scraper
+ */
+async function enrichCompanyMetadata(job) {
+  const co = job.company || '';
+  const needsEnrichment = !co || co.length > 50 ||
+    co.includes('employees') || co.includes('Metropolitan');
+
+  if (!needsEnrichment || !job.description) return;
+
+  try {
+    const modelMap = {
+      sonnet:           AI_MODELS.claude,
+      haiku:            AI_MODELS.claudeHaiku,
+      geminiFlash:      AI_MODELS.geminiFlash,
+      geminiFlash25:    AI_MODELS.geminiFlash25,
+      'gemini-2.5-pro': AI_MODELS.geminiPro,
+    };
+    const selectedModel = modelMap[packageModel.value] || AI_MODELS.claude;
+    const extracted = await extractJobMetadata(job.description, null, selectedModel);
+
+    if (currentJob !== job) return; // User has moved to a different job — discard
+
+    if (extracted.company) {
+      currentJob.company = extracted.company;
+      fieldCompany.value = extracted.company;
+    }
+    if (extracted.location) {
+      currentJob.location = extracted.location;
+      fieldLocation.value = extracted.location;
+    }
+    console.log('[JobLink] Enriched company/location on load:', extracted);
+  } catch (err) {
+    console.warn('[JobLink] enrichCompanyMetadata failed:', err.message);
   }
 }
 
@@ -361,7 +407,14 @@ async function handleEvaluate() {
   aiResults.style.display = 'none';
 
   try {
-    const provider = 'claude';
+    const modelMap = {
+      sonnet:           AI_MODELS.claude,
+      haiku:            AI_MODELS.claudeHaiku,
+      geminiFlash:      AI_MODELS.geminiFlash,
+      geminiFlash25:    AI_MODELS.geminiFlash25,
+      'gemini-2.5-pro': AI_MODELS.geminiPro,
+    };
+    const selectedModel = modelMap[packageModel.value] || AI_MODELS.claude;
 
     // Attempt to load the candidate profile from Drive before building the prompt.
     // Failure is non-fatal — evaluation proceeds with a no-profile notice in the prompt.
@@ -391,7 +444,7 @@ async function handleEvaluate() {
       description: fieldDesc.value.trim(),
     }, profileText);
 
-    const rawText = await callAI(provider, prompt);
+    const rawText = await callAI('claude', prompt, selectedModel);
     const result  = parseAIResponse(rawText);
 
     if (!result || typeof result.score !== 'number') {
