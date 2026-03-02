@@ -16,8 +16,17 @@
  * self-contained. No imports. No Drive API calls. DOM parsing only.
  */
 
-/** Delay (ms) before extracting, to let LinkedIn's JS finish rendering. */
+/** Delay (ms) before the initial page-load scrape. */
 const EXTRACTION_DELAY_MS = 500;
+
+/** Delay (ms) after a URL change before the first scrape attempt. */
+const NAV_EXTRACTION_DELAY_MS = 1500;
+
+/** Delay (ms) between description-empty retry attempts. */
+const RETRY_DELAY_MS = 1000;
+
+/** Maximum number of retry attempts after an empty description. */
+const MAX_RETRIES = 3;
 
 /**
  * Try each CSS selector in order and return the trimmed text of the first
@@ -257,27 +266,37 @@ function sendJobData(jobData) {
 
 /**
  * Scrape the currently visible job and send it to the service worker.
- * Handles the description-empty retry internally.
  *
- * Shared between the initial page-load path and the URL polling loop so
+ * If the description is empty on the first attempt (LinkedIn's async content
+ * may not have rendered yet), retries up to MAX_RETRIES more times with
+ * RETRY_DELAY_MS between each attempt. Sends whatever data is available once
+ * either a description is found or all retries are exhausted.
+ *
+ * Shared between the initial page-load path and the navigation watcher so
  * that both code paths stay in sync.
  */
-function runScrape() {
+async function runScrape() {
   const jobData = scrapeLinkedInJob();
-  console.log('[JobLink] LinkedIn scraper result (first pass):', jobData);
+  console.log('[JobLink] LinkedIn scraper result (attempt 1):', jobData);
 
   if (jobData.description) {
     sendJobData(jobData);
     return;
   }
 
-  // Description was empty — the panel may still be loading. Retry once.
-  console.log('[JobLink] Description empty on first pass — retrying in 1000 ms');
-  setTimeout(() => {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    console.log(`[JobLink] Description empty — retry ${attempt}/${MAX_RETRIES} in ${RETRY_DELAY_MS} ms`);
+    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
     jobData.description = extractDescription();
-    console.log('[JobLink] LinkedIn scraper result (after retry):', jobData);
-    sendJobData(jobData);
-  }, 1000);
+    console.log(`[JobLink] Retry ${attempt} result:`, jobData.description ? 'got description' : 'still empty');
+    if (jobData.description) {
+      sendJobData(jobData);
+      return;
+    }
+  }
+
+  console.log('[JobLink] All retries exhausted — sending with empty description');
+  sendJobData(jobData);
 }
 
 // ── Navigation watcher (SPA navigation detection) ─────────────────────────────
@@ -313,12 +332,14 @@ function startNavigationWatcher() {
 
     lastSeenHref = currentHref;
 
-    // Debounce: cancel any pending scrape and restart the timer
+    // Debounce: cancel any pending scrape and restart the timer.
+    // NAV_EXTRACTION_DELAY_MS (1500ms) gives LinkedIn's async content swap
+    // enough time to begin rendering before the first scrape attempt.
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       console.log('[JobLink] Navigation detected — re-scraping:', currentHref);
       runScrape();
-    }, EXTRACTION_DELAY_MS);
+    }, NAV_EXTRACTION_DELAY_MS);
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
