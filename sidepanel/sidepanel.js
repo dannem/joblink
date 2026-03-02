@@ -45,6 +45,7 @@ const jobStatusBar      = document.getElementById('job-status-bar');
 const jobStatusText     = document.getElementById('job-status-text');
 const jobStatusIcon     = document.getElementById('job-status-icon');
 const btnPreparePackage  = document.getElementById('btn-prepare-package');
+const btnEvaluateFit     = document.getElementById('evaluate-fit-btn');
 const packageModel       = document.getElementById('package-model');
 const packageStatus      = document.getElementById('package-status');
 
@@ -129,6 +130,7 @@ chrome.runtime.onMessage.addListener((message) => {
 btnSave.addEventListener('click', handleSave);
 btnClear.addEventListener('click', handleClear);
 btnPreparePackage.addEventListener('click', handlePreparePackage);
+btnEvaluateFit.addEventListener('click', handleEvaluate);
 
 btnDashboard.addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('dashboard/dashboard.html') });
