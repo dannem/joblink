@@ -5,6 +5,107 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 37 — Complete
+Date: 2026-03-02
+Branch: main (committed directly)
+What was built:
+Fixed recursive subfolder traversal for the My_Profile folder. Previously, profile
+documents nested inside subfolders within My_Profile were not found — only files at
+the top level of the folder were read. The fix adds recursive traversal so all Google
+Docs anywhere within the My_Profile folder hierarchy are included when building the
+candidate profile text sent to AI prompts.
+
+Files changed:
+- drive/drive-api.js: readDocsFromFolder updated to recursively enumerate subfolders
+    and collect Docs from each level before returning the merged result.
+
+Test results: Profile documents stored in subfolders within My_Profile now appear in
+AI prompts correctly.
+Next steps: None — profile reading pipeline fully functional.
+
+---
+
+Session 36 — Complete
+Date: 2026-03-02
+Branch: main (committed directly)
+What was built:
+Added Google Doc as a fourth save format alongside the existing JSON, HTML, and PDF
+files. When a job is saved to Drive, a formatted Google Doc is now created in the job
+folder in addition to the three existing file types. All four files are generated and
+uploaded in the same Save to Drive operation — partial saves are not permitted.
+
+Files changed:
+- drive/drive-api.js: savePreparedPackage (or equivalent save function) extended to
+    create a Google Doc via the Drive API using the job summary content.
+- sidepanel/sidepanel.js: updated the save call to include the new Doc creation step;
+    all four file types must succeed or the operation is treated as failed.
+
+Test results: Job folders in Drive now contain four files: job_info.json,
+job_summary.html, job_summary.pdf, and a Google Doc.
+Next steps: None.
+
+---
+
+Session 35 — Complete
+Date: 2026-03-02
+Branch: main (committed directly)
+What was built:
+Moved the Default AI Model selector from the side panel into the Setup page so model
+preference is configured once at setup time rather than persisted as a per-session
+dropdown state. Removed the bottom Claude-only AI selector that previously appeared in
+the side panel below the action buttons. Added Gemini 2.5 Pro (gemini-2.5-pro) as a
+selectable model option in both the Setup page dropdown and the Prepare Package dropdown.
+
+Files changed:
+- setup/setup.html: added Default AI Model section with select element matching all
+    supported model keys (sonnet, haiku, geminiFlash, geminiFlash25, gemini-2.5-pro).
+- setup/setup.js: reads and saves the selected model to STORAGE_KEYS.DEFAULT_AI_MODEL
+    on form submit; populates the dropdown from storage on page load.
+- sidepanel/sidepanel.html: removed the evaluate-only AI selector; Prepare Package
+    dropdown now includes Gemini 2.5 Pro option; panel reads saved default on load.
+- sidepanel/sidepanel.js: DOMContentLoaded reads STORAGE_KEYS.DEFAULT_AI_MODEL and
+    pre-selects the matching option in the package-model dropdown; modelMap extended
+    with 'gemini-2.5-pro' entry.
+- utils/ai-helpers.js: added geminiPro: 'gemini-2.5-pro' to AI_MODELS constants.
+
+Test results: Default model saved in Setup is correctly pre-selected when the side
+panel opens. Gemini 2.5 Pro appears in both dropdowns and routes correctly to the
+Gemini API.
+Next steps: None.
+
+---
+
+Session 34 — Complete
+Date: 2026-03-02
+Branch: main (committed directly)
+What was built:
+Added Gemini 2.0 Flash and Gemini 2.5 Flash as selectable AI models for the Prepare
+Package pipeline. Fixed model name references — Gemini 1.5 Flash has been retired by
+Google and was replaced with the correct current model IDs. Added a Google (Gemini)
+API key input field to the Setup page so users can store their Gemini key without
+editing storage directly.
+
+Files changed:
+- utils/ai-helpers.js: added geminiFlash: 'gemini-2.0-flash' and
+    geminiFlash25: 'gemini-2.5-flash' to AI_MODELS; removed retired 1.5 Flash reference.
+    callAI dispatcher updated: model IDs starting with 'gemini-' are detected by prefix
+    and routed to callGeminiAPI using the stored Gemini key, regardless of the provider
+    argument — allows Gemini models to be selected from the package dropdown without
+    changing the provider field.
+- setup/setup.html: added Google (Gemini) API Key password input field in the AI
+    Provider Keys section.
+- setup/setup.js: reads and saves STORAGE_KEYS.GEMINI_API_KEY on form submit;
+    populates the field from storage on page load.
+- sidepanel/sidepanel.html: added Gemini 2.0 Flash and Gemini 2.5 Flash options to
+    the Prepare Package model dropdown.
+- sidepanel/sidepanel.js: modelMap extended with geminiFlash and geminiFlash25 entries.
+
+Test results: Gemini Flash models selectable and callable from the Prepare Package
+pipeline using a stored Gemini API key.
+Next steps: None.
+
+---
+
 Session 33 — Complete
 Date: 2026-02-27
 Branch: main (committed directly)
