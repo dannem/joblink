@@ -445,7 +445,7 @@ async function handlePreparePackage() {
       haiku:         AI_MODELS.claudeHaiku,
       geminiFlash:   AI_MODELS.geminiFlash,
       geminiFlash25: AI_MODELS.geminiFlash25,
-      'gemini-2.5-pro-preview-03-25': AI_MODELS.geminiPro,
+      'gemini-2.5-pro': AI_MODELS.geminiPro,
     };
     const selectedModel = modelMap[packageModel.value] || AI_MODELS.claude;
 
