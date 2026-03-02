@@ -1,3 +1,4 @@
+(() => {
 /**
  * LinkedIn job scraper for JobLink extension.
  *
@@ -240,6 +241,7 @@ function scrapeLinkedInJob() {
     location:       extractLocation(),
     description:    extractDescription(),
     applicationUrl: extractApplicationUrl(),
+    sourceJobId:    getCurrentJobId(),
     source:         'linkedin',
     scrapedAt:      new Date().toISOString(),
   };
@@ -256,14 +258,59 @@ function sendJobData(jobData) {
       { type: 'JOB_DATA_EXTRACTED', payload: jobData },
       (response) => {
         if (chrome.runtime.lastError) {
+          const msg = chrome.runtime.lastError.message || '';
+          // Expected after extension reload on already-open tabs: old script contexts
+          // are invalidated until a fresh script instance is injected.
+          if (msg.includes('Extension context invalidated')) return;
           // Non-fatal: service worker may be inactive on first run.
-          console.warn('[JobLink] Message warning:', chrome.runtime.lastError.message);
+          console.warn('[JobLink] Message warning:', msg);
         }
       }
     );
   } catch (error) {
+    if ((error?.message || '').includes('Extension context invalidated')) return;
     console.error('[JobLink] Failed to send job data to service worker:', error);
   }
+}
+
+/**
+ * Build a stable identifier for the currently open LinkedIn job.
+ * Uses currentJobId (collections/search layout) or /jobs/view/{id} when present.
+ *
+ * @returns {string}
+ */
+function getCurrentJobIdentity() {
+  try {
+    const url = new URL(window.location.href);
+    const fromQuery = url.searchParams.get('currentJobId');
+    if (fromQuery) return `job:${fromQuery}`;
+
+    const m = url.pathname.match(/\/jobs\/view\/(\d+)/);
+    if (m && m[1]) return `job:${m[1]}`;
+
+    return `url:${url.pathname}`;
+  } catch (_) {
+    return `href:${window.location.href}`;
+  }
+}
+
+/**
+ * Return the current LinkedIn job id if present in URL state.
+ *
+ * @returns {string}
+ */
+function getCurrentJobId() {
+  try {
+    const url = new URL(window.location.href);
+    const fromQuery = url.searchParams.get('currentJobId');
+    if (fromQuery) return fromQuery;
+
+    const m = url.pathname.match(/\/jobs\/view\/(\d+)/);
+    if (m && m[1]) return m[1];
+  } catch (_) {
+    return '';
+  }
+  return '';
 }
 
 /**
@@ -278,8 +325,18 @@ function sendJobData(jobData) {
  * that both code paths stay in sync.
  */
 async function runScrape() {
+  const runId = ++scrapeRunCounter;
+  const runJobIdentity = getCurrentJobIdentity();
+  const isStaleRun = () =>
+    runId !== scrapeRunCounter || getCurrentJobIdentity() !== runJobIdentity;
+
   const jobData = scrapeLinkedInJob();
   console.log('[JobLink] LinkedIn scraper result (attempt 1):', jobData);
+
+  if (isStaleRun()) {
+    console.log('[JobLink] runScrape aborted (stale attempt 1):', runId);
+    return;
+  }
 
   if (jobData.description) {
     sendJobData(jobData);
@@ -287,9 +344,18 @@ async function runScrape() {
   }
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    if (isStaleRun()) {
+      console.log('[JobLink] runScrape aborted (stale during retry loop):', runId);
+      return;
+    }
     console.log(`[JobLink] Description empty — retry ${attempt}/${MAX_RETRIES} in ${RETRY_DELAY_MS} ms`);
     await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-    jobData.description = extractDescription();
+    if (isStaleRun()) {
+      console.log('[JobLink] runScrape aborted (stale after retry wait):', runId);
+      return;
+    }
+
+    Object.assign(jobData, scrapeLinkedInJob());
     console.log(`[JobLink] runScrape attempt ${attempt + 1} description length:`, jobData.description.length);
     console.log(`[JobLink] Retry ${attempt} result:`, jobData.description ? 'got description' : 'still empty');
     if (jobData.description) {
@@ -302,10 +368,14 @@ async function runScrape() {
   // that fires runScrape() the moment .jobs-description appears in the DOM.
   // Disconnects itself after the first match or after 30 s to avoid leaking.
   console.log('[JobLink] All retries exhausted — watching DOM for .jobs-description');
-  sendJobData(jobData); // send what we have so the panel is not left blank
+  sendJobData(jobData); // keep panel responsive even when description extraction lags
 
   let domWatchTimer = null;
   const domWatcher = new MutationObserver(() => {
+    if (isStaleRun()) {
+      domWatcher.disconnect();
+      return;
+    }
     const el = document.querySelector('.jobs-description');
     if (!el) return;
 
@@ -334,6 +404,9 @@ let lastSeenHref = window.location.href;
 
 /** Debounce timer handle for re-scrape scheduling; null when idle. */
 let debounceTimer = null;
+
+/** Monotonic counter used to cancel stale overlapping scrape runs. */
+let scrapeRunCounter = 0;
 
 /**
  * Start a MutationObserver that detects in-page job navigation on LinkedIn.
@@ -387,8 +460,18 @@ setTimeout(() => {
   startNavigationWatcher();
 }, EXTRACTION_DELAY_MS);
 
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === 'PING_CONTENT_SCRIPT') {
+    sendResponse({ ok: true, source: 'linkedin' });
+    return false;
+  }
+
   if (message.type === 'REQUEST_SCRAPE') {
     runScrape();
+    sendResponse({ ok: true, source: 'linkedin' });
+    return false;
   }
+
+  return false;
 });
+})();

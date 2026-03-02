@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
-      chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_SCRAPE' })
+      chrome.runtime.sendMessage({ type: 'TRIGGER_SCRAPE_FOR_TAB', tabId: tab.id })
         .catch(() => {});
 
       // If panel is still empty after 2.5s, check session storage again
@@ -88,6 +88,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         setTimeout(async () => {
           if (currentJob) return; // Already populated by message
           try {
+            // Retry scrape trigger once for slow/cold-start tabs.
+            await chrome.runtime.sendMessage({ type: 'TRIGGER_SCRAPE_FOR_TAB', tabId: tab.id })
+              .catch(() => {});
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
             const result = await chrome.storage.session.get(SESSION_KEYS.CURRENT_JOB);
             if (result[SESSION_KEYS.CURRENT_JOB]) {
               showJob(result[SESSION_KEYS.CURRENT_JOB]);
@@ -109,7 +114,7 @@ document.addEventListener('visibilitychange', async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
-      chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_SCRAPE' })
+      chrome.runtime.sendMessage({ type: 'TRIGGER_SCRAPE_FOR_TAB', tabId: tab.id })
         .catch(() => {});
     }
   } catch (err) {

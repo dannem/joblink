@@ -41,15 +41,204 @@ async function handleFirstInstall() {
 
 /**
  * Handle clicks on the extension action (toolbar icon).
- * Opens the side panel.
+ * Opens the side panel immediately (while click gesture is active), then
+ * best-effort bootstraps the matching content script for scrape requests.
  */
 chrome.action.onClicked.addListener(async (tab) => {
+  if (!tab?.id) {
+    console.error('[JobLink] No active tab id on action click.');
+    return;
+  }
+
   try {
     await chrome.sidePanel.open({ tabId: tab.id });
   } catch (error) {
     console.error('Failed to open side panel:', error);
+    return;
+  }
+
+  try {
+    await triggerScrapeForTab(tab);
+  } catch (injectErr) {
+    console.warn('[JobLink] Content script bootstrap failed (continuing):', injectErr.message);
   }
 });
+
+/**
+ * Return the content script file that matches the current tab URL.
+ *
+ * @param {string} url
+ * @returns {string|null}
+ */
+function getContentScriptForUrl(url) {
+  if (!url) return null;
+
+  try {
+    const parsed = new URL(url);
+    const isLinkedInHost =
+      parsed.hostname === 'linkedin.com' || parsed.hostname.endsWith('.linkedin.com');
+    if (isLinkedInHost && parsed.pathname.startsWith('/jobs/')) {
+      return 'content-scripts/linkedin.js';
+    }
+    if (parsed.hostname.endsWith('.indeed.com') || parsed.hostname === 'indeed.com') {
+      return 'content-scripts/indeed.js';
+    }
+  } catch (_) {
+    return null;
+  }
+
+  return null;
+}
+
+/**
+ * Compute a simple quality score for a scraped payload.
+ * Higher score means more complete and less likely to be a partial scrape.
+ *
+ * @param {Object|null|undefined} job
+ * @returns {number}
+ */
+function scoreJobPayload(job) {
+  if (!job) return 0;
+  const title = (job.jobTitle || '').trim();
+  const company = (job.company || '').trim();
+  const location = (job.location || '').trim();
+  const description = (job.description || '').trim();
+
+  let score = 0;
+  if (title) score += Math.min(title.length, 120);
+  if (company) score += Math.min(company.length, 80);
+  if (location) score += Math.min(location.length, 60);
+  if (description) score += Math.min(description.length, 1000);
+  if (job.applicationUrl) score += 40;
+  return score;
+}
+
+/**
+ * Reject clear regressions so stale/partial late results don't overwrite
+ * already-captured job data in session storage.
+ *
+ * @param {Object|null|undefined} currentJob
+ * @param {Object|null|undefined} nextJob
+ * @returns {boolean}
+ */
+function shouldReplaceCurrentJob(currentJob, nextJob) {
+  if (!nextJob) return false;
+  if (!currentJob) return true;
+
+  const samePosting =
+    currentJob.applicationUrl &&
+    nextJob.applicationUrl &&
+    currentJob.applicationUrl === nextJob.applicationUrl;
+
+  if (!samePosting) return true;
+
+  const currentScore = scoreJobPayload(currentJob);
+  const nextScore = scoreJobPayload(nextJob);
+  return nextScore >= currentScore;
+}
+
+/**
+ * Extract LinkedIn job id from either currentJobId query param or /jobs/view/{id}.
+ *
+ * @param {string} url
+ * @returns {string}
+ */
+function extractLinkedInJobId(url) {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    const fromQuery = parsed.searchParams.get('currentJobId');
+    if (fromQuery) return fromQuery;
+    const m = parsed.pathname.match(/\/jobs\/view\/(\d+)/);
+    if (m && m[1]) return m[1];
+  } catch (_) {
+    return '';
+  }
+  return '';
+}
+
+/**
+ * For LinkedIn SPA pages, reject payloads that do not match the tab's current
+ * job id. Prevents stale async scrapes from older postings overwriting fields.
+ *
+ * @param {Object} jobData
+ * @param {chrome.tabs.Tab|undefined} senderTab
+ * @returns {boolean}
+ */
+function isFreshLinkedInPayload(jobData, senderTab) {
+  if (!jobData || jobData.source !== 'linkedin') return true;
+  const tabJobId = extractLinkedInJobId(senderTab?.url || '');
+  const payloadJobId =
+    (jobData.sourceJobId || '').toString() ||
+    extractLinkedInJobId(jobData.applicationUrl || '');
+
+  if (!tabJobId || !payloadJobId) return true;
+  return tabJobId === payloadJobId;
+}
+
+/**
+ * If the active tab is a supported job page and no listener exists yet,
+ * inject the matching scraper script so REQUEST_SCRAPE can run immediately.
+ *
+ * @param {{id?: number, url?: string}} tab
+ * @returns {Promise<boolean>} true if a script was injected, else false
+ */
+async function ensureContentScriptForTab(tab) {
+  if (!tab?.id) return false;
+
+  const scriptFile = getContentScriptForUrl(tab.url || '');
+  if (!scriptFile) return false;
+
+  // Always inject a fresh scraper on trigger. This avoids stale listener issues
+  // after browser restart where an invalidated old script can still receive
+  // messages but cannot send data back to the extension runtime.
+  console.log('[JobLink] Injecting scraper into active tab:', scriptFile);
+  await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    files: [scriptFile],
+  });
+  return true;
+}
+
+/**
+ * Ensure scraper availability on the given tab and request a scrape.
+ * Safe to call repeatedly.
+ *
+ * @param {{id?: number, url?: string}} tab
+ */
+async function triggerScrapeForTab(tab) {
+  if (!tab?.id) return;
+  const ATTEMPTS = 3;
+  const RETRY_DELAY_MS = 250;
+
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    await ensureContentScriptForTab(tab);
+    const delivered = await requestScrape(tab.id);
+    if (delivered) return;
+    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+  }
+
+  console.warn('[JobLink] REQUEST_SCRAPE failed after retries for tab:', tab.id);
+}
+
+/**
+ * Ask content script to scrape now. Returns true when message was delivered.
+ *
+ * @param {number} tabId
+ * @returns {Promise<boolean>}
+ */
+async function requestScrape(tabId) {
+  return new Promise((resolve) => {
+    chrome.tabs.sendMessage(tabId, { type: 'REQUEST_SCRAPE' }, (response) => {
+      const msg = chrome.runtime.lastError?.message || '';
+      if (msg.includes('Receiving end does not exist') || msg.includes('Extension context invalidated')) {
+        resolve(false);
+        return;
+      }
+      resolve(Boolean(response && response.ok));
+    });
+  });
+}
 
 /**
  * Listen for messages from content scripts and extension pages.
@@ -72,14 +261,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('[JobLink] Source tab:', sender.tab ? sender.tab.url : 'unknown');
 
     if (jobData) {
-      // Persist for side panel re-opens within the same browser session
-      chrome.storage.session
-        .set({ [SESSION_KEYS.CURRENT_JOB]: jobData })
-        .catch(err => console.error('[JobLink] Failed to store job in session:', err));
+      if (!isFreshLinkedInPayload(jobData, sender.tab)) {
+        console.log('[JobLink] Ignoring stale LinkedIn payload:', {
+          tabUrl: sender.tab?.url,
+          sourceJobId: jobData.sourceJobId,
+          applicationUrl: jobData.applicationUrl,
+        });
+        sendResponse({ status: 'ignored_stale' });
+        return false;
+      }
 
-      // Forward to side panel (best-effort — panel may not be open yet)
-      chrome.runtime.sendMessage({ type: 'JOB_DATA_EXTRACTED', payload: jobData })
-        .catch(() => { /* Side panel not open — not an error */ });
+      chrome.storage.session.get(SESSION_KEYS.CURRENT_JOB)
+        .then((result) => {
+          const currentJob = result[SESSION_KEYS.CURRENT_JOB] || null;
+          if (!shouldReplaceCurrentJob(currentJob, jobData)) {
+            console.log('[JobLink] Ignoring lower-quality duplicate payload for same posting.');
+            return;
+          }
+
+          // Persist for side panel re-opens within the same browser session
+          return chrome.storage.session
+            .set({ [SESSION_KEYS.CURRENT_JOB]: jobData })
+            .then(() => {
+              // Forward to side panel (best-effort — panel may not be open yet)
+              return chrome.runtime.sendMessage({ type: 'JOB_DATA_EXTRACTED', payload: jobData })
+                .catch(() => { /* Side panel not open — not an error */ });
+            });
+        })
+        .catch(err => console.error('[JobLink] Failed to process incoming job payload:', err));
     }
 
     sendResponse({ status: 'received' });
@@ -93,6 +302,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .then(result => sendResponse(result))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; // Keep the message channel open while the async work completes
+  }
+
+  if (message.type === 'TRIGGER_SCRAPE_FOR_TAB') {
+    (async () => {
+      try {
+        if (!message.tabId) {
+          sendResponse({ ok: false, error: 'Missing tabId' });
+          return;
+        }
+        const tab = await chrome.tabs.get(message.tabId);
+        await triggerScrapeForTab(tab);
+        sendResponse({ ok: true });
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message });
+      }
+    })();
+    return true;
   }
 
   return false;

@@ -1,3 +1,4 @@
+(() => {
 /**
  * Indeed job scraper for JobLink extension.
  *
@@ -141,12 +142,16 @@ function sendJobData(jobData) {
       { type: 'JOB_DATA_EXTRACTED', data: jobData },
       (response) => {
         if (chrome.runtime.lastError) {
+          const msg = chrome.runtime.lastError.message || '';
+          // Expected after extension reload on already-open tabs.
+          if (msg.includes('Extension context invalidated')) return;
           // Non-fatal: service worker may be inactive on first run.
-          console.warn('[JobLink] Message warning:', chrome.runtime.lastError.message);
+          console.warn('[JobLink] Message warning:', msg);
         }
       }
     );
   } catch (error) {
+    if ((error?.message || '').includes('Extension context invalidated')) return;
     console.error('[JobLink] Failed to send job data to service worker:', error);
   }
 }
@@ -220,8 +225,18 @@ setTimeout(() => {
   startNavigationWatcher();
 }, EXTRACTION_DELAY_MS);
 
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === 'PING_CONTENT_SCRIPT') {
+    sendResponse({ ok: true, source: 'indeed' });
+    return false;
+  }
+
   if (message.type === 'REQUEST_SCRAPE') {
     runScrape();
+    sendResponse({ ok: true, source: 'indeed' });
+    return false;
   }
+
+  return false;
 });
+})();

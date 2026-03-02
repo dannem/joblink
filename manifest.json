@@ -8,7 +8,14 @@
     "identity",
     "sidePanel",
     "activeTab",
-    "scripting"
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://linkedin.com/*",
+    "https://*.linkedin.com/*",
+    "*://indeed.com/*",
+    "*://*.indeed.com/*"
   ],
   "oauth2": {
     "client_id": "750335831511-buksrfnh5406q0rg28bkh7epba11pipn.apps.googleusercontent.com",
