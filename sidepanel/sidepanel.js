@@ -274,6 +274,38 @@ async function handleSave() {
   setSaving(true);
   hideMessages();
 
+  // If the scraped company looks wrong (empty, too long, or contains known
+  // junk strings from LinkedIn's DOM), ask the AI to extract it from the
+  // description before saving.
+  const co = jobToSave.company;
+  const companyLooksWrong = !co || co.length > 50 ||
+    co.includes('employees') || co.includes('Metropolitan');
+
+  if (companyLooksWrong && jobToSave.description) {
+    try {
+      const modelMap = {
+        sonnet:           AI_MODELS.claude,
+        haiku:            AI_MODELS.claudeHaiku,
+        geminiFlash:      AI_MODELS.geminiFlash,
+        geminiFlash25:    AI_MODELS.geminiFlash25,
+        'gemini-2.5-pro': AI_MODELS.geminiPro,
+      };
+      const selectedModel = modelMap[packageModel.value] || AI_MODELS.claude;
+      const extracted = await extractJobMetadata(jobToSave.description, null, selectedModel);
+      if (extracted.company) {
+        jobToSave.company  = extracted.company;
+        fieldCompany.value = extracted.company;
+      }
+      if (extracted.location) {
+        jobToSave.location  = extracted.location;
+        fieldLocation.value = extracted.location;
+      }
+      console.log('[JobLink] AI-corrected metadata:', extracted);
+    } catch (metaErr) {
+      console.warn('[JobLink] extractJobMetadata failed — saving with original values:', metaErr.message);
+    }
+  }
+
   // Generate the PDF in the side panel — jsPDF is not available in the service worker.
   // If generation fails, log the error and continue without PDF so JSON/HTML are not blocked.
   let pdfBase64 = '';

@@ -238,6 +238,45 @@ async function callAI(provider, prompt, model = null) {
   }
 }
 
+// ── Metadata extractor ────────────────────────────────────────────────────
+
+/**
+ * Extract company name and job location from a raw job description using AI.
+ *
+ * Routes through callAI so it works with Claude and Gemini models identically.
+ * The apiKey parameter is accepted for interface symmetry but is unused —
+ * callAI reads the appropriate key from storage internally.
+ *
+ * @param {string} description - Raw job description text
+ * @param {string} [apiKey]    - Unused; included for interface symmetry
+ * @param {string} [model]     - AI model ID (defaults to AI_MODELS.claude)
+ * @returns {Promise<{company: string, location: string}>}
+ */
+async function extractJobMetadata(description, apiKey, model = AI_MODELS.claude) {
+  const prompt = `Extract the hiring company name and job location from the job description below.
+
+Return ONLY a raw JSON object — no markdown, no code fences, no explanation:
+{
+  "company": "<company name>",
+  "location": "<city, state/country, or Remote>"
+}
+
+If a field cannot be determined, use an empty string.
+
+--- JOB DESCRIPTION ---
+${description}`;
+
+  try {
+    const raw    = await callAI('claude', prompt, model);
+    const parsed = parseAIResponse(raw);
+    if (parsed && typeof parsed.company === 'string' && typeof parsed.location === 'string') {
+      return { company: parsed.company.trim(), location: parsed.location.trim() };
+    }
+  } catch (_) { /* fall through */ }
+
+  return { company: '', location: '' };
+}
+
 // ── Package preparation prompt builders ────────────────────────────────────
 
 /**
