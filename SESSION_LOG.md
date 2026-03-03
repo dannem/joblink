@@ -5,6 +5,44 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 40 — Complete
+Date: 2026-03-03
+Branch: feature-linkedin-scraper-fallbacks
+What was built:
+Three improvements to the LinkedIn scraper's fallback coverage:
+
+1. document.title fallback (scrapeLinkedInJob): When DOM selectors return empty
+   strings for job title or company name, the page title is parsed by splitting
+   on " | " — index 0 becomes the job title fallback, index 1 becomes the company
+   fallback. Matches LinkedIn's "Job Title | Company Name | LinkedIn" format.
+
+2. Meta description fallback (extractLocation): When all DOM-based location
+   selectors fail, the content of meta[name="description"] or
+   meta[property="og:description"] is returned as a last resort. LinkedIn's
+   meta description often contains location info (e.g. "Austin, TX · Hybrid").
+
+3. "See more" expansion (expandDescriptionIfTruncated + runScrape): A new async
+   helper clicks .jobs-description__content .feed-shared-inline-show-more-text__see-more-less-toggle
+   if present, then waits 500 ms. Called once at the top of runScrape() before
+   the first scrapeLinkedInJob() call, ensuring full description text is available.
+
+Files changed:
+- content-scripts/linkedin.js: extractLocation meta fallback; scrapeLinkedInJob
+  document.title fallback; new expandDescriptionIfTruncated() helper; runScrape
+  calls expandDescriptionIfTruncated() before first scrapeLinkedInJob()
+
+Test results:
+- Requires manual testing in Chrome
+- Verify: job pages where DOM selectors fail still populate title/company from page title
+- Verify: "see more" button is clicked on pages with truncated descriptions
+- Verify: normal pages unaffected (button absent → no delay, title/company from DOM)
+
+Known issues / next steps:
+- Meta description fallback returns the full meta string, not just the location;
+  user may need to trim it in the sidepanel
+
+---
+
 Session 39 — Complete
 Date: 2026-03-03
 Branch: feature-linkedin-url-and-email-layout

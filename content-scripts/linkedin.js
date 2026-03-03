@@ -109,6 +109,15 @@ function extractLocation() {
     }
   }
 
+  // Last resort: LinkedIn's meta description often contains location info
+  // (e.g. "Austin, TX · Hybrid · Full-time — Apply for ...").
+  // Return the full content so the user can trim it in the side panel.
+  const metaDesc =
+    document.querySelector('meta[name="description"]')?.content ||
+    document.querySelector('meta[property="og:description"]')?.content ||
+    '';
+  if (metaDesc.trim()) return metaDesc.trim();
+
   return '';
 }
 
@@ -260,9 +269,15 @@ function scrapeLinkedInJob() {
   ]);
   const company = rawCompany.split('\n')[0].trim();
 
+  // document.title fallback — format: "Job Title | Company Name | LinkedIn"
+  // Used only when DOM selectors above returned nothing.
+  const titleParts = document.title.split(' | ');
+  const finalJobTitle = jobTitle || (titleParts[0] || '').trim();
+  const finalCompany  = company  || (titleParts[1] || '').trim();
+
   return {
-    jobTitle,
-    company,
+    jobTitle: finalJobTitle,
+    company:  finalCompany,
     location:       extractLocation(),
     description:    extractDescription(),
     applicationUrl: extractApplicationUrl(),
@@ -339,6 +354,28 @@ function getCurrentJobId() {
 }
 
 /**
+ * Click the "see more" expand button on a truncated job description, if present,
+ * then wait 500 ms for the DOM to update before returning.
+ *
+ * LinkedIn sometimes renders descriptions with a "… see more" toggle that hides
+ * the full text. Clicking it programmatically before scraping ensures the
+ * complete description is available to innerText/textContent reads.
+ *
+ * Safe to call even when the button is absent — querySelector returns null and
+ * the function returns immediately.
+ */
+async function expandDescriptionIfTruncated() {
+  const btn = document.querySelector(
+    '.jobs-description__content .feed-shared-inline-show-more-text__see-more-less-toggle'
+  );
+  if (btn) {
+    btn.click();
+    console.log('[JobLink] Clicked "see more" button — waiting 500 ms for description to expand');
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+}
+
+/**
  * Scrape the currently visible job and send it to the service worker.
  *
  * If the description is empty on the first attempt (LinkedIn's async content
@@ -354,6 +391,9 @@ async function runScrape() {
   const runJobIdentity = getCurrentJobIdentity();
   const isStaleRun = () =>
     runId !== scrapeRunCounter || getCurrentJobIdentity() !== runJobIdentity;
+
+  // Expand truncated descriptions before the first scrape attempt.
+  await expandDescriptionIfTruncated();
 
   const jobData = scrapeLinkedInJob();
   console.log('[JobLink] LinkedIn scraper result (attempt 1):', jobData);
