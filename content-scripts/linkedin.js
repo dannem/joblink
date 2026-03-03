@@ -2,13 +2,10 @@
 /**
  * LinkedIn job scraper for JobLink extension.
  *
- * Supported layout (v1):
- *   Split-panel view — linkedin.com/jobs/search/ with a job selected on the right
- *
- * NOT supported (v1):
- *   Standalone job view — linkedin.com/jobs/view/[id]/
- *   These pages load the job detail inside a cross-origin iframe, blocking all
- *   content-script DOM access. Standalone support is deferred to a future version.
+ * Supported layouts:
+ *   Split-panel view   — linkedin.com/jobs/search/ with a job selected on the right
+ *   Standalone view    — linkedin.com/jobs/view/{id}/ including email digest links
+ *                        that arrive with ?trk=eml… tracking params
  *
  * Returns a plain JS object in the JobLink scraper output format and sends it
  * to the service worker via chrome.runtime.sendMessage.
@@ -134,6 +131,9 @@ function extractDescription() {
   const descSelectors = [
     // List-view layout — broad container confirmed working via debug logging
     '.jobs-description',
+    // Email digest / standalone job view layout
+    '.jobs-description__content',
+    '.jobs-description-content__text',
     // Collections/recommended layout — stretched description variant
     '.jobs-description-content__text--stretch',
     '.jobs-box__html-content .jobs-description-content__text',
@@ -163,36 +163,53 @@ function extractDescription() {
 }
 
 /**
- * Extract the canonical URL for this individual job posting.
+ * Extract a clean, tracking-param-free URL for this job posting.
  *
- * In the split-panel view (linkedin.com/jobs/search/?currentJobId=…) the page
- * URL is the search-results page, not the job itself.  Try in order:
- *   1. <link rel="canonical"> — LinkedIn inserts the correct permalink here.
- *   2. Construct a /jobs/view/[id]/ URL from the currentJobId query param.
- *   3. Fall back to window.location.href (last resort).
+ * All LinkedIn job URLs resolve to the same canonical form:
+ *   https://www.linkedin.com/jobs/view/{numericJobId}/
  *
- * @returns {string} Absolute URL for this job posting
+ * LinkedIn often appends tracking params (?trk=eml…, ?refId=…) to URLs that
+ * arrive via email digests or notifications. This function extracts just the
+ * numeric job ID from whichever source has it and reconstructs a clean URL,
+ * ensuring saved links are stable and human-readable.
+ *
+ * Sources tried in priority order:
+ *   1. /jobs/view/(\d+) in the canonical <link> href
+ *   2. /jobs/view/(\d+) in the current page URL (email digest pages land here)
+ *   3. currentJobId query param (split-panel search results)
+ *   4. Fallback to window.location.href (no ID found anywhere)
+ *
+ * @returns {string} Clean absolute URL for this job posting
  */
 function extractApplicationUrl() {
-  // 1. Canonical link tag (most reliable)
+  const JOB_ID_RE = /\/jobs\/view\/(\d+)/;
+
+  // 1. Canonical link tag — extract numeric ID from its href
   const canonical = document.querySelector('link[rel="canonical"]');
-  if (canonical && canonical.href) {
-    return canonical.href;
+  if (canonical?.href) {
+    const m = canonical.href.match(JOB_ID_RE);
+    if (m) return `https://www.linkedin.com/jobs/view/${m[1]}/`;
   }
 
-  // 2. Construct from currentJobId param (split-panel search results page)
-  const params = new URLSearchParams(window.location.search);
-  const jobId = params.get('currentJobId');
-  if (jobId) {
-    return `https://www.linkedin.com/jobs/view/${jobId}/`;
-  }
+  // 2. Current page URL — covers /jobs/view/{id}?trk=eml… email digest pages
+  const fromPath = window.location.pathname.match(JOB_ID_RE);
+  if (fromPath) return `https://www.linkedin.com/jobs/view/${fromPath[1]}/`;
 
-  // 3. Fallback
+  // 3. currentJobId query param (split-panel search results page)
+  const jobId = new URLSearchParams(window.location.search).get('currentJobId');
+  if (jobId) return `https://www.linkedin.com/jobs/view/${jobId}/`;
+
+  // 4. Last resort — no numeric ID available
   return window.location.href;
 }
 
 /**
- * Scrape all job fields from the currently open LinkedIn split-panel job view.
+ * Scrape all job fields from the currently open LinkedIn job page.
+ *
+ * Supports two layouts:
+ *   - Split-panel view  — linkedin.com/jobs/search/?currentJobId=…
+ *   - Standalone view   — linkedin.com/jobs/view/{id}/ (including email digest links
+ *                         with ?trk=eml… tracking params)
  *
  * @returns {Object} Job data object conforming to the JobLink scraper output format
  */
@@ -203,18 +220,25 @@ function scrapeLinkedInJob() {
     // Older split-panel top card
     '.jobs-unified-top-card__job-title h1',
     '.jobs-unified-top-card__job-title',
-    // Generic h1 fallback
+    // Email digest / standalone page layout
+    'h1.job-title',
+    // Generic h1 fallbacks
     'h1.t-24',
     '.topcard__title',
+    'h1',
   ]);
 
-  const company = extractText([
-    // Collections/recommended layout — company may render without its own
-    // named container; try the primary-description link and generic anchors first
+  // Extract raw company text then strip everything after the first newline.
+  // Some layouts render the company name and follower count in the same element
+  // (e.g. "Acme Corp\n10,000 followers"); keeping only the first line gives a
+  // clean value without post-processing elsewhere.
+  const rawCompany = extractText([
+    // Unified top card — dedicated company name container (2024+)
     '.job-details-jobs-unified-top-card__company-name',
     '[class*="topcard__org-name"]',
     '.jobs-premium-applicant-insights__header a',
     '.job-details-jobs-unified-top-card__primary-description a',
+    // Email digest / standalone layout — first company link on the page
     'a[href*="/company/"]',
     // Unified top card — company link (2024+)
     '.job-details-jobs-unified-top-card__company-name a',
@@ -234,6 +258,7 @@ function scrapeLinkedInJob() {
     '[class*="company-name"] a',
     '[class*="company-name"]',
   ]);
+  const company = rawCompany.split('\n')[0].trim();
 
   return {
     jobTitle,

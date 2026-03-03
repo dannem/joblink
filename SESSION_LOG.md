@@ -5,6 +5,45 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 39 — Complete
+Date: 2026-03-03
+Branch: feature-linkedin-url-and-email-layout
+What was built:
+Two fixes to the LinkedIn content script:
+
+Fix 1 — URL cleaning: extractApplicationUrl() now always returns a clean
+https://www.linkedin.com/jobs/view/{jobId}/ URL by extracting only the
+numeric job ID from the canonical link tag, the current page pathname, or
+the currentJobId query param, then constructing a fresh URL. Tracking params
+like ?trk=eml…, ?refId=… are dropped.
+
+Fix 2 — Email digest layout support: scrapeLinkedInJob() now handles
+standalone job view pages (linkedin.com/jobs/view/{id}?trk=eml…) in addition
+to the split-panel search layout. Added selectors for:
+- Job title: 'h1.job-title' and bare 'h1' as final fallbacks
+- Company: added explicit comment for 'a[href*="/company/"]' covering email
+  digest layout; added first-line trim (rawCompany.split('\n')[0]) to strip
+  follower count lines rendered in the same element
+- Description: added '.jobs-description__content' and
+  '.jobs-description-content__text' as dedicated email-digest selectors
+Updated file-level JSDoc to document both supported layouts.
+
+Files changed:
+- content-scripts/linkedin.js: extractApplicationUrl rewritten; scrapeLinkedInJob
+  updated with email-digest selectors and company first-line cleanup;
+  extractDescription updated with two new selectors
+
+Test results:
+- Requires manual testing in Chrome
+- Verify: opening a job from a LinkedIn email digest (URL with ?trk=eml)
+  populates all fields and applicationUrl is clean (no tracking params)
+- Verify: split-panel search layout is unaffected
+
+Known issues / next steps:
+- None
+
+---
+
 Session 38 — Complete
 Date: 2026-03-03
 Branch: feature-generic-scraper
