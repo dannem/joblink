@@ -75,6 +75,44 @@ function extractJobTitle() {
 }
 
 /**
+ * Remove artefacts that commonly appear in company names sourced from page
+ * titles, meta tags, or DOM elements on career sites.
+ *
+ * Strips, in order:
+ *   1. Trailing standalone noise words — "migration", "careers", "jobs",
+ *      "hiring", "inc", "llc" — matched whole-word and case-insensitively.
+ *      Applied in a loop so sequences like "Jobs Careers" are fully removed.
+ *      The word must be preceded by whitespace or a comma to count as
+ *      standalone, preventing "AcmeCareers" or "WorkMigration" from being
+ *      truncated.
+ *   2. Trailing punctuation (, . · | – — -) left behind after each strip.
+ *   3. Leading/trailing whitespace.
+ *
+ * @param {string} raw
+ * @returns {string}
+ */
+function cleanCompanyName(raw) {
+  // Matches: optional leading comma/whitespace separator, a whole noise word,
+  // optional trailing punctuation — all anchored to end-of-string.
+  const NOISE_WORD_RE = /[,\s]+\b(?:migration|careers|jobs|hiring|inc|llc)\b[.,·|–—\-]?\s*$/i;
+  const TRAILING_PUNCT_RE = /[,.\s·|–—\-]+$/;
+
+  let name = raw.trim();
+
+  // Iteratively strip trailing noise words until none remain.
+  let prev;
+  do {
+    prev = name;
+    name = name.replace(NOISE_WORD_RE, '').trim();
+  } while (name !== prev);
+
+  // Remove any leftover trailing punctuation after the noise words are gone.
+  name = name.replace(TRAILING_PUNCT_RE, '').trim();
+
+  return name;
+}
+
+/**
  * Extract the company name.
  *
  * Priority order:
@@ -83,20 +121,22 @@ function extractJobTitle() {
  *   3. Elements whose class or id contains company/employer keywords
  *   4. Fallback: the hostname stripped of common subdomains and TLD
  *
+ * Every candidate value passes through cleanCompanyName() before being returned.
+ *
  * @returns {string}
  */
 function extractCompany() {
   // 1. Open Graph site name
   const ogSiteName = document.querySelector('meta[property="og:site_name"]');
-  if (ogSiteName?.content?.trim()) return ogSiteName.content.trim();
+  if (ogSiteName?.content?.trim()) return cleanCompanyName(ogSiteName.content.trim());
 
   // 2. application-name meta
   const appName = document.querySelector('meta[name="application-name"]');
-  if (appName?.content?.trim()) return appName.content.trim();
+  if (appName?.content?.trim()) return cleanCompanyName(appName.content.trim());
 
   // 3. DOM elements with company/employer keywords
   const fromDom = queryText(attrSelectors(['company-name', 'company', 'employer-name', 'employer', 'org-name', 'organization']));
-  if (fromDom) return fromDom;
+  if (fromDom) return cleanCompanyName(fromDom);
 
   // 4. Derive from hostname — strip www./careers./jobs. prefix and TLD
   try {
@@ -107,9 +147,9 @@ function extractCompany() {
     if (parts.length >= 2) {
       // Keep just the second-level domain, title-cased
       const name = parts[parts.length - 2];
-      return name.charAt(0).toUpperCase() + name.slice(1);
+      return cleanCompanyName(name.charAt(0).toUpperCase() + name.slice(1));
     }
-    return host;
+    return cleanCompanyName(host);
   } catch (_) {
     return '';
   }

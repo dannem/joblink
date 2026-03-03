@@ -5,6 +5,35 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 41 — Complete
+Date: 2026-03-03
+Branch: feature-generic-company-cleanup
+What was built:
+Added cleanCompanyName() helper to content-scripts/generic.js. Strips trailing
+standalone noise words ("migration", "careers", "jobs", "hiring", "inc", "llc")
+using a do/while loop so sequences like "Acme Jobs Careers" are fully reduced.
+Words must be preceded by whitespace or a comma to count as standalone, so
+compound names like "AcmeCareers" or "WorkMigration" are left untouched.
+After noise words are removed, any residual trailing punctuation is stripped.
+Every return path in extractCompany() now passes through cleanCompanyName().
+
+Files changed:
+- content-scripts/generic.js: new cleanCompanyName() function; extractCompany()
+  updated to call it on every return path
+
+Test results:
+- Requires manual testing in Chrome
+- "Acme Careers" → "Acme"
+- "Acme Jobs Careers" → "Acme"
+- "Acme, Inc." → "Acme"
+- "AcmeCareers" → "AcmeCareers" (unchanged — no standalone word boundary)
+
+Known issues / next steps:
+- "Inc" and "LLC" stripped even when they are intentionally part of the brand;
+  acceptable tradeoff for a personal-use tool where the user can edit in-panel
+
+---
+
 Session 40 — Complete
 Date: 2026-03-03
 Branch: feature-linkedin-scraper-fallbacks
