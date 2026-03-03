@@ -5,6 +5,40 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 38 — Complete
+Date: 2026-03-03
+Branch: feature-generic-scraper
+What was built:
+Added a generic job page scraper that works on any careers page that is not LinkedIn
+or Indeed. The scraper uses common DOM heuristics (h1/h2 headings, class/id keyword
+matching, meta tags, and largest block fallback) to extract job data from arbitrary
+career sites. Data is only sent when a job title is found and the description exceeds
+200 characters. A grey "WEB" source badge is shown in the side panel.
+
+Files changed:
+- content-scripts/generic.js: New generic scraper content script
+- manifest.json: Added <all_urls> to host_permissions; added generic.js content script
+    entry with exclude_matches for LinkedIn and Indeed; run_at document_idle
+- background/service-worker.js: Updated getContentScriptForUrl to return generic.js
+    for http/https URLs that are not LinkedIn or Indeed
+- sidepanel/sidepanel.js: Updated showJob badge logic to handle source 'generic' → 'WEB'
+- sidepanel/sidepanel.css: Added .source-badge--generic (grey) style
+- sidepanel/sidepanel.html: Updated empty-state hint text to mention "any careers page"
+
+Test results:
+- Requires manual testing in Chrome by loading extension via chrome://extensions
+- Verify: WEB badge appears on non-LinkedIn/Indeed career pages with a job title + description
+- Verify: LinkedIn and Indeed pages are unaffected (excluded from generic script)
+- Verify: Generic script is silent on pages with no job title or short descriptions
+
+Known issues / next steps:
+- The largest-div fallback in extractDescription can grab navigation bars or footers
+  on pages with minimal semantic structure; an AI cleanup step on save would mitigate
+- No SPA navigation watcher in the generic scraper (single-page career apps won't re-scrape
+  on job change); add if needed for specific sites
+
+---
+
 Session 37 — Complete
 Date: 2026-03-02
 Branch: main (committed directly)

@@ -83,6 +83,10 @@ function getContentScriptForUrl(url) {
     if (parsed.hostname.endsWith('.indeed.com') || parsed.hostname === 'indeed.com') {
       return 'content-scripts/indeed.js';
     }
+    // Any other http/https page — use the generic scraper
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return 'content-scripts/generic.js';
+    }
   } catch (_) {
     return null;
   }

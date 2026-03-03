@@ -15,7 +15,8 @@
     "https://linkedin.com/*",
     "https://*.linkedin.com/*",
     "*://indeed.com/*",
-    "*://*.indeed.com/*"
+    "*://*.indeed.com/*",
+    "<all_urls>"
   ],
   "oauth2": {
     "client_id": "750335831511-buksrfnh5406q0rg28bkh7epba11pipn.apps.googleusercontent.com",
@@ -42,6 +43,17 @@
     {
       "matches": ["*://*.indeed.com/*"],
       "js": ["content-scripts/indeed.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "exclude_matches": [
+        "https://linkedin.com/*",
+        "https://*.linkedin.com/*",
+        "*://indeed.com/*",
+        "*://*.indeed.com/*"
+      ],
+      "js": ["content-scripts/generic.js"],
       "run_at": "document_idle"
     }
   ],

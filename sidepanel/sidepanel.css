@@ -131,6 +131,11 @@ body {
   color: white;
 }
 
+.source-badge--generic {
+  background: #6b7280;
+  color: white;
+}
+
 .scraped-time {
   font-size: 0.78rem;
   color: #9ca3af;

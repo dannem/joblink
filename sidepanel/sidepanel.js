@@ -168,8 +168,9 @@ function showJob(job) {
 
   // Source badge
   const source = (job.source || '').toLowerCase();
-  sourceBadge.textContent = source === 'linkedin' ? 'LinkedIn' : 'Indeed';
-  sourceBadge.className   = 'source-badge source-badge--' + source;
+  const badgeLabels = { linkedin: 'LinkedIn', indeed: 'Indeed', generic: 'WEB' };
+  sourceBadge.textContent = badgeLabels[source] || 'WEB';
+  sourceBadge.className   = 'source-badge source-badge--' + (source || 'generic');
 
   // Capture time
   if (job.scrapedAt) {
