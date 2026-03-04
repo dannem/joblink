@@ -5,6 +5,43 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 39 — Complete
+Date: 2026-03-04
+Branch: main (multiple feature branches merged)
+What was built:
+
+- AI-based company/location extraction: added extractJobMetadata() in
+  utils/ai-helpers.js to extract company and location from job description
+  text when scraped fields are empty or garbled
+- Auto-enrichment on job load: added enrichCompanyMetadata() in
+  sidepanel/sidepanel.js, called from showJob() — fields update automatically
+  without user interaction
+- Restored Evaluate Fit button: was accidentally removed in a previous session;
+  restored to sidepanel.html and re-wired in sidepanel.js
+- Evaluate Fit now uses selected AI model from the package dropdown instead of
+  hardcoded Claude Sonnet
+- MutationObserver retry logic: increased retries to 5, delays to 1500ms, added
+  DOM-watch fallback observer that fires immediately when .jobs-description
+  appears in DOM
+- Removed Gemini 2.0 Flash: model retired by Google (404 NOT_FOUND); removed
+  from all dropdowns and modelMaps across 4 files
+- Generic WEB scraper: new content-scripts/generic.js that scrapes any careers
+  page using common class/id patterns and page title fallback; shows WEB badge
+  in sidepanel
+- LinkedIn email digest support: added document.title fallback for job title and
+  company; cleaned tracking parameters from application URL
+- Company name noise word cleanup: generic.js strips trailing noise words
+  (migration, careers, jobs, etc.)
+- tabs.onUpdated trigger: service worker now triggers scraping whenever a
+  qualifying page finishes loading
+- shouldScrapeOnLoad() guard: prevents scraping LinkedIn feed/search/collections
+  pages — only triggers on specific job pages (/jobs/view/ for LinkedIn, jk=
+  param for Indeed)
+- LinkedIn scraper null guard: returns early if no job ID found in URL,
+  preventing feed page data from populating the sidepanel
+
+---
+
 Session 43 — Complete
 Date: 2026-03-04
 Branch: feature-scrape-url-guards
