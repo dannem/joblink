@@ -22,6 +22,8 @@ const STORAGE_KEYS = {
   GEMINI_API_KEY: 'GEMINI_API_KEY',
   // User preference for the default Prepare Package AI model
   DEFAULT_AI_MODEL: 'defaultAiModel',
+  // User preference for which documents to generate in Prepare Package
+  DEFAULT_PACKAGE: 'defaultPackage',
 };
 
 // chrome.storage.session key constants — cleared when the browser session ends
@@ -45,6 +47,7 @@ const DEFAULT_STORAGE = {
   [STORAGE_KEYS.OPENAI_API_KEY]: '',
   [STORAGE_KEYS.GEMINI_API_KEY]: '',
   [STORAGE_KEYS.DEFAULT_AI_MODEL]: 'sonnet',
+  [STORAGE_KEYS.DEFAULT_PACKAGE]: 'both',
 };
 
 /**

@@ -367,6 +367,11 @@ body {
   color: #f87171;
 }
 
+.progress-step--skipped {
+  color: #4b5563;
+  font-style: italic;
+}
+
 /* ── Job status bar ──────────────────────────────────────── */
 
 .job-status-bar {

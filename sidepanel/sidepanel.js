@@ -55,6 +55,9 @@ const packageProgress    = document.getElementById('package-progress');
 /** The raw job object currently displayed (before user edits). */
 let currentJob = null;
 
+/** Which documents to generate in Prepare Package: 'both' | 'cv' | 'cl' */
+let currentPackageMode = 'both';
+
 // ── Initialisation ────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -69,11 +72,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn('[JobLink] Could not restore job from session storage:', err);
   }
 
-  // Load saved default AI model and pre-set the Prepare Package dropdown.
+  // Load saved default AI model and package mode.
   try {
     const savedModel = await getStorageValue(STORAGE_KEYS.DEFAULT_AI_MODEL);
     if (savedModel) packageModel.value = savedModel;
   } catch (_) { /* non-fatal — dropdown stays at HTML default */ }
+
+  try {
+    const savedPackage = await getStorageValue(STORAGE_KEYS.DEFAULT_PACKAGE);
+    if (savedPackage) currentPackageMode = savedPackage;
+  } catch (_) { /* non-fatal — defaults to 'both' */ }
 
   // Send REQUEST_SCRAPE to the active tab.
   // If session storage was empty (job not yet scraped), wait 1.5s then check again.
@@ -492,7 +500,7 @@ async function handleEvaluate() {
  * @param {'pending'|'active'|'done'|'error'} status
  */
 function updateProgress(step, status) {
-  const ICONS = { pending: '⏳', active: '🔄', done: '✅', error: '❌' };
+  const ICONS = { pending: '⏳', active: '🔄', done: '✅', error: '❌', skipped: '—' };
   const row = document.getElementById(`progress-step-${step}`);
   if (!row) return;
   row.querySelector('.progress-icon').textContent = ICONS[status] ?? '⏳';
@@ -520,14 +528,25 @@ async function handlePreparePackage() {
     description: fieldDesc.value.trim(),
   };
 
+  const packageMode = currentPackageMode; // snapshot — 'both' | 'cv' | 'cl'
+
   btnPreparePackage.disabled = true;
   resetProgress();
+
+  // Grey out steps that will be skipped before anything starts.
+  if (packageMode === 'cv') {
+    updateProgress(2, 'skipped'); // Reading CL template
+    updateProgress(4, 'skipped'); // Tailoring cover letter
+  } else if (packageMode === 'cl') {
+    updateProgress(1, 'skipped'); // Reading CV template
+    updateProgress(3, 'skipped'); // Tailoring CV
+  }
 
   // Track the active step so the catch block can mark it as errored.
   let activeStep = -1;
 
   try {
-    // 1. Get OAuth token (no progress step — instant, infrastructure only)
+    // Infrastructure — get OAuth token (no progress step)
     const token = await new Promise((resolve, reject) => {
       chrome.identity.getAuthToken({ interactive: false }, (t) => {
         if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
@@ -538,7 +557,7 @@ async function handlePreparePackage() {
     const rootFolderId = await getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID);
     if (!rootFolderId) throw new Error('No Drive folder configured.');
 
-    // Step 0 — Read candidate profile from My_Profile (non-fatal)
+    // Step 0 — Read candidate profile from My_Profile (always; non-fatal)
     activeStep = 0;
     updateProgress(0, 'active');
     let profileText = '';
@@ -551,15 +570,7 @@ async function handlePreparePackage() {
     } catch (_) { /* non-fatal — proceed without profile */ }
     updateProgress(0, 'done');
 
-    // Step 1 — Read CV templates from the configured folder
-    activeStep = 1;
-    updateProgress(1, 'active');
-    const cvFolderId = await getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID);
-    if (!cvFolderId) throw new Error('No CV Templates folder configured. Open Settings to add it.');
-    const cvTemplates = await readDocsFromFolder(token, cvFolderId);
-    if (cvTemplates.length < 1) throw new Error('No CV template documents found in the CV Templates folder.');
-
-    // Resolve selected model from the dropdown
+    // Resolve selected AI model from the dropdown (used by CV and CL tailoring)
     const modelMap = {
       sonnet:           AI_MODELS.claude,
       haiku:            AI_MODELS.claudeHaiku,
@@ -568,116 +579,131 @@ async function handlePreparePackage() {
     };
     const selectedModel = modelMap[packageModel.value] || AI_MODELS.claude;
 
-    // Select best template (if only one, use it directly)
-    let selectedTemplate = cvTemplates[0];
-    if (cvTemplates.length >= 2) {
-      const selectPrompt = buildSelectTemplatePrompt(jobToSave, profileText, cvTemplates);
-      const selectRaw    = await callAI('claude', selectPrompt, selectedModel);
-      const selectResult = parseAIResponse(selectRaw);
-      const idx = (selectResult?.selected ?? 1) - 1;
-      if (idx > 0 && idx < cvTemplates.length) selectedTemplate = cvTemplates[idx];
-      console.log('[JobLink] Template selected:', selectedTemplate.name, '—', selectResult?.reason);
-    }
-
-    // Read current summary and bullets from selected template via Docs API
+    // Step 1 — Read CV template (skip when mode is 'cl')
+    let selectedTemplate = null;
     let currentSummary = '';
     const currentBullets = [];
-    try {
-      const docRes = await fetch(
-        `https://docs.googleapis.com/v1/documents/${selectedTemplate.id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (docRes.ok) {
-        const doc = await docRes.json();
-        const body = doc.body.content;
+    if (packageMode !== 'cl') {
+      activeStep = 1;
+      updateProgress(1, 'active');
+      const cvFolderId = await getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID);
+      if (!cvFolderId) throw new Error('No CV Templates folder configured. Open Settings to add it.');
+      const cvTemplates = await readDocsFromFolder(token, cvFolderId);
+      if (cvTemplates.length < 1) throw new Error('No CV template documents found in the CV Templates folder.');
 
-        function getParagraphText(paragraph) {
-          return (paragraph.elements || [])
-            .map(e => e.textRun?.content || '')
-            .join('')
-            .replace(/\n$/, '');
-        }
-
-        let foundSummaryHeading = false;
-        let foundDirectorRole = false;
-        let bulletCount = 0;
-
-        for (const block of body) {
-          if (!block.paragraph) continue;
-          const text = getParagraphText(block.paragraph);
-          if (text.includes('PROFESSIONAL SUMMARY')) { foundSummaryHeading = true; continue; }
-          if (foundSummaryHeading && !currentSummary && text.trim().length > 20) {
-            currentSummary = text;
-          }
-          if (text.includes('Director of Bioimaging')) { foundDirectorRole = true; continue; }
-          if (foundDirectorRole && block.paragraph.bullet && text.trim().length > 0 && bulletCount < 4) {
-            currentBullets.push(text);
-            bulletCount++;
-          }
-        }
+      selectedTemplate = cvTemplates[0];
+      if (cvTemplates.length >= 2) {
+        const selectPrompt = buildSelectTemplatePrompt(jobToSave, profileText, cvTemplates);
+        const selectRaw    = await callAI('claude', selectPrompt, selectedModel);
+        const selectResult = parseAIResponse(selectRaw);
+        const idx = (selectResult?.selected ?? 1) - 1;
+        if (idx > 0 && idx < cvTemplates.length) selectedTemplate = cvTemplates[idx];
+        console.log('[JobLink] Template selected:', selectedTemplate.name, '—', selectResult?.reason);
       }
-    } catch (err) {
-      console.warn('[JobLink] Could not read template structure:', err.message);
-    }
-    updateProgress(1, 'done');
 
-    // Step 2 — Read CL template
-    activeStep = 2;
-    updateProgress(2, 'active');
-    let clTemplateDocId = null;
-    const clFolderId = await getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID);
-    if (clFolderId) {
       try {
-        const clDocs = await readDocsFromFolder(token, clFolderId, 3);
-        if (clDocs.length > 0) clTemplateDocId = clDocs[0].id;
-      } catch (err) {
-        console.warn('[JobLink] Could not read CL template folder:', err.message);
-      }
-    }
-    updateProgress(2, 'done');
+        const docRes = await fetch(
+          `https://docs.googleapis.com/v1/documents/${selectedTemplate.id}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (docRes.ok) {
+          const doc = await docRes.json();
+          const body = doc.body.content;
 
-    // Step 3 — Tailor CV
-    activeStep = 3;
-    updateProgress(3, 'active');
+          function getParagraphText(paragraph) {
+            return (paragraph.elements || [])
+              .map(e => e.textRun?.content || '')
+              .join('')
+              .replace(/\n$/, '');
+          }
+
+          let foundSummaryHeading = false;
+          let foundDirectorRole = false;
+          let bulletCount = 0;
+
+          for (const block of body) {
+            if (!block.paragraph) continue;
+            const text = getParagraphText(block.paragraph);
+            if (text.includes('PROFESSIONAL SUMMARY')) { foundSummaryHeading = true; continue; }
+            if (foundSummaryHeading && !currentSummary && text.trim().length > 20) {
+              currentSummary = text;
+            }
+            if (text.includes('Director of Bioimaging')) { foundDirectorRole = true; continue; }
+            if (foundDirectorRole && block.paragraph.bullet && text.trim().length > 0 && bulletCount < 4) {
+              currentBullets.push(text);
+              bulletCount++;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[JobLink] Could not read template structure:', err.message);
+      }
+      updateProgress(1, 'done');
+    }
+
+    // Step 2 — Read CL template (skip when mode is 'cv')
+    let clTemplateDocId = null;
+    if (packageMode !== 'cv') {
+      activeStep = 2;
+      updateProgress(2, 'active');
+      const clFolderId = await getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID);
+      if (clFolderId) {
+        try {
+          const clDocs = await readDocsFromFolder(token, clFolderId, 3);
+          if (clDocs.length > 0) clTemplateDocId = clDocs[0].id;
+        } catch (err) {
+          console.warn('[JobLink] Could not read CL template folder:', err.message);
+        }
+      }
+      updateProgress(2, 'done');
+    }
+
+    // Step 3 — Tailor CV (skip when mode is 'cl')
     let newSummary = currentSummary;
     let newBullets = [...currentBullets];
-    if (currentSummary) {
-      try {
-        const structuredPrompt = buildTailorCVStructuredPrompt(jobToSave, profileText, currentSummary, currentBullets);
-        const rawJson = await callAI('claude', structuredPrompt, selectedModel);
-        const parsed = parseAIResponse(rawJson);
-        if (parsed && parsed.summary) newSummary = parsed.summary;
-        if (parsed && Array.isArray(parsed.bullets) && parsed.bullets.length > 0) newBullets = parsed.bullets;
-      } catch (err) {
-        console.warn('[JobLink] Structured CV tailoring failed, using originals:', err.message);
+    if (packageMode !== 'cl') {
+      activeStep = 3;
+      updateProgress(3, 'active');
+      if (currentSummary) {
+        try {
+          const structuredPrompt = buildTailorCVStructuredPrompt(jobToSave, profileText, currentSummary, currentBullets);
+          const rawJson = await callAI('claude', structuredPrompt, selectedModel);
+          const parsed = parseAIResponse(rawJson);
+          if (parsed && parsed.summary) newSummary = parsed.summary;
+          if (parsed && Array.isArray(parsed.bullets) && parsed.bullets.length > 0) newBullets = parsed.bullets;
+        } catch (err) {
+          console.warn('[JobLink] Structured CV tailoring failed, using originals:', err.message);
+        }
       }
+      updateProgress(3, 'done');
     }
-    updateProgress(3, 'done');
 
-    // Step 4 — Tailor cover letter
-    activeStep = 4;
-    updateProgress(4, 'active');
+    // Step 4 — Tailor cover letter (skip when mode is 'cv')
     let clBodyParagraphs = null;
     let clCompanyBlock = { name: jobToSave.company || '', department: '', location: jobToSave.location || '' };
-    if (clTemplateDocId) {
-      try {
-        const clPrompt = buildCLBodyPrompt(jobToSave, newSummary);
-        const rawClJson = await callAI('claude', clPrompt, selectedModel);
-        const parsed = parseAIResponse(rawClJson);
-        if (parsed && Array.isArray(parsed.bodyParagraphs) && parsed.bodyParagraphs.length > 0) {
-          clBodyParagraphs = parsed.bodyParagraphs;
+    if (packageMode !== 'cv') {
+      activeStep = 4;
+      updateProgress(4, 'active');
+      if (clTemplateDocId) {
+        try {
+          const clPrompt = buildCLBodyPrompt(jobToSave, newSummary);
+          const rawClJson = await callAI('claude', clPrompt, selectedModel);
+          const parsed = parseAIResponse(rawClJson);
+          if (parsed && Array.isArray(parsed.bodyParagraphs) && parsed.bodyParagraphs.length > 0) {
+            clBodyParagraphs = parsed.bodyParagraphs;
+          }
+          if (parsed && parsed.companyBlock && typeof parsed.companyBlock === 'object') {
+            clCompanyBlock = parsed.companyBlock;
+          }
+          console.log('[JobLink] CL body paragraphs:', clBodyParagraphs ? clBodyParagraphs.length + ' paras' : 'NULL');
+        } catch (err) {
+          console.warn('[JobLink] CL generation failed:', err.message);
         }
-        if (parsed && parsed.companyBlock && typeof parsed.companyBlock === 'object') {
-          clCompanyBlock = parsed.companyBlock;
-        }
-        console.log('[JobLink] CL body paragraphs:', clBodyParagraphs ? clBodyParagraphs.length + ' paras' : 'NULL');
-      } catch (err) {
-        console.warn('[JobLink] CL generation failed:', err.message);
       }
+      updateProgress(4, 'done');
     }
-    updateProgress(4, 'done');
 
-    // Step 5 — Save to Drive
+    // Step 5 — Save to Drive (always)
     activeStep = 5;
     updateProgress(5, 'active');
 
@@ -687,15 +713,15 @@ async function handlePreparePackage() {
     const jsonContent = JSON.stringify(jobToSave, null, 2);
 
     const clData = {
-      templateDocId: clTemplateDocId,
-      companyBlock:  clCompanyBlock,
+      templateDocId:  clTemplateDocId,
+      companyBlock:   clCompanyBlock,
       bodyParagraphs: clBodyParagraphs,
     };
     await savePreparedPackage(
       token, jobToSave,
-      { templateDocId: selectedTemplate.id, newSummary, newBullets },
+      { templateDocId: selectedTemplate?.id ?? null, newSummary, newBullets },
       clData,
-      selectedTemplate.name,
+      selectedTemplate?.name ?? '',
       { pdfBase64, htmlContent, jsonContent }
     );
 

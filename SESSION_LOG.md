@@ -5,6 +5,36 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 40 — Complete
+Date: 2026-03-04
+Branch: feature-default-package-setting
+What was built:
+
+- Default Package setting: added "Default Package" dropdown to Setup page
+  (options: CV + Cover Letter / CV only / Cover Letter only); stored in
+  chrome.storage.sync as 'defaultPackage'; loaded at sidepanel startup into
+  currentPackageMode variable
+- Conditional Prepare Package flow: handlePreparePackage() now snapshots
+  packageMode at invocation; steps for CV (1+3) are skipped when mode is 'cl',
+  steps for CL (2+4) are skipped when mode is 'cv'; skipped steps show greyed
+  italic '—' rows in the progress indicator
+- Progress indicator extended: updateProgress() gains 'skipped' status with
+  '—' icon and .progress-step--skipped CSS class
+- helpers.js updated: DEFAULT_PACKAGE key added to STORAGE_KEYS and
+  DEFAULT_STORAGE with default value 'both'
+- LinkedIn scraper: added tabs.onUpdated listener in service worker to
+  auto-trigger scraping on page load; added shouldScrapeOnLoad() URL guard to
+  prevent scraping on LinkedIn feed/list pages; null guard in scrapeLinkedInJob()
+
+Test results: Extension loads without console errors; Default Package dropdown
+saves and loads correctly; Prepare Package correctly skips steps based on
+selected mode; progress rows show '—' for skipped steps.
+
+Known issues: None
+Next steps: Test with real LinkedIn/Indeed/generic pages end to end
+
+---
+
 Session 39 — Complete
 Date: 2026-03-04
 Branch: main (multiple feature branches merged)
