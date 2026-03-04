@@ -42,6 +42,37 @@ What was built:
 
 ---
 
+Session 44 — Complete
+Date: 2026-03-04
+Branch: feature-package-progress-indicator
+What was built:
+Step-by-step progress indicator for the Prepare Package flow. Replaces the
+single rolling text line with a persistent 6-row list that updates in real
+time as each stage completes.
+
+HTML: added <div id="package-progress"> with 6 .progress-step rows, each
+containing a .progress-icon span and a .progress-label span. Hidden by
+default; shown when Prepare Package starts and left visible on completion.
+Existing #package-status div retained for fatal error messages below the list.
+
+CSS: .progress-step base style (small font, muted grey for pending).
+Modifier classes --active (light text + bold), --done (green), --error (red).
+
+JS: updateProgress(step, status) updates the icon emoji and CSS modifier
+class for the given row. resetProgress() resets all 6 rows to pending and
+shows the container. handlePreparePackage() restructured around the 6 steps:
+each step sets activeStep, calls updateProgress(n, 'active') at start and
+updateProgress(n, 'done') at end. The outer catch calls
+updateProgress(activeStep, 'error') and shows the error in #package-status.
+
+Files changed:
+- sidepanel/sidepanel.html: package-progress div with 6 step rows
+- sidepanel/sidepanel.css: progress step styles
+- sidepanel/sidepanel.js: packageProgress ref; updateProgress(); resetProgress();
+  handlePreparePackage() rewritten to drive the indicator
+
+---
+
 Session 43 — Complete
 Date: 2026-03-04
 Branch: feature-scrape-url-guards

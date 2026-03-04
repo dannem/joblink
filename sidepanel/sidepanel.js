@@ -48,6 +48,7 @@ const btnPreparePackage  = document.getElementById('btn-prepare-package');
 const btnEvaluateFit     = document.getElementById('evaluate-fit-btn');
 const packageModel       = document.getElementById('package-model');
 const packageStatus      = document.getElementById('package-status');
+const packageProgress    = document.getElementById('package-progress');
 
 // ── Module state ──────────────────────────────────────────────
 
@@ -484,6 +485,29 @@ async function handleEvaluate() {
  *   5. Ask Claude to write a cover letter
  *   6. Save the package to Drive via savePreparedPackage()
  */
+/**
+ * Update one step row in the package progress list.
+ *
+ * @param {number} step   - 0-based index matching the progress-step-N ids
+ * @param {'pending'|'active'|'done'|'error'} status
+ */
+function updateProgress(step, status) {
+  const ICONS = { pending: '⏳', active: '🔄', done: '✅', error: '❌' };
+  const row = document.getElementById(`progress-step-${step}`);
+  if (!row) return;
+  row.querySelector('.progress-icon').textContent = ICONS[status] ?? '⏳';
+  row.className = `progress-step progress-step--${status}`;
+}
+
+/** Reset all six step rows back to pending and show the progress container. */
+function resetProgress() {
+  for (let i = 0; i < 6; i++) updateProgress(i, 'pending');
+  packageProgress.style.display = 'block';
+  packageStatus.style.display   = 'none';
+  packageStatus.className       = 'package-status';
+  packageStatus.textContent     = '';
+}
+
 async function handlePreparePackage() {
   if (!currentJob) return;
 
@@ -496,13 +520,14 @@ async function handlePreparePackage() {
     description: fieldDesc.value.trim(),
   };
 
-  btnPreparePackage.disabled  = true;
-  packageStatus.className     = 'package-status';
-  packageStatus.textContent   = '⏳ Reading your profile and CV templates...';
-  packageStatus.style.display = 'block';
+  btnPreparePackage.disabled = true;
+  resetProgress();
+
+  // Track the active step so the catch block can mark it as errored.
+  let activeStep = -1;
 
   try {
-    // 1. Get OAuth token
+    // 1. Get OAuth token (no progress step — instant, infrastructure only)
     const token = await new Promise((resolve, reject) => {
       chrome.identity.getAuthToken({ interactive: false }, (t) => {
         if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
@@ -513,7 +538,9 @@ async function handlePreparePackage() {
     const rootFolderId = await getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID);
     if (!rootFolderId) throw new Error('No Drive folder configured.');
 
-    // 2. Read candidate profile from My_Profile (non-fatal)
+    // Step 0 — Read candidate profile from My_Profile (non-fatal)
+    activeStep = 0;
+    updateProgress(0, 'active');
     let profileText = '';
     try {
       const profileFolderId = await findFolderByName(token, rootFolderId, 'My_Profile');
@@ -522,26 +549,28 @@ async function handlePreparePackage() {
         profileText = profileDocs.map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
       }
     } catch (_) { /* non-fatal — proceed without profile */ }
+    updateProgress(0, 'done');
 
-    // 3. Read CV templates from the configured folder
+    // Step 1 — Read CV templates from the configured folder
+    activeStep = 1;
+    updateProgress(1, 'active');
     const cvFolderId = await getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID);
     if (!cvFolderId) throw new Error('No CV Templates folder configured. Open Settings to add it.');
     const cvTemplates = await readDocsFromFolder(token, cvFolderId);
     if (cvTemplates.length < 1) throw new Error('No CV template documents found in the CV Templates folder.');
 
-    // 4. Resolve selected model from the dropdown
+    // Resolve selected model from the dropdown
     const modelMap = {
-      sonnet:        AI_MODELS.claude,
-      haiku:         AI_MODELS.claudeHaiku,
-      geminiFlash25: AI_MODELS.geminiFlash25,
+      sonnet:           AI_MODELS.claude,
+      haiku:            AI_MODELS.claudeHaiku,
+      geminiFlash25:    AI_MODELS.geminiFlash25,
       'gemini-2.5-pro': AI_MODELS.geminiPro,
     };
     const selectedModel = modelMap[packageModel.value] || AI_MODELS.claude;
 
-    // 5. Select best template (if only one, use it directly)
+    // Select best template (if only one, use it directly)
     let selectedTemplate = cvTemplates[0];
     if (cvTemplates.length >= 2) {
-      packageStatus.textContent = '⏳ Selecting best CV template for this role...';
       const selectPrompt = buildSelectTemplatePrompt(jobToSave, profileText, cvTemplates);
       const selectRaw    = await callAI('claude', selectPrompt, selectedModel);
       const selectResult = parseAIResponse(selectRaw);
@@ -550,11 +579,9 @@ async function handlePreparePackage() {
       console.log('[JobLink] Template selected:', selectedTemplate.name, '—', selectResult?.reason);
     }
 
-    // 6. Read current summary and bullets from selected template via Docs API
-    packageStatus.textContent = '📄 Reading template structure...';
+    // Read current summary and bullets from selected template via Docs API
     let currentSummary = '';
     const currentBullets = [];
-
     try {
       const docRes = await fetch(
         `https://docs.googleapis.com/v1/documents/${selectedTemplate.id}`,
@@ -592,12 +619,28 @@ async function handlePreparePackage() {
     } catch (err) {
       console.warn('[JobLink] Could not read template structure:', err.message);
     }
+    updateProgress(1, 'done');
 
-    // 7. Ask Claude for structured replacements (summary + bullets as JSON)
-    packageStatus.textContent = '✍️ Tailoring CV content...';
+    // Step 2 — Read CL template
+    activeStep = 2;
+    updateProgress(2, 'active');
+    let clTemplateDocId = null;
+    const clFolderId = await getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID);
+    if (clFolderId) {
+      try {
+        const clDocs = await readDocsFromFolder(token, clFolderId, 3);
+        if (clDocs.length > 0) clTemplateDocId = clDocs[0].id;
+      } catch (err) {
+        console.warn('[JobLink] Could not read CL template folder:', err.message);
+      }
+    }
+    updateProgress(2, 'done');
+
+    // Step 3 — Tailor CV
+    activeStep = 3;
+    updateProgress(3, 'active');
     let newSummary = currentSummary;
     let newBullets = [...currentBullets];
-
     if (currentSummary) {
       try {
         const structuredPrompt = buildTailorCVStructuredPrompt(jobToSave, profileText, currentSummary, currentBullets);
@@ -609,22 +652,11 @@ async function handlePreparePackage() {
         console.warn('[JobLink] Structured CV tailoring failed, using originals:', err.message);
       }
     }
+    updateProgress(3, 'done');
 
-    // 8. Get CL template doc ID
-    packageStatus.textContent = '📄 Reading cover letter template...';
-    let clTemplateDocId = null;
-    const clFolderId = await getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID);
-    if (clFolderId) {
-      try {
-        const clDocs = await readDocsFromFolder(token, clFolderId, 3);
-        if (clDocs.length > 0) clTemplateDocId = clDocs[0].id;
-      } catch (err) {
-        console.warn('[JobLink] Could not read CL template folder:', err.message);
-      }
-    }
-
-    // 9. Ask Claude for CL company block + body paragraphs
-    packageStatus.textContent = '✍️ Writing cover letter...';
+    // Step 4 — Tailor cover letter
+    activeStep = 4;
+    updateProgress(4, 'active');
     let clBodyParagraphs = null;
     let clCompanyBlock = { name: jobToSave.company || '', department: '', location: jobToSave.location || '' };
     if (clTemplateDocId) {
@@ -643,19 +675,20 @@ async function handlePreparePackage() {
         console.warn('[JobLink] CL generation failed:', err.message);
       }
     }
+    updateProgress(4, 'done');
 
-    packageStatus.textContent = '⏳ Saving package to Drive...';
+    // Step 5 — Save to Drive
+    activeStep = 5;
+    updateProgress(5, 'active');
 
-    // 10. Generate job files in sidepanel context (jsPDF is available here)
     let pdfBase64 = '';
     try { pdfBase64 = generateJobPdfBase64(jobToSave); } catch (_) {}
     const htmlContent = generateJobSummaryHtml(jobToSave);
     const jsonContent = JSON.stringify(jobToSave, null, 2);
 
-    // 11. Save to Drive
     const clData = {
       templateDocId: clTemplateDocId,
-      companyBlock: clCompanyBlock,
+      companyBlock:  clCompanyBlock,
       bodyParagraphs: clBodyParagraphs,
     };
     await savePreparedPackage(
@@ -666,12 +699,14 @@ async function handlePreparePackage() {
       { pdfBase64, htmlContent, jsonContent }
     );
 
-    packageStatus.textContent = '✅ Package saved to Submitted!';
+    updateProgress(5, 'done');
     setStatusBar('submitted');
 
   } catch (err) {
+    if (activeStep >= 0) updateProgress(activeStep, 'error');
     packageStatus.className   = 'package-status package-error';
-    packageStatus.textContent = '❌ ' + (err.message || 'Package preparation failed.');
+    packageStatus.textContent = err.message || 'Package preparation failed.';
+    packageStatus.style.display = 'block';
     console.error('[JobLink] Prepare package error:', err);
     console.error('[JobLink] Error stack:', err.stack);
   } finally {
