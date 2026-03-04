@@ -5,6 +5,40 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 41 — Complete
+Date: 2026-03-04
+Branch: feature-independent-section-saves
+What was built:
+
+- Setup page refactored: removed single "Complete Setup" button; each settings
+  section now has its own independent Save button (Save Folder, Save, Save, Save
+  Templates, Save Keys)
+- First-run banner: shown at top of page when SETUP_COMPLETE is not set in
+  storage; hidden after the user saves a folder for the first time
+- Close button: added to bottom of page (window.close()); users can exit
+  settings at any time without completing all sections
+- Pre-populate on load: all fields now pre-filled from storage on page load;
+  non-interactive auth token attempt restores Drive connected state and resolves
+  folder names via Drive API without requiring a button click
+- Inline save confirmation: each save button shows "Saved ✓" next to it for
+  2 seconds after a successful save, then fades out
+- My Profile Folder: added to Application Materials section (UI + storage key
+  PROFILE_FOLDER_ID added to helpers.js) so users can configure which Drive
+  folder holds their candidate profile documents
+- Removed three-panel setup flow (setup-form / setup-complete / setup-success);
+  settings page is now always a single form view
+
+Test results: Extension loads without console errors; all save buttons save
+independently; pre-population works for all fields; banner shows on first
+install; Close button closes the tab.
+
+Known issues: sidepanel.js still looks up My_Profile folder by name — it can
+be updated to use PROFILE_FOLDER_ID from storage in a future session.
+Next steps: Test with real data; update sidepanel.js to use stored profile
+folder ID
+
+---
+
 Session 40 — Complete
 Date: 2026-03-04
 Branch: feature-default-package-setting

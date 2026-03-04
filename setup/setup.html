@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JobLink Setup</title>
+  <title>JobLink Settings</title>
   <link rel="stylesheet" href="setup.css">
 </head>
 <body>
@@ -11,19 +11,24 @@
     <!-- Header / Logo Area -->
     <header class="header">
       <h1 class="logo">JobLink</h1>
-      <p class="tagline">Save job postings to Google Drive with one click</p>
+      <p class="tagline">Settings</p>
     </header>
 
-    <!-- Main Setup Form -->
-    <main id="setup-form" class="setup-content">
-      <!-- Error Message Area -->
-      <div id="error-message" class="error-message" style="display: none;">
-        <span class="error-icon">!</span>
-        <span id="error-text"></span>
-        <button id="error-dismiss" class="error-dismiss">&times;</button>
-      </div>
+    <!-- First-run banner (shown only if SETUP_COMPLETE is not set) -->
+    <div id="first-run-banner" class="first-run-banner" style="display: none;">
+      <strong>First-time setup</strong> &mdash; please configure your settings below.
+    </div>
 
-      <!-- Google Drive Connection -->
+    <!-- Error Message Area -->
+    <div id="error-message" class="error-message" style="display: none;">
+      <span class="error-icon">!</span>
+      <span id="error-text"></span>
+      <button id="error-dismiss" class="error-dismiss">&times;</button>
+    </div>
+
+    <main class="setup-content">
+
+      <!-- ── 1. Google Drive Connection ─────────────────────────── -->
       <section class="setup-section">
         <h2>Connect to Google Drive</h2>
         <p class="section-description">
@@ -48,7 +53,7 @@
         </div>
       </section>
 
-      <!-- Folder Selection -->
+      <!-- ── 2. Save Location ────────────────────────────────────── -->
       <section class="setup-section">
         <h2>Choose Save Location</h2>
         <p class="section-description">
@@ -66,13 +71,10 @@
 
         <!-- Folder picker with navigation -->
         <div id="folder-picker" class="folder-picker" style="display: none;">
-          <!-- Header with close button -->
           <div class="folder-picker-header">
             <span>Select a folder:</span>
             <button id="folder-picker-close" class="folder-picker-close">&times;</button>
           </div>
-
-          <!-- Navigation bar: back button + breadcrumbs + select current -->
           <div class="folder-picker-nav">
             <button id="folder-nav-up" class="nav-btn" title="Go up" style="display: none;">
               <span class="nav-icon">&#8592;</span>
@@ -84,15 +86,16 @@
               Select this folder
             </button>
           </div>
+          <div id="folder-list" class="folder-list"></div>
+        </div>
 
-          <!-- Folder list -->
-          <div id="folder-list" class="folder-list">
-            <!-- Folders will be populated here -->
-          </div>
+        <div class="section-footer">
+          <button id="save-folder-btn" class="btn btn-primary btn-small" disabled>Save Folder</button>
+          <span id="save-folder-confirm" class="save-confirm"></span>
         </div>
       </section>
 
-      <!-- Default AI Model -->
+      <!-- ── 3. Default AI Model ─────────────────────────────────── -->
       <section class="setup-section">
         <h2>Default AI Model</h2>
         <p class="section-description">
@@ -101,15 +104,19 @@
         <div class="field-group">
           <label class="field-label" for="default-ai-model">Model</label>
           <select id="default-ai-model" class="api-key-input">
-            <option value="sonnet">Claude Sonnet 4.6 — best quality</option>
-            <option value="haiku">Claude Haiku 4.5 — faster &amp; cheaper</option>
-            <option value="geminiFlash25">Gemini 2.5 Flash — Google</option>
-            <option value="gemini-2.5-pro">Gemini 2.5 Pro — Google</option>
+            <option value="sonnet">Claude Sonnet 4.6 &mdash; best quality</option>
+            <option value="haiku">Claude Haiku 4.5 &mdash; faster &amp; cheaper</option>
+            <option value="geminiFlash25">Gemini 2.5 Flash &mdash; Google</option>
+            <option value="gemini-2.5-pro">Gemini 2.5 Pro &mdash; Google</option>
           </select>
+        </div>
+        <div class="section-footer">
+          <button id="save-model-btn" class="btn btn-primary btn-small">Save</button>
+          <span id="save-model-confirm" class="save-confirm"></span>
         </div>
       </section>
 
-      <!-- Default Package -->
+      <!-- ── 4. Default Package ──────────────────────────────────── -->
       <section class="setup-section">
         <h2>Default Package</h2>
         <p class="section-description">
@@ -123,14 +130,18 @@
             <option value="cl">Cover Letter only</option>
           </select>
         </div>
+        <div class="section-footer">
+          <button id="save-package-btn" class="btn btn-primary btn-small">Save</button>
+          <span id="save-package-confirm" class="save-confirm"></span>
+        </div>
       </section>
 
-      <!-- Application Materials Folders -->
+      <!-- ── 5. Application Materials ───────────────────────────── -->
       <section class="setup-section">
         <h2>Application Materials</h2>
         <p class="section-description">
-          Select the Drive folders containing your CV and cover letter templates.
-          These are used when preparing an application package.
+          Select the Drive folders containing your CV templates, cover letter templates,
+          and candidate profile documents.
         </p>
 
         <div class="field-group">
@@ -150,9 +161,23 @@
           </div>
           <p id="cl-templates-status" class="field-status"></p>
         </div>
+
+        <div class="field-group">
+          <label class="field-label" for="profile-folder-name">My Profile Folder</label>
+          <div class="folder-picker-row">
+            <input type="text" id="profile-folder-name" class="field-input" readonly placeholder="No folder selected">
+            <button id="btn-pick-profile" class="btn btn-secondary btn-small">Choose</button>
+          </div>
+          <p id="profile-status" class="field-status"></p>
+        </div>
+
+        <div class="section-footer">
+          <button id="save-templates-btn" class="btn btn-primary btn-small">Save Templates</button>
+          <span id="save-templates-confirm" class="save-confirm"></span>
+        </div>
       </section>
 
-      <!-- AI API Keys -->
+      <!-- ── 6. AI Provider Keys ─────────────────────────────────── -->
       <section class="setup-section">
         <h2>AI Provider Keys</h2>
         <p class="section-description">
@@ -174,36 +199,18 @@
           <label class="field-label" for="gemini-key">Google (Gemini) API Key</label>
           <input type="password" id="gemini-key" class="api-key-input" placeholder="AIza...">
         </div>
+
+        <div class="section-footer">
+          <button id="save-keys-btn" class="btn btn-primary btn-small">Save Keys</button>
+          <span id="save-keys-confirm" class="save-confirm"></span>
+        </div>
       </section>
 
-      <!-- Save Button -->
-      <section class="setup-section">
-        <button id="save-setup-btn" class="btn btn-primary btn-large" disabled>
-          Complete Setup
-        </button>
-      </section>
-    </main>
+      <!-- ── Close button ───────────────────────────────────────── -->
+      <div class="close-footer">
+        <button id="close-tab-btn" class="btn btn-secondary">Close</button>
+      </div>
 
-    <!-- Already Complete Message -->
-    <main id="setup-complete" class="setup-content" style="display: none;">
-      <section class="setup-section complete-message">
-        <div class="success-icon">&#10003;</div>
-        <h2>Setup Already Complete</h2>
-        <p>JobLink is configured and ready to use. You can close this tab and start saving job postings.</p>
-        <p class="hint">Need to pick a different Drive folder? Use the button below.</p>
-        <button id="change-folder-btn" class="btn btn-secondary">Settings</button>
-      </section>
-    </main>
-
-    <!-- Setup Success Message (shown after completing setup) -->
-    <main id="setup-success" class="setup-content" style="display: none;">
-      <section class="setup-section complete-message">
-        <div class="success-icon">&#10003;</div>
-        <h2>Setup Complete!</h2>
-        <p>JobLink is now configured and ready to use.</p>
-        <p>Navigate to a job posting on LinkedIn or Indeed, then click the JobLink icon to save it to your Drive.</p>
-        <button id="close-tab-btn" class="btn btn-primary">Close This Tab</button>
-      </section>
     </main>
   </div>
 

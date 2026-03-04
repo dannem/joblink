@@ -1,180 +1,187 @@
 /**
  * Setup page logic for JobLink extension.
- * Handles OAuth flow, folder selection, and initial configuration.
+ * Handles OAuth flow, folder selection, and per-section settings saves.
  */
 
-// State
+// ── Module state ──────────────────────────────────────────────────────────────
+
 let accessToken = null;
+
+// Main save-location folder
 let selectedFolderId = null;
 let selectedFolderName = null;
-// When set, the next selectFolderAndClose call targets this picker instead of the main folder
-let pendingPickContext = null; // { inputId, statusId, storageKey }
 
-// Folder navigation state
-// Each item: { id: string, name: string }
+// Application materials folders (in-memory until "Save Templates" is clicked)
+let selectedCvFolderId = null;
+let selectedClFolderId = null;
+let selectedProfileFolderId = null;
+
+// Folder picker shared state
+// When set, the next selectFolderAndClose call targets this secondary picker
+// { inputId, statusId, varSetter: (folderId) => void }
+let pendingPickContext = null;
+
+// Folder navigation state — each item: { id: string, name: string }
 let folderPath = [];
 let currentFolderId = 'root';
 let currentFolderName = 'My Drive';
 
+// ── Entry point ───────────────────────────────────────────────────────────────
+
 document.addEventListener('DOMContentLoaded', initSetupPage);
 
 /**
- * Initialize the setup page by checking if setup is already complete.
+ * Initialize the settings page.
+ * Shows the first-run banner when SETUP_COMPLETE is not yet set,
+ * then populates all fields from storage.
  */
 async function initSetupPage() {
   try {
     const isComplete = await getStorageValue(STORAGE_KEYS.SETUP_COMPLETE);
-
-    if (isComplete) {
-      showSetupComplete();
-    } else {
-      showSetupForm();
+    if (!isComplete) {
+      document.getElementById('first-run-banner').style.display = 'block';
     }
-  } catch (error) {
-    console.error('Failed to check setup status:', error);
-    showSetupForm();
-  }
+  } catch (_) { /* non-fatal */ }
+
+  wireEventListeners();
+  await prefillAllFields();
 }
 
-/**
- * Show the setup form for first-time configuration.
- */
-function showSetupForm() {
-  document.getElementById('setup-form').style.display = 'block';
-  document.getElementById('setup-complete').style.display = 'none';
-  document.getElementById('setup-success').style.display = 'none';
+// ── Event wiring ──────────────────────────────────────────────────────────────
 
-  // Set up event listeners
+function wireEventListeners() {
   document.getElementById('connect-drive-btn').addEventListener('click', handleConnectDrive);
   document.getElementById('select-folder-btn').addEventListener('click', handleOpenFolderPicker);
-  document.getElementById('save-setup-btn').addEventListener('click', handleSaveSetup);
+  document.getElementById('save-folder-btn').addEventListener('click', handleSaveFolder);
+  document.getElementById('save-model-btn').addEventListener('click', handleSaveModel);
+  document.getElementById('save-package-btn').addEventListener('click', handleSavePackage);
+  document.getElementById('save-templates-btn').addEventListener('click', handleSaveTemplates);
+  document.getElementById('save-keys-btn').addEventListener('click', handleSaveKeys);
+  document.getElementById('close-tab-btn').addEventListener('click', () => window.close());
   document.getElementById('error-dismiss').addEventListener('click', hideError);
   document.getElementById('folder-picker-close').addEventListener('click', hideFolderPicker);
   document.getElementById('folder-nav-up').addEventListener('click', handleNavigateUp);
   document.getElementById('select-current-btn').addEventListener('click', handleSelectCurrentFolder);
 
-  // Wire up secondary folder picker buttons
   document.getElementById('btn-pick-cv-templates').addEventListener('click', () => {
-    pickFolder('cv-templates-folder-name', 'cv-templates-status', STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID);
+    pickFolder('cv-templates-folder-name', 'cv-templates-status', (id) => { selectedCvFolderId = id; });
   });
   document.getElementById('btn-pick-cl-templates').addEventListener('click', () => {
-    pickFolder('cl-templates-folder-name', 'cl-templates-status', STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID);
+    pickFolder('cl-templates-folder-name', 'cl-templates-status', (id) => { selectedClFolderId = id; });
   });
+  document.getElementById('btn-pick-profile').addEventListener('click', () => {
+    pickFolder('profile-folder-name', 'profile-status', (id) => { selectedProfileFolderId = id; });
+  });
+}
 
-  // Pre-fill any previously stored API keys and folder names
-  (async () => {
-    try {
-      const [anthropic, openai, gemini, defaultModel, defaultPackage, cvFolderId, clFolderId] = await Promise.all([
-        getStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY),
-        getStorageValue(STORAGE_KEYS.OPENAI_API_KEY),
-        getStorageValue(STORAGE_KEYS.GEMINI_API_KEY),
-        getStorageValue(STORAGE_KEYS.DEFAULT_AI_MODEL),
-        getStorageValue(STORAGE_KEYS.DEFAULT_PACKAGE),
-        getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID),
-        getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID),
+// ── Pre-fill all fields from storage ─────────────────────────────────────────
+
+/**
+ * Load all saved values from chrome.storage.sync and populate the form.
+ * Also attempts a non-interactive auth token fetch to show the Drive
+ * connected state without requiring a button click.
+ */
+async function prefillAllFields() {
+  try {
+    const [
+      rootFolderName,
+      rootFolderId,
+      anthropic,
+      openai,
+      gemini,
+      defaultModel,
+      defaultPackage,
+      cvFolderId,
+      clFolderId,
+      profileFolderId,
+    ] = await Promise.all([
+      getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_NAME),
+      getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID),
+      getStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY),
+      getStorageValue(STORAGE_KEYS.OPENAI_API_KEY),
+      getStorageValue(STORAGE_KEYS.GEMINI_API_KEY),
+      getStorageValue(STORAGE_KEYS.DEFAULT_AI_MODEL),
+      getStorageValue(STORAGE_KEYS.DEFAULT_PACKAGE),
+      getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID),
+      getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID),
+      getStorageValue(STORAGE_KEYS.PROFILE_FOLDER_ID),
+    ]);
+
+    // Dropdowns and text inputs
+    if (anthropic)      document.getElementById('anthropic-key').value       = anthropic;
+    if (openai)         document.getElementById('openai-key').value          = openai;
+    if (gemini)         document.getElementById('gemini-key').value          = gemini;
+    if (defaultModel)   document.getElementById('default-ai-model').value    = defaultModel;
+    if (defaultPackage) document.getElementById('default-package').value     = defaultPackage;
+
+    // Root Drive folder
+    if (rootFolderId) {
+      selectedFolderId   = rootFolderId;
+      selectedFolderName = rootFolderName || rootFolderId;
+      const folderEl = document.getElementById('selected-folder');
+      folderEl.textContent = selectedFolderName;
+      folderEl.classList.add('selected');
+      document.querySelector('.folder-selector').classList.add('selected');
+      document.getElementById('save-folder-btn').disabled = false;
+    }
+
+    // Template and profile folder in-memory state — names resolved via Drive API below
+    if (cvFolderId)      selectedCvFolderId      = cvFolderId;
+    if (clFolderId)      selectedClFolderId      = clFolderId;
+    if (profileFolderId) selectedProfileFolderId = profileFolderId;
+
+    // Try a silent auth token to show connected state and resolve folder names
+    const token = await getSilentAuthToken();
+    if (token) {
+      accessToken = token;
+      showDriveConnected(token);
+
+      // Enable folder selection now that we have a token
+      document.getElementById('select-folder-btn').disabled = false;
+
+      // Resolve stored folder names via Drive API
+      const names = await Promise.all([
+        cvFolderId      ? getFolderName(token, cvFolderId)      : Promise.resolve(null),
+        clFolderId      ? getFolderName(token, clFolderId)      : Promise.resolve(null),
+        profileFolderId ? getFolderName(token, profileFolderId) : Promise.resolve(null),
       ]);
-      if (anthropic)       document.getElementById('anthropic-key').value    = anthropic;
-      if (openai)          document.getElementById('openai-key').value       = openai;
-      if (gemini)          document.getElementById('gemini-key').value       = gemini;
-      if (defaultModel)    document.getElementById('default-ai-model').value = defaultModel;
-      if (defaultPackage)  document.getElementById('default-package').value  = defaultPackage;
-
-      // Load saved folder names by resolving their IDs via Drive API
-      if (cvFolderId || clFolderId) {
-        try {
-          const token = await new Promise((resolve, reject) => {
-            chrome.identity.getAuthToken({ interactive: false }, (t) => {
-              if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-              else resolve(t);
-            });
-          });
-          if (cvFolderId) {
-            const name = await getFolderName(token, cvFolderId);
-            if (name) document.getElementById('cv-templates-folder-name').value = name;
-          }
-          if (clFolderId) {
-            const name = await getFolderName(token, clFolderId);
-            if (name) document.getElementById('cl-templates-folder-name').value = name;
-          }
-        } catch (_) { /* silently ignore if not authenticated */ }
-      }
-    } catch (_) { /* non-fatal */ }
-  })();
+      if (names[0]) document.getElementById('cv-templates-folder-name').value  = names[0];
+      if (names[1]) document.getElementById('cl-templates-folder-name').value  = names[1];
+      if (names[2]) document.getElementById('profile-folder-name').value       = names[2];
+    }
+  } catch (_) { /* non-fatal — user sees empty fields */ }
 }
 
-/**
- * Show the "setup already complete" message.
- * Wires up the "Change save folder" button so the user can re-open the
- * setup form to pick a different Drive folder without reinstalling.
- */
-function showSetupComplete() {
-  document.getElementById('setup-form').style.display = 'none';
-  document.getElementById('setup-complete').style.display = 'block';
-  document.getElementById('setup-success').style.display = 'none';
+// ── Drive connection ──────────────────────────────────────────────────────────
 
-  document.getElementById('change-folder-btn').addEventListener('click', () => {
-    showSetupForm();
+/**
+ * Request a non-interactive OAuth token (returns null if not yet authorised).
+ * @returns {Promise<string|null>}
+ */
+function getSilentAuthToken() {
+  return new Promise((resolve) => {
+    chrome.identity.getAuthToken({ interactive: false }, (token) => {
+      if (chrome.runtime.lastError || !token) resolve(null);
+      else resolve(token);
+    });
   });
 }
 
 /**
- * Show the setup success message after completing setup.
+ * Update the UI to show the Drive connected state and fetch the user email.
+ * @param {string} token - OAuth access token
  */
-function showSetupSuccess() {
-  document.getElementById('setup-form').style.display = 'none';
-  document.getElementById('setup-complete').style.display = 'none';
-  document.getElementById('setup-success').style.display = 'block';
-
-  document.getElementById('close-tab-btn').addEventListener('click', () => {
-    window.close();
-  });
-}
-
-/**
- * Display an error message to the user.
- * @param {string} message - Error message to display
- */
-function showError(message) {
-  const errorEl = document.getElementById('error-message');
-  const errorText = document.getElementById('error-text');
-  errorText.textContent = message;
-  errorEl.style.display = 'flex';
-}
-
-/**
- * Hide the error message.
- */
-function hideError() {
-  document.getElementById('error-message').style.display = 'none';
-}
-
-/**
- * Set button loading state.
- * @param {HTMLElement} button - Button element
- * @param {boolean} loading - Whether to show loading state
- */
-function setButtonLoading(button, loading) {
-  if (loading) {
-    button.classList.add('loading');
-    button.disabled = true;
-  } else {
-    button.classList.remove('loading');
-    button.disabled = false;
-  }
-}
-
-/**
- * Update the Complete Setup button state based on requirements.
- */
-function updateCompleteButtonState() {
-  const saveBtn = document.getElementById('save-setup-btn');
-  const canComplete = accessToken && selectedFolderId;
-  saveBtn.disabled = !canComplete;
+async function showDriveConnected(token) {
+  try {
+    const userInfo = await getUserInfo(token);
+    document.getElementById('drive-not-connected').style.display = 'none';
+    document.getElementById('drive-connected').style.display = 'flex';
+    document.getElementById('connected-email').textContent = userInfo.email;
+  } catch (_) { /* silently ignore — email display is cosmetic */ }
 }
 
 /**
  * Handle the "Connect Google Drive" button click.
- * Initiates OAuth flow using chrome.identity.getAuthToken().
  */
 async function handleConnectDrive() {
   const connectBtn = document.getElementById('connect-drive-btn');
@@ -182,47 +189,165 @@ async function handleConnectDrive() {
   hideError();
 
   try {
-    // Clear any cached token first to ensure we get fresh scopes
+    // Clear cached token to ensure fresh scopes
     await new Promise((resolve) => {
       chrome.identity.getAuthToken({ interactive: false }, (oldToken) => {
-        if (oldToken) {
-          chrome.identity.removeCachedAuthToken({ token: oldToken }, resolve);
-        } else {
-          resolve();
-        }
+        if (oldToken) chrome.identity.removeCachedAuthToken({ token: oldToken }, resolve);
+        else resolve();
       });
     });
 
-    // Request OAuth token with updated scopes
+    // Interactive OAuth
     const token = await new Promise((resolve, reject) => {
       chrome.identity.getAuthToken({ interactive: true }, (token) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve(token);
-        }
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+        else resolve(token);
       });
     });
 
     accessToken = token;
-
-    // Get user info to display email
-    const userInfo = await getUserInfo(token);
-
-    // Update UI to show connected state
-    document.getElementById('drive-not-connected').style.display = 'none';
-    document.getElementById('drive-connected').style.display = 'flex';
-    document.getElementById('connected-email').textContent = userInfo.email;
-
-    // Enable folder selection
+    await showDriveConnected(token);
     document.getElementById('select-folder-btn').disabled = false;
-
-    updateCompleteButtonState();
   } catch (error) {
     console.error('OAuth failed:', error);
     showError(`Failed to connect to Google Drive: ${error.message}`);
     setButtonLoading(connectBtn, false);
   }
+}
+
+// ── Per-section save handlers ─────────────────────────────────────────────────
+
+/**
+ * Save the selected Drive root folder and mark setup as complete.
+ */
+async function handleSaveFolder() {
+  if (!selectedFolderId) return;
+  const btn = document.getElementById('save-folder-btn');
+  setButtonLoading(btn, true);
+  hideError();
+  try {
+    await setStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID,   selectedFolderId);
+    await setStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_NAME, selectedFolderName);
+    await setStorageValue(STORAGE_KEYS.SETUP_COMPLETE, true);
+    // First-run banner no longer needed once the user has saved a folder
+    document.getElementById('first-run-banner').style.display = 'none';
+    showSaveConfirm('save-folder-confirm');
+  } catch (error) {
+    showError('Failed to save folder: ' + error.message);
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+/**
+ * Save the default AI model selection.
+ */
+async function handleSaveModel() {
+  const btn = document.getElementById('save-model-btn');
+  setButtonLoading(btn, true);
+  try {
+    await setStorageValue(STORAGE_KEYS.DEFAULT_AI_MODEL, document.getElementById('default-ai-model').value);
+    showSaveConfirm('save-model-confirm');
+  } catch (error) {
+    showError('Failed to save model: ' + error.message);
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+/**
+ * Save the default package selection.
+ */
+async function handleSavePackage() {
+  const btn = document.getElementById('save-package-btn');
+  setButtonLoading(btn, true);
+  try {
+    await setStorageValue(STORAGE_KEYS.DEFAULT_PACKAGE, document.getElementById('default-package').value);
+    showSaveConfirm('save-package-confirm');
+  } catch (error) {
+    showError('Failed to save package: ' + error.message);
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+/**
+ * Save the CV, cover letter, and profile folder IDs.
+ * Only writes non-null in-memory values so existing IDs are not overwritten
+ * if the user hasn't changed a particular folder in this session.
+ */
+async function handleSaveTemplates() {
+  const btn = document.getElementById('save-templates-btn');
+  setButtonLoading(btn, true);
+  try {
+    if (selectedCvFolderId)      await setStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID, selectedCvFolderId);
+    if (selectedClFolderId)      await setStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID, selectedClFolderId);
+    if (selectedProfileFolderId) await setStorageValue(STORAGE_KEYS.PROFILE_FOLDER_ID,      selectedProfileFolderId);
+    showSaveConfirm('save-templates-confirm');
+  } catch (error) {
+    showError('Failed to save templates: ' + error.message);
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+/**
+ * Save API keys. Only writes non-empty values so existing keys are not
+ * accidentally cleared if the user leaves a field blank.
+ */
+async function handleSaveKeys() {
+  const btn = document.getElementById('save-keys-btn');
+  setButtonLoading(btn, true);
+  try {
+    const anthropic = document.getElementById('anthropic-key').value.trim();
+    const openai    = document.getElementById('openai-key').value.trim();
+    const gemini    = document.getElementById('gemini-key').value.trim();
+    if (anthropic) await setStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY, anthropic);
+    if (openai)    await setStorageValue(STORAGE_KEYS.OPENAI_API_KEY,    openai);
+    if (gemini)    await setStorageValue(STORAGE_KEYS.GEMINI_API_KEY,    gemini);
+    showSaveConfirm('save-keys-confirm');
+  } catch (error) {
+    showError('Failed to save keys: ' + error.message);
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+// ── Inline save confirmation ──────────────────────────────────────────────────
+
+/**
+ * Show a "Saved ✓" message next to a save button, then fade it out after 2 s.
+ * @param {string} spanId - ID of the confirmation <span>
+ */
+function showSaveConfirm(spanId) {
+  const span = document.getElementById(spanId);
+  if (!span) return;
+  span.textContent = 'Saved \u2713';
+  span.classList.add('save-confirm--visible');
+  setTimeout(() => {
+    span.classList.remove('save-confirm--visible');
+    span.textContent = '';
+  }, 2000);
+}
+
+// ── Folder picker ─────────────────────────────────────────────────────────────
+
+/**
+ * Open the shared folder picker for a secondary materials folder.
+ * Sets pendingPickContext so selectFolderAndClose updates the right field.
+ *
+ * @param {string}   inputId   - ID of the <input> element to update on selection
+ * @param {string}   statusId  - ID of the status <p> element for feedback
+ * @param {Function} varSetter - Callback receiving the selected folderId
+ */
+function pickFolder(inputId, statusId, varSetter) {
+  if (!accessToken) {
+    const statusEl = document.getElementById(statusId);
+    if (statusEl) statusEl.textContent = 'Please connect Google Drive first.';
+    return;
+  }
+  pendingPickContext = { inputId, statusId, varSetter };
+  handleOpenFolderPicker();
 }
 
 /**
@@ -231,16 +356,10 @@ async function handleConnectDrive() {
  */
 async function handleOpenFolderPicker() {
   hideError();
-
-  // Reset navigation state
   folderPath = [];
   currentFolderId = 'root';
   currentFolderName = 'My Drive';
-
-  // Show folder picker
   document.getElementById('folder-picker').style.display = 'block';
-
-  // Update UI and load folders
   updateBreadcrumbs();
   updateNavButtons();
   await loadFolders(currentFolderId);
@@ -270,9 +389,7 @@ async function loadFolders(parentId) {
         </div>
       `).join('');
 
-      // Add click handlers for folder names (navigate into)
       folderList.querySelectorAll('.folder-item').forEach(item => {
-        // Click on the row (excluding the select button) navigates into folder
         item.addEventListener('click', (e) => {
           if (!e.target.classList.contains('folder-select-btn')) {
             navigateIntoFolder(item.dataset.folderId, item.dataset.folderName);
@@ -280,7 +397,6 @@ async function loadFolders(parentId) {
         });
       });
 
-      // Add click handlers for select buttons
       folderList.querySelectorAll('.folder-select-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -297,18 +413,11 @@ async function loadFolders(parentId) {
 
 /**
  * Navigate into a folder (load its subfolders).
- * @param {string} folderId - Folder ID to navigate into
- * @param {string} folderName - Folder name
  */
 async function navigateIntoFolder(folderId, folderName) {
-  // Add current folder to path before navigating
   folderPath.push({ id: currentFolderId, name: currentFolderName });
-
-  // Update current folder
   currentFolderId = folderId;
   currentFolderName = folderName;
-
-  // Update UI
   updateBreadcrumbs();
   updateNavButtons();
   await loadFolders(folderId);
@@ -319,13 +428,9 @@ async function navigateIntoFolder(folderId, folderName) {
  */
 async function handleNavigateUp() {
   if (folderPath.length === 0) return;
-
-  // Pop the last folder from path
   const parent = folderPath.pop();
   currentFolderId = parent.id;
   currentFolderName = parent.name;
-
-  // Update UI
   updateBreadcrumbs();
   updateNavButtons();
   await loadFolders(currentFolderId);
@@ -337,19 +442,15 @@ async function handleNavigateUp() {
  */
 async function handleBreadcrumbClick(index) {
   if (index === -1) {
-    // Navigate to root
     folderPath = [];
     currentFolderId = 'root';
     currentFolderName = 'My Drive';
   } else {
-    // Navigate to specific folder in path
     const targetFolder = folderPath[index];
     currentFolderId = targetFolder.id;
     currentFolderName = targetFolder.name;
-    // Truncate path to this point
     folderPath = folderPath.slice(0, index);
   }
-
   updateBreadcrumbs();
   updateNavButtons();
   await loadFolders(currentFolderId);
@@ -364,62 +465,45 @@ function handleSelectCurrentFolder() {
 
 /**
  * Select a folder and close the picker.
- * If pendingPickContext is set, saves the folder to the specified storage key
- * and updates the specified input field.
- * Otherwise, updates the main save-location folder selector.
+ * If pendingPickContext is set, updates that secondary field's display and
+ * stores the ID in the corresponding module-level variable via varSetter.
+ * Otherwise, updates the main save-location folder display.
  *
- * @param {string} folderId - Selected folder ID
+ * @param {string} folderId   - Selected folder ID
  * @param {string} folderName - Selected folder name
  */
 function selectFolderAndClose(folderId, folderName) {
-  // Build full path name for display
+  // Build display path
   let fullPathName = folderName;
   if (folderPath.length > 0 || folderId !== 'root') {
     const pathNames = folderPath.map(f => f.name);
-    if (folderId !== currentFolderId) {
-      // Selecting a subfolder, not the current browsed folder
-      pathNames.push(currentFolderName);
-    }
+    if (folderId !== currentFolderId) pathNames.push(currentFolderName);
     if (folderId === 'root') {
       fullPathName = 'My Drive';
     } else {
       pathNames.push(folderName);
-      // Remove 'My Drive' from path display if present
-      if (pathNames[0] === 'My Drive') {
-        pathNames.shift();
-      }
+      if (pathNames[0] === 'My Drive') pathNames.shift();
       fullPathName = pathNames.length > 0 ? pathNames.join(' > ') : folderName;
     }
   }
 
   if (pendingPickContext) {
-    // Secondary folder picker (CV templates, CL templates)
-    const { inputId, statusId, storageKey } = pendingPickContext;
+    const { inputId, statusId, varSetter } = pendingPickContext;
     pendingPickContext = null;
-
     document.getElementById(inputId).value = fullPathName;
     const statusEl = document.getElementById(statusId);
     if (statusEl) statusEl.textContent = '';
-
-    setStorageValue(storageKey, folderId)
-      .then(() => {
-        if (statusEl) statusEl.textContent = 'Saved.';
-      })
-      .catch(err => {
-        if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
-      });
+    varSetter(folderId);
   } else {
-    // Main save-location folder picker
-    selectedFolderId = folderId;
+    // Main folder picker
+    selectedFolderId   = folderId;
     selectedFolderName = fullPathName;
 
-    const folderSelector = document.querySelector('.setup-section:nth-of-type(2) .folder-selector');
-    const selectedFolderEl = document.getElementById('selected-folder');
-    if (folderSelector) folderSelector.classList.add('selected');
-    selectedFolderEl.textContent = fullPathName;
-    selectedFolderEl.classList.add('selected');
-
-    updateCompleteButtonState();
+    const folderEl = document.getElementById('selected-folder');
+    folderEl.textContent = fullPathName;
+    folderEl.classList.add('selected');
+    document.querySelector('.folder-selector').classList.add('selected');
+    document.getElementById('save-folder-btn').disabled = false;
   }
 
   hideFolderPicker();
@@ -428,10 +512,6 @@ function selectFolderAndClose(folderId, folderName) {
 /**
  * Look up a folder's name by its Drive ID.
  * Returns null if the ID is invalid or the request fails.
- *
- * @param {string} token    - OAuth access token
- * @param {string} folderId - Drive folder ID
- * @returns {Promise<string|null>}
  */
 async function getFolderName(token, folderId) {
   try {
@@ -448,49 +528,24 @@ async function getFolderName(token, folderId) {
 }
 
 /**
- * Open the shared folder picker for a secondary folder field.
- * Sets pendingPickContext so selectFolderAndClose saves to the right place.
- *
- * @param {string} inputId   - ID of the <input> element to update on selection
- * @param {string} statusId  - ID of the status <p> element for feedback
- * @param {string} storageKey - STORAGE_KEYS key to save the selected folder ID
- */
-function pickFolder(inputId, statusId, storageKey) {
-  if (!accessToken) {
-    const statusEl = document.getElementById(statusId);
-    if (statusEl) statusEl.textContent = 'Please connect Google Drive first.';
-    return;
-  }
-  pendingPickContext = { inputId, statusId, storageKey };
-  handleOpenFolderPicker();
-}
-
-/**
  * Update the breadcrumb trail display.
  */
 function updateBreadcrumbs() {
   const breadcrumbs = document.getElementById('folder-breadcrumbs');
-  let html = '';
-
-  // Root (My Drive)
   const isAtRoot = folderPath.length === 0 && currentFolderId === 'root';
-  html += `<span class="breadcrumb-item ${isAtRoot ? 'active' : 'clickable'}" data-index="-1">My Drive</span>`;
+  let html = `<span class="breadcrumb-item ${isAtRoot ? 'active' : 'clickable'}" data-index="-1">My Drive</span>`;
 
-  // Path folders
   folderPath.forEach((folder, index) => {
     html += `<span class="breadcrumb-separator">&#8250;</span>`;
     html += `<span class="breadcrumb-item clickable" data-index="${index}">${escapeHtml(folder.name)}</span>`;
   });
 
-  // Current folder (if not root)
   if (currentFolderId !== 'root') {
     html += `<span class="breadcrumb-separator">&#8250;</span>`;
     html += `<span class="breadcrumb-item active">${escapeHtml(currentFolderName)}</span>`;
   }
 
   breadcrumbs.innerHTML = html;
-
-  // Add click handlers for clickable breadcrumbs
   breadcrumbs.querySelectorAll('.breadcrumb-item.clickable').forEach(item => {
     item.addEventListener('click', () => {
       handleBreadcrumbClick(parseInt(item.dataset.index, 10));
@@ -502,9 +557,7 @@ function updateBreadcrumbs() {
  * Update navigation button visibility.
  */
 function updateNavButtons() {
-  const upBtn = document.getElementById('folder-nav-up');
-  // Show up button only if we're not at root
-  upBtn.style.display = folderPath.length > 0 ? 'flex' : 'none';
+  document.getElementById('folder-nav-up').style.display = folderPath.length > 0 ? 'flex' : 'none';
 }
 
 /**
@@ -515,51 +568,41 @@ function hideFolderPicker() {
   pendingPickContext = null;
 }
 
+// ── UI helpers ────────────────────────────────────────────────────────────────
+
 /**
- * Handle the "Complete Setup" button click.
- * Saves settings and marks setup as complete.
+ * Display an error message to the user.
+ * @param {string} message
  */
-async function handleSaveSetup() {
-  const saveBtn = document.getElementById('save-setup-btn');
-  setButtonLoading(saveBtn, true);
-  hideError();
+function showError(message) {
+  document.getElementById('error-text').textContent = message;
+  document.getElementById('error-message').style.display = 'flex';
+}
 
-  try {
-    // Save folder selection
-    await setStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID, selectedFolderId);
-    await setStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_NAME, selectedFolderName);
+/**
+ * Hide the error message.
+ */
+function hideError() {
+  document.getElementById('error-message').style.display = 'none';
+}
 
-    // Save any API keys the user entered (only write non-empty values so an
-    // existing key is not accidentally overwritten with an empty string)
-    const anthropicKey = document.getElementById('anthropic-key').value.trim();
-    const openaiKey    = document.getElementById('openai-key').value.trim();
-    const geminiKey    = document.getElementById('gemini-key').value.trim();
-    if (anthropicKey) await setStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY, anthropicKey);
-    if (openaiKey)    await setStorageValue(STORAGE_KEYS.OPENAI_API_KEY,    openaiKey);
-    if (geminiKey)    await setStorageValue(STORAGE_KEYS.GEMINI_API_KEY,    geminiKey);
-
-    // Save default AI model and package mode (always write — dropdowns always have a value)
-    const defaultModel   = document.getElementById('default-ai-model').value;
-    const defaultPackage = document.getElementById('default-package').value;
-    await setStorageValue(STORAGE_KEYS.DEFAULT_AI_MODEL, defaultModel);
-    await setStorageValue(STORAGE_KEYS.DEFAULT_PACKAGE,  defaultPackage);
-
-    // Mark setup as complete
-    await setStorageValue(STORAGE_KEYS.SETUP_COMPLETE, true);
-
-    // Show success message
-    showSetupSuccess();
-  } catch (error) {
-    console.error('Failed to save setup:', error);
-    showError(`Failed to save settings: ${error.message}`);
-    setButtonLoading(saveBtn, false);
+/**
+ * Set a button's loading state.
+ * @param {HTMLElement} button
+ * @param {boolean}     loading
+ */
+function setButtonLoading(button, loading) {
+  if (loading) {
+    button.classList.add('loading');
+    button.disabled = true;
+  } else {
+    button.classList.remove('loading');
+    button.disabled = false;
   }
 }
 
 /**
  * Escape HTML special characters to prevent XSS.
- * @param {string} text - Text to escape
- * @returns {string} Escaped text
  */
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -569,8 +612,6 @@ function escapeHtml(text) {
 
 /**
  * Escape attribute values to prevent XSS in data attributes.
- * @param {string} text - Text to escape
- * @returns {string} Escaped text
  */
 function escapeAttr(text) {
   return text
