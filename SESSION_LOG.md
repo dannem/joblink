@@ -5,6 +5,36 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 42 — Complete
+Date: 2026-03-04
+Branch: feature-tabs-onupdated-scrape
+What was built:
+Added a chrome.tabs.onUpdated listener to background/service-worker.js.
+Previously scraping was only triggered when the user clicked the extension
+toolbar icon. Now it also fires automatically whenever any tab completes
+loading — covering email digest links, direct URL navigation, bookmarks, and
+any other path that bypasses the action click. The listener guards on
+changeInfo.status === 'complete' and skips non-http/https URLs (chrome://,
+extension pages, etc.). Delegates to the existing triggerScrapeForTab()
+which selects the right content script and sends REQUEST_SCRAPE with retries.
+
+Files changed:
+- background/service-worker.js: chrome.tabs.onUpdated listener added after
+  the chrome.action.onClicked listener block
+
+Test results:
+- Requires manual testing in Chrome
+- Verify: opening a LinkedIn email digest link auto-populates the side panel
+- Verify: navigating directly to an Indeed job URL triggers scraping
+- Verify: switching to a chrome:// tab does not cause console errors
+
+Known issues / next steps:
+- onUpdated fires for every tab load including non-job pages; the generic
+  scraper content script will run but will silently no-op when it finds no
+  job title or the description is too short
+
+---
+
 Session 41 — Complete
 Date: 2026-03-03
 Branch: feature-generic-company-cleanup

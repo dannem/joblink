@@ -65,6 +65,32 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 /**
+ * Trigger scraping whenever any tab finishes loading.
+ *
+ * This catches navigation paths that the action-click handler cannot:
+ *   - Opening a job link from an email client
+ *   - Typing or pasting a URL directly into the address bar
+ *   - Following a bookmark or external link to a job page
+ *
+ * Guards:
+ *   - Only fires when changeInfo.status === 'complete' (page fully loaded)
+ *   - Only acts on http/https URLs; skips chrome://, extension pages, etc.
+ *   - triggerScrapeForTab internally checks the URL and selects the right
+ *     content script (LinkedIn, Indeed, or generic); it is a no-op when
+ *     getContentScriptForUrl returns null.
+ */
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status !== 'complete') return;
+
+  const url = tab.url || '';
+  if (!url.startsWith('http://') && !url.startsWith('https://')) return;
+
+  triggerScrapeForTab(tab).catch((err) => {
+    console.warn('[JobLink] tabs.onUpdated scrape trigger failed:', err.message);
+  });
+});
+
+/**
  * Return the content script file that matches the current tab URL.
  *
  * @param {string} url
