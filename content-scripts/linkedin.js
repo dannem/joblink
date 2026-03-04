@@ -220,9 +220,21 @@ function extractApplicationUrl() {
  *   - Standalone view   — linkedin.com/jobs/view/{id}/ (including email digest links
  *                         with ?trk=eml… tracking params)
  *
- * @returns {Object} Job data object conforming to the JobLink scraper output format
+ * Returns null when no job ID can be determined, which happens on list pages
+ * (/jobs/search/, /jobs/collections/) and the LinkedIn homepage. Callers must
+ * check for null before accessing the returned object.
+ *
+ * @returns {Object|null} Job data object, or null if not on a single-job page
  */
 function scrapeLinkedInJob() {
+  // Guard: a valid job ID must be present in the URL before we attempt to
+  // scrape anything. On list/feed pages no job ID exists, so any DOM reads
+  // would return partial or irrelevant data from the feed layout.
+  if (!getCurrentJobId()) {
+    console.log('[JobLink] scrapeLinkedInJob: no job ID in URL — skipping (list or feed page)');
+    return null;
+  }
+
   const jobTitle = extractText([
     // Unified top card — h1 inside the title wrapper (most reliable, 2024+)
     '.job-details-jobs-unified-top-card__job-title h1',
@@ -398,6 +410,9 @@ async function runScrape() {
   const jobData = scrapeLinkedInJob();
   console.log('[JobLink] LinkedIn scraper result (attempt 1):', jobData);
 
+  // null means we're on a list/feed page — nothing to scrape
+  if (!jobData) return;
+
   if (isStaleRun()) {
     console.log('[JobLink] runScrape aborted (stale attempt 1):', runId);
     return;
@@ -420,7 +435,8 @@ async function runScrape() {
       return;
     }
 
-    Object.assign(jobData, scrapeLinkedInJob());
+    const retryData = scrapeLinkedInJob();
+    if (retryData) Object.assign(jobData, retryData);
     console.log(`[JobLink] runScrape attempt ${attempt + 1} description length:`, jobData.description.length);
     console.log(`[JobLink] Retry ${attempt} result:`, jobData.description ? 'got description' : 'still empty');
     if (jobData.description) {

@@ -5,6 +5,43 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 43 — Complete
+Date: 2026-03-04
+Branch: feature-scrape-url-guards
+What was built:
+Two guards to prevent scraping LinkedIn list/feed pages:
+
+1. shouldScrapeOnLoad() (service-worker.js): New helper called by the
+   tabs.onUpdated listener before triggerScrapeForTab(). Returns false for
+   LinkedIn URLs that are not /jobs/view/{id} (blocks /jobs/search/,
+   /jobs/collections/, homepage). Returns false for Indeed URLs without a
+   jk= query param (blocks search result pages). Returns true for all other
+   http/https URLs (generic scraper's internal quality filter handles those).
+   The listener is now two lines: status check + shouldScrapeOnLoad check.
+
+2. Guard in scrapeLinkedInJob() (content-scripts/linkedin.js): Returns null
+   immediately if getCurrentJobId() returns an empty string. Prevents DOM
+   reads on feed/list pages from returning partial data. runScrape() handles
+   the null with an early return after the first call, and guards the retry
+   loop with `if (retryData) Object.assign(jobData, retryData)` so a mid-
+   scrape URL change (which would cause getCurrentJobId() to return '' again)
+   can't corrupt the accumulated job data.
+
+Files changed:
+- background/service-worker.js: shouldScrapeOnLoad() helper; tabs.onUpdated
+  listener simplified to use it
+- content-scripts/linkedin.js: null guard at top of scrapeLinkedInJob();
+  null check after initial call in runScrape(); null-safe retryData assignment
+  in retry loop
+
+Test results:
+- Requires manual testing in Chrome
+- Verify: browsing to linkedin.com/jobs/search/ does NOT populate the panel
+- Verify: opening linkedin.com/jobs/view/12345 DOES populate the panel
+- Verify: Indeed search page does not trigger; viewjob?jk=abc123 does
+
+---
+
 Session 42 — Complete
 Date: 2026-03-04
 Branch: feature-tabs-onupdated-scrape

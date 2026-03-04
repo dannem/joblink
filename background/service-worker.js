@@ -65,25 +65,63 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 /**
- * Trigger scraping whenever any tab finishes loading.
+ * Decide whether a fully-loaded tab URL warrants an automatic scrape trigger.
+ *
+ * Rules by host:
+ *   LinkedIn  — only individual job view pages (/jobs/view/{numericId}).
+ *               List pages (/jobs/search/, /jobs/collections/) and the
+ *               homepage are excluded — their content is a feed, not a
+ *               single job posting.  The split-panel search view already
+ *               handles itself via the content script's navigation watcher.
+ *   Indeed    — only pages that carry a specific job key (jk= query param).
+ *               Pure search-results pages have no jk= and are excluded.
+ *   All other http/https URLs — always eligible; the generic scraper's own
+ *               quality threshold (title + 200-char description) acts as the
+ *               real filter so non-job pages are silently dropped.
+ *
+ * @param {string} url
+ * @returns {boolean}
+ */
+function shouldScrapeOnLoad(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+
+    const host = parsed.hostname;
+
+    // LinkedIn: individual job view pages only
+    if (host === 'linkedin.com' || host.endsWith('.linkedin.com')) {
+      return /^\/jobs\/view\/\d+/.test(parsed.pathname);
+    }
+
+    // Indeed: job-detail pages carry a jk= (job key) query param
+    if (host === 'indeed.com' || host.endsWith('.indeed.com')) {
+      return Boolean(parsed.searchParams.get('jk'));
+    }
+
+    // Everything else — generic scraper; quality filtering happens inside the script
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * Trigger scraping whenever a tab finishes loading on a URL that identifies
+ * a specific job posting.
  *
  * This catches navigation paths that the action-click handler cannot:
  *   - Opening a job link from an email client
  *   - Typing or pasting a URL directly into the address bar
  *   - Following a bookmark or external link to a job page
  *
- * Guards:
- *   - Only fires when changeInfo.status === 'complete' (page fully loaded)
- *   - Only acts on http/https URLs; skips chrome://, extension pages, etc.
- *   - triggerScrapeForTab internally checks the URL and selects the right
- *     content script (LinkedIn, Indeed, or generic); it is a no-op when
- *     getContentScriptForUrl returns null.
+ * shouldScrapeOnLoad() filters out LinkedIn feed/list pages and Indeed
+ * search pages so the scraper is only invoked for individual job postings.
  */
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status !== 'complete') return;
-
-  const url = tab.url || '';
-  if (!url.startsWith('http://') && !url.startsWith('https://')) return;
+  if (!shouldScrapeOnLoad(tab.url || '')) return;
 
   triggerScrapeForTab(tab).catch((err) => {
     console.warn('[JobLink] tabs.onUpdated scrape trigger failed:', err.message);
