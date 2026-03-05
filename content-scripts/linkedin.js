@@ -27,35 +27,18 @@ const RETRY_DELAY_MS = 1500;
 const MAX_RETRIES = 5;
 
 /**
- * Return true when an element occupies visible space in the document.
- * Elements hidden by LinkedIn's SPA (display:none, visibility:hidden, zero
- * dimensions) return false so stale previous-job nodes are ignored.
- *
- * @param {Element|null} el
- * @returns {boolean}
- */
-function isVisible(el) {
-  return Boolean(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
-}
-
-/**
  * Try each CSS selector in order and return the trimmed text of the first
- * *visible* element that has non-empty text.
- *
- * Uses querySelectorAll so that if the first DOM match is a stale hidden node
- * (LinkedIn leaves previous-job elements in the DOM but hides them during SPA
- * navigation) the loop continues to the next candidate.
+ * element that has non-empty text.
  *
  * @param {string[]} selectors - CSS selectors to try, in priority order
- * @returns {string} Trimmed visible text, or '' if nothing matched
+ * @returns {string} Trimmed text, or '' if nothing matched
  */
 function extractText(selectors) {
   for (const selector of selectors) {
-    for (const el of document.querySelectorAll(selector)) {
-      if (!isVisible(el)) continue;
-      const text = (el.innerText || el.textContent || '').trim();
-      if (text) return text;
-    }
+    const el = document.querySelector(selector);
+    if (!el) continue;
+    const text = (el.innerText || el.textContent || '').trim();
+    if (text) return text;
   }
   return '';
 }
@@ -97,11 +80,10 @@ function extractLocation() {
   ];
 
   for (const selector of bulletSelectors) {
-    for (const el of document.querySelectorAll(selector)) {
-      if (!isVisible(el)) continue;
-      const text = (el.innerText || el.textContent || '').trim();
-      if (text) return text;
-    }
+    const el = document.querySelector(selector);
+    if (!el) continue;
+    const text = (el.innerText || el.textContent || '').trim();
+    if (text) return text;
   }
 
   // Fallback: parse the primary description container.
@@ -110,12 +92,11 @@ function extractLocation() {
   //   <span class="tvm__text tvm__text--positive">Austin, TX</span>
   //   <span class="tvm__text tvm__text--neutral"> · </span>
   //   <span class="tvm__text tvm__text--positive">Hybrid</span>
-  for (const container of document.querySelectorAll(
+  const container = document.querySelector(
     '.job-details-jobs-unified-top-card__primary-description-container'
-  )) {
-    if (!isVisible(container)) continue;
+  );
+  if (container) {
     for (const span of container.querySelectorAll('.tvm__text')) {
-      if (!isVisible(span)) continue;
       const text = (span.innerText || span.textContent || '').trim();
       // Skip separator dots and very short strings
       if (text && text !== '·' && text !== '•' && text.length > 2) {
@@ -170,16 +151,15 @@ function extractDescription() {
   ];
 
   for (const selector of descSelectors) {
-    for (const el of document.querySelectorAll(selector)) {
-      if (!isVisible(el)) continue;
-      const byInnerText   = (el.innerText   || '').trim();
-      const byTextContent = (el.textContent || '').trim();
-      // Prefer whichever strategy surfaced more text
-      const text = byInnerText.length >= byTextContent.length
-        ? byInnerText
-        : byTextContent;
-      if (text.length >= MIN_DESC_LENGTH) return text;
-    }
+    const el = document.querySelector(selector);
+    if (!el) continue;
+    const byInnerText   = (el.innerText   || '').trim();
+    const byTextContent = (el.textContent || '').trim();
+    // Prefer whichever strategy surfaced more text
+    const text = byInnerText.length >= byTextContent.length
+      ? byInnerText
+      : byTextContent;
+    if (text.length >= MIN_DESC_LENGTH) return text;
   }
 
   return '';
@@ -432,7 +412,24 @@ async function runScrape() {
     return;
   }
 
+  // isDomStale: URL has changed to a new job but the DOM still shows the
+  // previous job's data — detected by a mismatched job ID with an unchanged
+  // title+company signature (LinkedIn's SPA race condition).
+  const isDomStale = (data) => {
+    if (!data || !lastScrapedJobId) return false;
+    const currentId = getCurrentJobId();
+    const currentSignature = data.jobTitle + '|' + data.company;
+    return currentId !== lastScrapedJobId && currentSignature === lastScrapedSignature;
+  };
+
+  if (isDomStale(jobData)) {
+    console.log('[JobLink] DOM is stale — clearing description to force retry');
+    jobData.description = '';
+  }
+
   if (jobData.description) {
+    lastScrapedJobId = getCurrentJobId();
+    lastScrapedSignature = jobData.jobTitle + '|' + jobData.company;
     sendJobData(jobData);
     return;
   }
@@ -451,9 +448,15 @@ async function runScrape() {
 
     const retryData = scrapeLinkedInJob();
     if (retryData) Object.assign(jobData, retryData);
+    if (isDomStale(jobData)) {
+      console.log('[JobLink] DOM still stale after retry — clearing description');
+      jobData.description = '';
+    }
     console.log(`[JobLink] runScrape attempt ${attempt + 1} description length:`, jobData.description.length);
     console.log(`[JobLink] Retry ${attempt} result:`, jobData.description ? 'got description' : 'still empty');
     if (jobData.description) {
+      lastScrapedJobId = getCurrentJobId();
+      lastScrapedSignature = jobData.jobTitle + '|' + jobData.company;
       sendJobData(jobData);
       return;
     }
@@ -463,6 +466,8 @@ async function runScrape() {
   // that fires runScrape() the moment .jobs-description appears in the DOM.
   // Disconnects itself after the first match or after 30 s to avoid leaking.
   console.log('[JobLink] All retries exhausted — watching DOM for .jobs-description');
+  lastScrapedJobId = getCurrentJobId();
+  lastScrapedSignature = jobData.jobTitle + '|' + jobData.company;
   sendJobData(jobData); // keep panel responsive even when description extraction lags
 
   let domWatchTimer = null;
@@ -502,6 +507,12 @@ let debounceTimer = null;
 
 /** Monotonic counter used to cancel stale overlapping scrape runs. */
 let scrapeRunCounter = 0;
+
+/** Job ID of the last successfully scraped job — used for DOM staleness checks. */
+let lastScrapedJobId = null;
+
+/** Title+company signature of the last scraped job — used for DOM staleness checks. */
+let lastScrapedSignature = null;
 
 /**
  * Start a MutationObserver that detects in-page job navigation on LinkedIn.

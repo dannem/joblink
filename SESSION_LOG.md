@@ -5,6 +5,35 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 45 — Complete
+Date: 2026-03-05
+Branch: fix-linkedin-spa-dom-staleness
+What was built:
+
+- Reverted isVisible() visibility filter approach: removed isVisible() helper
+  and all querySelectorAll+isVisible loops; extractText, extractLocation, and
+  extractDescription now use standard querySelector again
+- Added lastScrapedJobId and lastScrapedSignature state variables at top of
+  IIFE to track the identity and content signature of the last successfully
+  sent job
+- Added isDomStale() helper inside runScrape(): detects the SPA race condition
+  where URL has changed to a new job but DOM still shows previous job — triggers
+  when currentJobId !== lastScrapedJobId AND title+company signature is unchanged
+- Staleness check applied after initial scrape (attempt 1): if stale, clears
+  description to force the retry loop
+- Staleness check applied in every retry iteration after Object.assign: if
+  still stale after re-scrape, description is cleared again
+- State saved (lastScrapedJobId, lastScrapedSignature) immediately before each
+  sendJobData() call — covers early-return path, retry-success path, and the
+  exhausted-retries fallback path
+
+Test results: Reload extension and test in Chrome manually.
+Known issues: None
+Next steps: Manual test on split-panel LinkedIn — navigate between jobs and
+verify correct job data is shown in the side panel on each click.
+
+---
+
 Session 44 — Complete
 Date: 2026-03-05
 Branch: feature-always-fresh-start
