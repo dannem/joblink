@@ -23,6 +23,12 @@
   <!-- ── Job loaded state ───────────────────────────────────── -->
   <div id="state-job" class="panel-state" style="display: none;">
 
+    <!-- Stale data warning -->
+    <div id="stale-warning" style="display: none;">
+      <span>Stale data detected — refresh the page to capture the current job.</span>
+      <button id="stale-warning-dismiss" aria-label="Dismiss">&#x2715;</button>
+    </div>
+
     <!-- Source badge + capture time -->
     <div class="job-meta">
       <span id="source-badge" class="source-badge"></span>

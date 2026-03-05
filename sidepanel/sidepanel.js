@@ -30,6 +30,7 @@ const btnSave        = document.getElementById('btn-save');
 const btnClear       = document.getElementById('btn-clear');
 const msgSuccess     = document.getElementById('msg-success');
 const msgError       = document.getElementById('msg-error');
+const staleWarning   = document.getElementById('stale-warning');
 const settingsBtn    = document.getElementById('settings-btn');
 
 // AI evaluation elements
@@ -120,6 +121,9 @@ chrome.runtime.onMessage.addListener((message) => {
 
 btnSave.addEventListener('click', handleSave);
 btnClear.addEventListener('click', handleClear);
+document.getElementById('stale-warning-dismiss').addEventListener('click', () => {
+  staleWarning.style.display = 'none';
+});
 btnPreparePackage.addEventListener('click', handlePreparePackage);
 btnEvaluateFit.addEventListener('click', handleEvaluate);
 
@@ -163,8 +167,9 @@ function clearJobOnStartup() {
   sourceBadge.textContent = '';
   sourceBadge.className   = 'source-badge';
 
-  stateJob.style.display   = 'none';
-  stateEmpty.style.display = 'flex';
+  stateJob.style.display      = 'none';
+  stateEmpty.style.display    = 'flex';
+  staleWarning.style.display  = 'none';
   hideMessages();
 
   chrome.storage.session.remove(SESSION_KEYS.CURRENT_JOB).catch(() => {});
@@ -274,6 +279,14 @@ function showJob(job) {
   const url = job.applicationUrl || '';
   fieldUrl.href        = url;
   fieldUrl.textContent = url || '—';
+
+  // Stale data check — show yellow warning when the title looks like a LinkedIn
+  // feed/collection heading rather than an actual job title.
+  const title = job.jobTitle || '';
+  const looksStale = title.toLowerCase().includes('top job picks') ||
+    title.toLowerCase().includes('picks for you') ||
+    title.length > 80;
+  staleWarning.style.display = looksStale ? 'flex' : 'none';
 
   hideMessages();
   setStatusBar('checking');
@@ -602,7 +615,9 @@ async function handlePreparePackage() {
     description: fieldDesc.value.trim(),
   };
 
-  const packageMode = currentPackageMode; // snapshot — 'both' | 'cv' | 'cl'
+  // Normalize storage values ('cv_only'/'cl_only') to internal short form ('cv'/'cl').
+  const rawMode = currentPackageMode;
+  const packageMode = rawMode === 'cv_only' ? 'cv' : rawMode === 'cl_only' ? 'cl' : rawMode;
 
   btnPreparePackage.disabled = true;
   resetProgress();
