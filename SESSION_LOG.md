@@ -5,6 +5,31 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 44 — Complete
+Date: 2026-03-05
+Branch: feature-always-fresh-start
+What was built:
+
+- clearJobOnStartup(): new function called at the very start of DOMContentLoaded;
+  resets currentJob=null, clears all field values to empty strings, resets
+  sourceBadge, switches to empty state, and removes CURRENT_JOB from session
+  storage — panel always opens blank regardless of previous session state
+- Removed session-storage restore block from DOMContentLoaded: the panel no
+  longer pre-populates with the last scraped job on open; a live scrape always
+  populates it instead
+- requestScrapeIfJobChanged: removed the early-return match optimisation;
+  scrape is now always fired unconditionally; the job-ID comparison is retained
+  but only controls whether to clear the display (clear on mismatch, leave
+  as-is on same-job refresh so display stays stable during the in-flight scrape)
+
+Test results: Panel opens blank on every launch; fresh scrape always populates
+it; switching jobs clears the display immediately.
+
+Known issues: None
+Next steps: End-to-end test
+
+---
+
 Session 43 — Complete
 Date: 2026-03-05
 Branch: feature-job-id-change-detection

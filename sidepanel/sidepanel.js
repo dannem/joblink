@@ -61,16 +61,8 @@ let currentPackageMode = 'both';
 // ── Initialisation ────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Restore any job captured earlier in this browser session
-  // (handles the panel being closed and re-opened mid-session)
-  try {
-    const result = await chrome.storage.session.get(SESSION_KEYS.CURRENT_JOB);
-    if (result[SESSION_KEYS.CURRENT_JOB]) {
-      showJob(result[SESSION_KEYS.CURRENT_JOB]);
-    }
-  } catch (err) {
-    console.warn('[JobLink] Could not restore job from session storage:', err);
-  }
+  // Always start with a blank slate — never show stale data from a previous session.
+  clearJobOnStartup();
 
   // Load saved default AI model and package mode.
   try {
@@ -83,9 +75,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (savedPackage) currentPackageMode = savedPackage;
   } catch (_) { /* non-fatal — defaults to 'both' */ }
 
-  // Check whether the active tab shows a different job than what was restored
-  // from session storage.  If so, clear stale data and trigger a fresh scrape.
-  // If the tab job ID matches what is already displayed, do nothing.
+  // Trigger a fresh scrape from the active tab.
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
@@ -155,6 +145,32 @@ document.querySelectorAll('.collapsible-toggle').forEach(btn => {
 // ── UI functions ──────────────────────────────────────────────
 
 /**
+ * Reset all job fields and UI state to a clean blank slate.
+ * Called at the very start of DOMContentLoaded so the panel never shows stale
+ * data from a previous session before the fresh scrape arrives.
+ * Also clears session storage so the old job does not re-appear on the next open.
+ */
+function clearJobOnStartup() {
+  currentJob = null;
+
+  fieldTitle.value        = '';
+  fieldCompany.value      = '';
+  fieldLocation.value     = '';
+  fieldDesc.value         = '';
+  fieldUrl.href           = '';
+  fieldUrl.textContent    = '—';
+  scrapedTime.textContent = '';
+  sourceBadge.textContent = '';
+  sourceBadge.className   = 'source-badge';
+
+  stateJob.style.display   = 'none';
+  stateEmpty.style.display = 'flex';
+  hideMessages();
+
+  chrome.storage.session.remove(SESSION_KEYS.CURRENT_JOB).catch(() => {});
+}
+
+/**
  * Extract a stable job identity string from a URL.
  *
  * LinkedIn: returns the numeric job ID found in the currentJobId query param
@@ -183,11 +199,15 @@ function jobIdFromUrl(url) {
 }
 
 /**
- * Compare the active tab's job identity against the currently displayed job.
- * If they match, do nothing — the correct data is already showing.
- * If they differ (or there is no current job), immediately clear the panel so
- * stale data does not linger while the fresh scrape is in flight, then fire
- * REQUEST_SCRAPE via two parallel paths:
+ * Optionally clear the displayed job, then always request a fresh scrape.
+ *
+ * The job-ID comparison is used only to decide whether to clear the panel:
+ * if the tab shows a different job than what is currently displayed, clear
+ * immediately so stale data does not linger while the scrape is in flight.
+ * If the IDs match (same job), leave the display as-is while the refresh runs.
+ *
+ * The scrape is fired unconditionally — the match check never short-circuits it.
+ * Two parallel paths ensure delivery in warm and cold-start scenarios:
  *   1. Direct chrome.tabs.sendMessage (instant when content script is loaded)
  *   2. SIDEPANEL_OPENED to the service worker (injects the content script first
  *      if it is not yet present — handles cold-start tabs)
@@ -199,18 +219,18 @@ function requestScrapeIfJobChanged(tab) {
 
   const tabJobId       = jobIdFromUrl(tab.url);
   const displayedJobId = currentJob ? jobIdFromUrl(currentJob.applicationUrl) : null;
+  const sameJob        = tabJobId && displayedJobId && tabJobId === displayedJobId;
 
-  // Same job already showing — nothing to do
-  if (tabJobId && displayedJobId && tabJobId === displayedJobId) return;
-
-  // Different job (or no job loaded yet): clear stale display immediately
-  if (currentJob) {
+  // Clear the panel only when the job has changed — keeps the display stable
+  // on same-job refreshes while still preventing stale data on navigation.
+  if (currentJob && !sameJob) {
     currentJob = null;
     stateJob.style.display   = 'none';
     stateEmpty.style.display = 'flex';
     hideMessages();
   }
 
+  // Always scrape — the match check above never prevents this.
   // Path 1: direct to content script — fast path, no service-worker round-trip
   chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_SCRAPE' }, () => {
     void chrome.runtime.lastError; // suppress "no receiver" on chrome-internal URLs
