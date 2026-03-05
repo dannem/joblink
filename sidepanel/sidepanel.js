@@ -83,35 +83,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (savedPackage) currentPackageMode = savedPackage;
   } catch (_) { /* non-fatal — defaults to 'both' */ }
 
-  // Send REQUEST_SCRAPE to the active tab.
-  // If session storage was empty (job not yet scraped), wait 1.5s then check again.
+  // Actively pull data from the current tab when the panel opens.
+  //
+  // Two parallel paths guarantee delivery in both warm and cold-start scenarios:
+  //   1. Direct REQUEST_SCRAPE → content script (instant when already loaded)
+  //   2. SIDEPANEL_OPENED → service worker (injects content script if not yet
+  //      present, then sends REQUEST_SCRAPE — handles cold-start tabs)
+  //
+  // Fallback: if no job data arrives within 3 s, send REQUEST_SCRAPE once more.
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
-      chrome.runtime.sendMessage({ type: 'TRIGGER_SCRAPE_FOR_TAB', tabId: tab.id })
+      // Path 1: direct to content script — fast path, no service-worker round-trip
+      chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_SCRAPE' }, () => {
+        void chrome.runtime.lastError; // suppress "no receiver" errors on chrome-internal URLs
+      });
+
+      // Path 2: service worker ensures the content script is injected, then scrapes
+      chrome.runtime.sendMessage({ type: 'SIDEPANEL_OPENED', tabId: tab.id })
         .catch(() => {});
 
-      // If panel is still empty after 2.5s, check session storage again
-      // (handles slow content script initialisation)
-      if (!currentJob) {
-        setTimeout(async () => {
-          if (currentJob) return; // Already populated by message
-          try {
-            // Retry scrape trigger once for slow/cold-start tabs.
-            await chrome.runtime.sendMessage({ type: 'TRIGGER_SCRAPE_FOR_TAB', tabId: tab.id })
-              .catch(() => {});
-
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            const result = await chrome.storage.session.get(SESSION_KEYS.CURRENT_JOB);
-            if (result[SESSION_KEYS.CURRENT_JOB]) {
-              showJob(result[SESSION_KEYS.CURRENT_JOB]);
-            }
-          } catch (_) {}
-        }, 2500);
-      }
+      // Fallback: one retry after 3 s for tabs still initialising at open time
+      setTimeout(() => {
+        if (currentJob) return;
+        chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_SCRAPE' }, () => {
+          void chrome.runtime.lastError;
+        });
+      }, 3000);
     }
   } catch (err) {
-    console.warn('[JobLink] Could not send REQUEST_SCRAPE:', err.message);
+    console.warn('[JobLink] Could not initiate scrape on panel open:', err.message);
   }
 });
 

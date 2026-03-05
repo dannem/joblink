@@ -389,6 +389,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // SIDEPANEL_OPENED — sent by the side panel on DOMContentLoaded.
+  // Ensures the matching content script is injected into the active tab and
+  // immediately requests a scrape. Handles cold-start tabs where a direct
+  // chrome.tabs.sendMessage from the panel finds no listener yet.
+  if (message.type === 'SIDEPANEL_OPENED') {
+    (async () => {
+      try {
+        if (!message.tabId) {
+          sendResponse({ ok: false, error: 'Missing tabId' });
+          return;
+        }
+        const tab = await chrome.tabs.get(message.tabId);
+        await triggerScrapeForTab(tab);
+        sendResponse({ ok: true });
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
   return false;
 });
 

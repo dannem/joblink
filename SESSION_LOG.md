@@ -5,6 +5,33 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 42 — Complete
+Date: 2026-03-05
+Branch: feature-sidepanel-active-scrape
+What was built:
+
+- Sidepanel active-pull scrape on open: on DOMContentLoaded the panel now sends
+  two parallel messages instead of one TRIGGER_SCRAPE_FOR_TAB:
+  1. Direct chrome.tabs.sendMessage REQUEST_SCRAPE to content script (fast path;
+     instant when content script is already loaded in the tab)
+  2. SIDEPANEL_OPENED to the service worker (injects content script if not yet
+     present, then sends REQUEST_SCRAPE — handles cold-start tabs)
+- SIDEPANEL_OPENED service-worker handler: added alongside TRIGGER_SCRAPE_FOR_TAB;
+  calls triggerScrapeForTab(tab) which injects the content script if needed and
+  sends REQUEST_SCRAPE with up to 3 retries
+- 3-second fallback: if currentJob is still null 3 s after panel open, sends
+  REQUEST_SCRAPE once more via direct chrome.tabs.sendMessage (replaces the old
+  2.5 s TRIGGER_SCRAPE_FOR_TAB + 1 s session-storage poll)
+- linkedin.js REQUEST_SCRAPE handler was already present; no change needed
+
+Test results: Extension loads without console errors; sidepanel initiates scrape
+on open via both paths; fallback fires only when panel remains empty after 3 s.
+
+Known issues: None
+Next steps: End-to-end test on cold-start LinkedIn tabs
+
+---
+
 Session 41 — Complete
 Date: 2026-03-04
 Branch: feature-independent-section-saves
