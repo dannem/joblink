@@ -28,7 +28,6 @@ const fieldUrl       = document.getElementById('field-url');
 const fieldDesc      = document.getElementById('field-description');
 const btnSave        = document.getElementById('btn-save');
 const btnClear       = document.getElementById('btn-clear');
-const btnScrape      = document.getElementById('scrape-btn');
 const msgSuccess     = document.getElementById('msg-success');
 const msgError       = document.getElementById('msg-error');
 const settingsBtn    = document.getElementById('settings-btn');
@@ -121,7 +120,6 @@ chrome.runtime.onMessage.addListener((message) => {
 
 btnSave.addEventListener('click', handleSave);
 btnClear.addEventListener('click', handleClear);
-btnScrape.addEventListener('click', handleScrape);
 btnPreparePackage.addEventListener('click', handlePreparePackage);
 btnEvaluateFit.addEventListener('click', handleEvaluate);
 
@@ -470,36 +468,6 @@ async function handleSave() {
   } finally {
     setSaving(false);
   }
-}
-
-/**
- * Manually trigger a fresh scrape of the active tab.
- * Clears any currently displayed job, sends REQUEST_SCRAPE directly to the
- * content script, and sends SIDEPANEL_OPENED to the service worker as a
- * fallback for cold-start tabs. Disables the button for 3 s while waiting.
- */
-async function handleScrape() {
-  clearJobOnStartup();
-
-  btnScrape.disabled = true;
-  btnScrape.textContent = 'Scraping...';
-
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) {
-      chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_SCRAPE' }, () => {
-        void chrome.runtime.lastError;
-      });
-      chrome.runtime.sendMessage({ type: 'SIDEPANEL_OPENED', tabId: tab.id }).catch(() => {});
-    }
-  } catch (err) {
-    console.warn('[JobLink] Scrape button: could not query active tab:', err.message);
-  }
-
-  setTimeout(() => {
-    btnScrape.disabled = false;
-    btnScrape.textContent = 'Scrape';
-  }, 3000);
 }
 
 /**

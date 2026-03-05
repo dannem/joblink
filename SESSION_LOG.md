@@ -5,6 +5,34 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 39 — Complete
+Date: 2026-03-05
+Branch: main
+What was built:
+
+- AI-based company/location extraction via extractJobMetadata() — fallback when
+  scraped fields are empty or garbled
+- Auto-enrichment on job load via enrichCompanyMetadata() called from showJob()
+- Restored missing Evaluate Fit button; now uses selected AI model
+- MutationObserver retry logic: 5 retries, 1500ms delay, DOM-watch fallback
+- Removed retired Gemini 2.0 Flash model
+- Generic WEB scraper (content-scripts/generic.js) for any careers page
+- LinkedIn email digest URL support and tracking parameter cleanup
+- document.title fallback for job title and company
+- Company name noise word cleanup in generic scraper
+- tabs.onUpdated trigger with shouldScrapeOnLoad() guard
+- LinkedIn scraper null guard to prevent feed page data populating sidepanel
+- Progress indicator for Prepare Package (6 real-time steps)
+- Settings page refactored: each section saves independently, Close button added
+- Empty state hint updated to mention page refresh if fields don't populate
+
+Test results: All features confirmed working. Auto-scraping works reliably after
+one tab refresh following extension reload — standard Chrome extension behavior.
+Known issues: None.
+Next steps: Add default package option (CV only / CL only / Both) to Settings.
+
+---
+
 Session 45 — Complete
 Date: 2026-03-05
 Branch: fix-linkedin-spa-dom-staleness
