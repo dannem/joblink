@@ -27,17 +27,32 @@ const RETRY_DELAY_MS = 1500;
 const MAX_RETRIES = 5;
 
 /**
+ * Return true when an element occupies visible space in the document.
+ * Elements hidden by LinkedIn's SPA (display:none, visibility:hidden, zero
+ * dimensions) return false so stale previous-job nodes are ignored.
+ *
+ * @param {Element|null} el
+ * @returns {boolean}
+ */
+function isVisible(el) {
+  return Boolean(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+}
+
+/**
  * Try each CSS selector in order and return the trimmed text of the first
- * element found that has non-empty text.
+ * *visible* element that has non-empty text.
+ *
+ * Uses querySelectorAll so that if the first DOM match is a stale hidden node
+ * (LinkedIn leaves previous-job elements in the DOM but hides them during SPA
+ * navigation) the loop continues to the next candidate.
  *
  * @param {string[]} selectors - CSS selectors to try, in priority order
  * @returns {string} Trimmed visible text, or '' if nothing matched
  */
 function extractText(selectors) {
   for (const selector of selectors) {
-    const el = document.querySelector(selector);
-    if (el) {
-      // innerText respects CSS visibility and gives clean, human-readable text
+    for (const el of document.querySelectorAll(selector)) {
+      if (!isVisible(el)) continue;
       const text = (el.innerText || el.textContent || '').trim();
       if (text) return text;
     }
@@ -82,8 +97,8 @@ function extractLocation() {
   ];
 
   for (const selector of bulletSelectors) {
-    const el = document.querySelector(selector);
-    if (el) {
+    for (const el of document.querySelectorAll(selector)) {
+      if (!isVisible(el)) continue;
       const text = (el.innerText || el.textContent || '').trim();
       if (text) return text;
     }
@@ -95,12 +110,12 @@ function extractLocation() {
   //   <span class="tvm__text tvm__text--positive">Austin, TX</span>
   //   <span class="tvm__text tvm__text--neutral"> · </span>
   //   <span class="tvm__text tvm__text--positive">Hybrid</span>
-  const container = document.querySelector(
+  for (const container of document.querySelectorAll(
     '.job-details-jobs-unified-top-card__primary-description-container'
-  );
-  if (container) {
-    const spans = container.querySelectorAll('.tvm__text');
-    for (const span of spans) {
+  )) {
+    if (!isVisible(container)) continue;
+    for (const span of container.querySelectorAll('.tvm__text')) {
+      if (!isVisible(span)) continue;
       const text = (span.innerText || span.textContent || '').trim();
       // Skip separator dots and very short strings
       if (text && text !== '·' && text !== '•' && text.length > 2) {
@@ -155,9 +170,8 @@ function extractDescription() {
   ];
 
   for (const selector of descSelectors) {
-    const el = document.querySelector(selector);
-    console.log('[JobLink] desc selector', selector, ':', el?.innerText?.substring(0, 100));
-    if (el) {
+    for (const el of document.querySelectorAll(selector)) {
+      if (!isVisible(el)) continue;
       const byInnerText   = (el.innerText   || '').trim();
       const byTextContent = (el.textContent || '').trim();
       // Prefer whichever strategy surfaced more text
