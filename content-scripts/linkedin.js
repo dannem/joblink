@@ -573,6 +573,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'REQUEST_SCRAPE') {
+    console.log('[JobLink] REQUEST_SCRAPE received — frame URL:', window.location.href);
+    console.log('[JobLink] REQUEST_SCRAPE — document.title:', document.title);
+    console.log('[JobLink] REQUEST_SCRAPE — .jobs-description preview:',
+      document.querySelector('.jobs-description')?.innerText?.substring(0, 100) ?? '(not found)');
     // Cancel any pending navigation-debounce or retry so the externally
     // requested scrape runs clean without a duplicate follow-up firing later.
     clearTimeout(debounceTimer);
