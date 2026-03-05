@@ -69,26 +69,6 @@
           </button>
         </div>
 
-        <!-- Folder picker with navigation -->
-        <div id="folder-picker" class="folder-picker" style="display: none;">
-          <div class="folder-picker-header">
-            <span>Select a folder:</span>
-            <button id="folder-picker-close" class="folder-picker-close">&times;</button>
-          </div>
-          <div class="folder-picker-nav">
-            <button id="folder-nav-up" class="nav-btn" title="Go up" style="display: none;">
-              <span class="nav-icon">&#8592;</span>
-            </button>
-            <div id="folder-breadcrumbs" class="breadcrumbs">
-              <span class="breadcrumb-item active">My Drive</span>
-            </div>
-            <button id="select-current-btn" class="btn btn-primary btn-small">
-              Select this folder
-            </button>
-          </div>
-          <div id="folder-list" class="folder-list"></div>
-        </div>
-
         <div class="section-footer">
           <button id="save-folder-btn" class="btn btn-primary btn-small" disabled>Save Folder</button>
           <span id="save-folder-confirm" class="save-confirm"></span>
@@ -217,5 +197,25 @@
   <script src="../utils/helpers.js"></script>
   <script src="../drive/drive-api.js"></script>
   <script src="setup.js"></script>
+
+  <!-- Folder picker overlay — must be outside all sections so position:fixed works correctly -->
+  <div id="folder-picker" class="folder-picker" style="display: none;">
+    <div class="folder-picker-header">
+      <span>Select a folder:</span>
+      <button id="folder-picker-close" class="folder-picker-close">&times;</button>
+    </div>
+    <div class="folder-picker-nav">
+      <button id="folder-nav-up" class="nav-btn" title="Go up" style="display: none;">
+        <span class="nav-icon">&#8592;</span>
+      </button>
+      <div id="folder-breadcrumbs" class="breadcrumbs">
+        <span class="breadcrumb-item active">My Drive</span>
+      </div>
+      <button id="select-current-btn" class="btn btn-primary btn-small">
+        Select this folder
+      </button>
+    </div>
+    <div id="folder-list" class="folder-list"></div>
+  </div>
 </body>
 </html>
