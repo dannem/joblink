@@ -308,6 +308,9 @@ function showJob(job) {
     title.length > 80;
   staleWarning.style.display = looksStale ? 'flex' : 'none';
 
+  // Reset package progress so the previous job's steps don't persist
+  resetProgress(currentPackageMode, false);
+
   hideMessages();
   setStatusBar('checking');
   stateEmpty.style.display = 'none';
@@ -623,10 +626,34 @@ function updateProgress(step, status) {
   row.className = `progress-step progress-step--${status}`;
 }
 
-/** Reset all six step rows back to pending and show the progress container. */
-function resetProgress() {
-  for (let i = 0; i < 6; i++) updateProgress(i, 'pending');
-  packageProgress.style.display = 'block';
+/**
+ * Reset all step rows to pending, hide rows irrelevant to the package mode,
+ * and optionally show the progress container.
+ *
+ * @param {'both'|'cv'|'cl'} packageMode
+ * @param {boolean} [show=true] - Pass false to hide the container (e.g. on job change)
+ */
+function resetProgress(packageMode, show = true) {
+  // Show all rows first, then hide the ones not needed for this mode
+  for (let i = 0; i < 6; i++) {
+    const row = document.getElementById(`progress-step-${i}`);
+    if (row) row.style.display = '';
+    updateProgress(i, 'pending');
+  }
+  if (packageMode === 'cv') {
+    // CV only — hide CL-related steps
+    const r2 = document.getElementById('progress-step-2');
+    const r4 = document.getElementById('progress-step-4');
+    if (r2) r2.style.display = 'none';
+    if (r4) r4.style.display = 'none';
+  } else if (packageMode === 'cl') {
+    // CL only — hide CV-related steps
+    const r1 = document.getElementById('progress-step-1');
+    const r3 = document.getElementById('progress-step-3');
+    if (r1) r1.style.display = 'none';
+    if (r3) r3.style.display = 'none';
+  }
+  packageProgress.style.display = show ? 'block' : 'none';
   packageStatus.style.display   = 'none';
   packageStatus.className       = 'package-status';
   packageStatus.textContent     = '';
@@ -647,18 +674,10 @@ async function handlePreparePackage() {
   // Normalize storage values ('cv_only'/'cl_only') to internal short form ('cv'/'cl').
   const rawMode = currentPackageMode;
   const packageMode = rawMode === 'cv_only' ? 'cv' : rawMode === 'cl_only' ? 'cl' : rawMode;
+  console.log('[JobLink] handlePreparePackage: currentPackageMode =', currentPackageMode, '→ packageMode =', packageMode);
 
   btnPreparePackage.disabled = true;
-  resetProgress();
-
-  // Grey out steps that will be skipped before anything starts.
-  if (packageMode === 'cv') {
-    updateProgress(2, 'skipped'); // Reading CL template
-    updateProgress(4, 'skipped'); // Tailoring cover letter
-  } else if (packageMode === 'cl') {
-    updateProgress(1, 'skipped'); // Reading CV template
-    updateProgress(3, 'skipped'); // Tailoring CV
-  }
+  resetProgress(packageMode); // shows container and hides irrelevant rows
 
   // Track the active step so the catch block can mark it as errored.
   let activeStep = -1;
