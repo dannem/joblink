@@ -38,7 +38,8 @@
   "content_scripts": [
     {
       "matches": ["https://linkedin.com/*", "https://*.linkedin.com/*"],
-      "js": ["content-scripts/linkedin.js"]
+      "js": ["content-scripts/linkedin.js"],
+      "run_at": "document_idle"
     },
     {
       "matches": ["*://*.indeed.com/*"],

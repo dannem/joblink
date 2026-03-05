@@ -1,4 +1,6 @@
 (() => {
+console.log('[JobLink] LinkedIn content script loaded', window.location.href);
+
 /**
  * LinkedIn job scraper for JobLink extension.
  *
