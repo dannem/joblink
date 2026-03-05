@@ -361,6 +361,7 @@ function pickFolder(inputId, statusId, varSetter) {
     return;
   }
   pendingPickContext = { inputId, statusId, varSetter };
+  console.log('[JobLink] pickFolder — about to open picker (pendingPickContext set)');
   handleOpenFolderPicker();
 }
 
@@ -369,14 +370,19 @@ function pickFolder(inputId, statusId, varSetter) {
  * Resets navigation to root and loads top-level folders.
  */
 async function handleOpenFolderPicker() {
+  console.log('[JobLink] handleOpenFolderPicker — resetting state and showing picker');
   hideError();
   folderPath = [];
   currentFolderId = 'root';
   currentFolderName = 'My Drive';
-  document.getElementById('folder-picker').style.display = 'block';
+  const pickerEl = document.getElementById('folder-picker');
+  console.log('[JobLink] handleOpenFolderPicker — #folder-picker element:', pickerEl ? 'found' : 'NOT FOUND');
+  pickerEl.style.display = 'block';
+  console.log('[JobLink] handleOpenFolderPicker — picker display set to block, calling loadFolders');
   updateBreadcrumbs();
   updateNavButtons();
   await loadFolders(currentFolderId);
+  console.log('[JobLink] handleOpenFolderPicker — loadFolders complete');
 }
 
 /**
@@ -384,11 +390,13 @@ async function handleOpenFolderPicker() {
  * @param {string} parentId - Parent folder ID
  */
 async function loadFolders(parentId) {
+  console.log('[JobLink] loadFolders — parentId:', parentId);
   const folderList = document.getElementById('folder-list');
   folderList.innerHTML = '<div class="folder-list-loading">Loading folders...</div>';
 
   try {
     const folders = await listDriveFolders(accessToken, parentId);
+    console.log('[JobLink] loadFolders — listDriveFolders returned', folders.length, 'folders');
 
     if (folders.length === 0) {
       folderList.innerHTML = '<div class="folder-list-empty">No subfolders found. Click "Select this folder" to use the current folder.</div>';
