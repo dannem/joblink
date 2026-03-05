@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Trigger a fresh scrape from the active tab.
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    console.log('[JobLink] DOMContentLoaded tab.url:', tab?.url);
     if (tab?.id) {
       // In the empty state, show the refresh banner so the user knows to
       // reload if nothing populates — hide it once a good job arrives.
@@ -302,10 +303,11 @@ function showJob(job) {
 
   // Stale data check — show yellow warning when the title looks like a LinkedIn
   // feed/collection heading rather than an actual job title.
+  // Note: length-based checks are intentionally omitted — real job titles can
+  // exceed 80 characters and would cause false positives.
   const title = job.jobTitle || '';
   const looksStale = title.toLowerCase().includes('top job picks') ||
-    title.toLowerCase().includes('picks for you') ||
-    title.length > 80;
+    title.toLowerCase().includes('picks for you');
   staleWarning.style.display = looksStale ? 'flex' : 'none';
 
   // Reset package progress so the previous job's steps don't persist
@@ -661,6 +663,7 @@ function resetProgress(packageMode, show = true) {
 
 async function handlePreparePackage() {
   if (!currentJob) return;
+  console.log('[JobLink] handlePreparePackage start — currentPackageMode:', currentPackageMode);
 
   // Merge any field edits into a jobToSave object used for both AI prompts and saving
   const jobToSave = {

@@ -64,13 +64,25 @@ function wireEventListeners() {
   document.getElementById('select-current-btn').addEventListener('click', handleSelectCurrentFolder);
 
   document.getElementById('btn-pick-cv-templates').addEventListener('click', () => {
-    pickFolder('cv-templates-folder-name', 'cv-templates-status', (id) => { selectedCvFolderId = id; });
+    console.log('[JobLink] btn-pick-cv-templates clicked');
+    pickFolder('cv-templates-folder-name', 'cv-templates-status', (id) => {
+      console.log('[JobLink] CV templates folder selected:', id);
+      selectedCvFolderId = id;
+    });
   });
   document.getElementById('btn-pick-cl-templates').addEventListener('click', () => {
-    pickFolder('cl-templates-folder-name', 'cl-templates-status', (id) => { selectedClFolderId = id; });
+    console.log('[JobLink] btn-pick-cl-templates clicked');
+    pickFolder('cl-templates-folder-name', 'cl-templates-status', (id) => {
+      console.log('[JobLink] CL templates folder selected:', id);
+      selectedClFolderId = id;
+    });
   });
   document.getElementById('btn-pick-profile').addEventListener('click', () => {
-    pickFolder('profile-folder-name', 'profile-status', (id) => { selectedProfileFolderId = id; });
+    console.log('[JobLink] btn-pick-profile clicked');
+    pickFolder('profile-folder-name', 'profile-status', (id) => {
+      console.log('[JobLink] Profile folder selected:', id);
+      selectedProfileFolderId = id;
+    });
   });
 }
 
@@ -341,7 +353,9 @@ function showSaveConfirm(spanId) {
  * @param {Function} varSetter - Callback receiving the selected folderId
  */
 function pickFolder(inputId, statusId, varSetter) {
+  console.log('[JobLink] pickFolder — accessToken:', accessToken ? 'present' : 'null', '| inputId:', inputId);
   if (!accessToken) {
+    console.warn('[JobLink] pickFolder: no accessToken — Drive not connected');
     const statusEl = document.getElementById(statusId);
     if (statusEl) statusEl.textContent = 'Please connect Google Drive first.';
     return;
@@ -493,6 +507,7 @@ function selectFolderAndClose(folderId, folderName) {
     document.getElementById(inputId).value = fullPathName;
     const statusEl = document.getElementById(statusId);
     if (statusEl) statusEl.textContent = '';
+    console.log('[JobLink] selectFolderAndClose: calling varSetter for', inputId, 'with folderId:', folderId);
     varSetter(folderId);
   } else {
     // Main folder picker
