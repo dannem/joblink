@@ -80,6 +80,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
+      // In the empty state, show the refresh banner so the user knows to
+      // reload if nothing populates — hide it once a good job arrives.
+      if (!currentJob && isJobRelevantUrl(tab.url)) {
+        staleWarning.style.display = 'flex';
+      }
+
       requestScrapeIfJobChanged(tab);
 
       // Fallback: one retry after 3 s for cold-start tabs where the content
@@ -176,6 +182,19 @@ function clearJobOnStartup() {
 }
 
 /**
+ * Return true when a URL is a regular web page (http/https).
+ * Returns false for new-tab pages, chrome:// URLs, and anything else that
+ * cannot host a content script.
+ *
+ * @param {string|undefined} url
+ * @returns {boolean}
+ */
+function isJobRelevantUrl(url) {
+  return typeof url === 'string' &&
+    (url.startsWith('http://') || url.startsWith('https://'));
+}
+
+/**
  * Extract a stable job identity string from a URL.
  *
  * LinkedIn: returns the numeric job ID found in the currentJobId query param
@@ -230,8 +249,9 @@ function requestScrapeIfJobChanged(tab) {
   // on same-job refreshes while still preventing stale data on navigation.
   if (currentJob && !sameJob) {
     currentJob = null;
-    stateJob.style.display   = 'none';
-    stateEmpty.style.display = 'flex';
+    stateJob.style.display      = 'none';
+    stateEmpty.style.display    = 'flex';
+    staleWarning.style.display  = isJobRelevantUrl(tab.url) ? 'flex' : 'none';
     hideMessages();
   }
 
@@ -485,13 +505,22 @@ async function handleSave() {
 
 /**
  * Reset to the empty state and remove the stored job from session storage.
+ * Shows the stale-data banner if the active tab is still on a web page,
+ * so the user knows a refresh will re-capture.
  */
-function handleClear() {
+async function handleClear() {
   currentJob = null;
   chrome.storage.session.remove(SESSION_KEYS.CURRENT_JOB).catch(() => {});
   hideMessages();
   stateJob.style.display   = 'none';
   stateEmpty.style.display = 'flex';
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    staleWarning.style.display = isJobRelevantUrl(tab?.url) ? 'flex' : 'none';
+  } catch (_) {
+    staleWarning.style.display = 'none';
+  }
 }
 
 /**

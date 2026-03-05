@@ -14,20 +14,20 @@
     <button id="settings-btn" class="icon-btn" title="Open settings" aria-label="Open settings">&#9881;</button>
   </header>
 
+  <!-- ── Global warning banner (shown above either state) ──── -->
+  <div id="stale-warning" style="display: none;">
+    <span>Stale data detected — refresh the page to capture the current job.</span>
+    <button id="stale-warning-dismiss" aria-label="Dismiss">&#x2715;</button>
+  </div>
+
   <!-- ── Empty state ────────────────────────────────────────── -->
   <div id="state-empty" class="panel-state panel-state--centered">
     <div class="empty-icon">&#128203;</div>
-    <p class="empty-msg">Navigate to a LinkedIn, Indeed, or any careers page to capture it. If fields don't populate, refresh the page once.</p>
+    <p class="empty-msg">Navigate to a LinkedIn, Indeed, or any careers page to capture it.</p>
   </div>
 
   <!-- ── Job loaded state ───────────────────────────────────── -->
   <div id="state-job" class="panel-state" style="display: none;">
-
-    <!-- Stale data warning -->
-    <div id="stale-warning" style="display: none;">
-      <span>Stale data detected — refresh the page to capture the current job.</span>
-      <button id="stale-warning-dismiss" aria-label="Dismiss">&#x2715;</button>
-    </div>
 
     <!-- Source badge + capture time -->
     <div class="job-meta">
