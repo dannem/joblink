@@ -257,6 +257,15 @@ body {
   background: #d1d5db;
 }
 
+.btn-scrape {
+  background: #475569;
+  color: white;
+}
+
+.btn-scrape:hover:not(:disabled) {
+  background: #334155;
+}
+
 /* ── Status messages ─────────────────────────────────────── */
 
 .msg {
