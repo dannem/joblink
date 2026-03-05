@@ -90,9 +90,10 @@ function shouldScrapeOnLoad(url) {
 
     const host = parsed.hostname;
 
-    // LinkedIn: individual job view pages only
+    // LinkedIn: standalone job view pages and split-panel search results
     if (host === 'linkedin.com' || host.endsWith('.linkedin.com')) {
-      return /^\/jobs\/view\/\d+/.test(parsed.pathname);
+      return /^\/jobs\/view\/\d+/.test(parsed.pathname) ||
+        (parsed.pathname.startsWith('/jobs/') && parsed.searchParams.has('currentJobId'));
     }
 
     // Indeed: job-detail pages carry a jk= (job key) query param
