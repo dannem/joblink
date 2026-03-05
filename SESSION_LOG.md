@@ -5,6 +5,32 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 43 — Complete
+Date: 2026-03-05
+Branch: feature-job-id-change-detection
+What was built:
+
+- Job-ID change detection in sidepanel: added jobIdFromUrl(url) helper that
+  extracts a stable identity from any URL (LinkedIn: numeric job ID from
+  currentJobId param or /jobs/view/{id}; other sites: origin+pathname+search);
+  added requestScrapeIfJobChanged(tab) that compares tab URL identity against
+  currentJob.applicationUrl — if they match, does nothing; if they differ,
+  clears the panel immediately (preventing stale data from lingering) and fires
+  REQUEST_SCRAPE via both direct tabs.sendMessage and SIDEPANEL_OPENED paths
+- DOMContentLoaded and visibilitychange both now call requestScrapeIfJobChanged
+  instead of unconditionally triggering a scrape
+- linkedin.js REQUEST_SCRAPE handler: added clearTimeout(debounceTimer) before
+  runScrape() so any pending navigation-debounce is cancelled and the externally
+  requested scrape runs fresh without a duplicate follow-up
+
+Test results: Panel clears immediately when switching to a different LinkedIn
+job; panel stays stable when re-opening on the same job.
+
+Known issues: None
+Next steps: End-to-end test across tab switching and panel reopen scenarios
+
+---
+
 Session 42 — Complete
 Date: 2026-03-05
 Branch: feature-sidepanel-active-scrape

@@ -548,6 +548,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'REQUEST_SCRAPE') {
+    // Cancel any pending navigation-debounce or retry so the externally
+    // requested scrape runs clean without a duplicate follow-up firing later.
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
     runScrape();
     sendResponse({ ok: true, source: 'linkedin' });
     return false;

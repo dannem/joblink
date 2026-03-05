@@ -83,27 +83,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (savedPackage) currentPackageMode = savedPackage;
   } catch (_) { /* non-fatal — defaults to 'both' */ }
 
-  // Actively pull data from the current tab when the panel opens.
-  //
-  // Two parallel paths guarantee delivery in both warm and cold-start scenarios:
-  //   1. Direct REQUEST_SCRAPE → content script (instant when already loaded)
-  //   2. SIDEPANEL_OPENED → service worker (injects content script if not yet
-  //      present, then sends REQUEST_SCRAPE — handles cold-start tabs)
-  //
-  // Fallback: if no job data arrives within 3 s, send REQUEST_SCRAPE once more.
+  // Check whether the active tab shows a different job than what was restored
+  // from session storage.  If so, clear stale data and trigger a fresh scrape.
+  // If the tab job ID matches what is already displayed, do nothing.
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
-      // Path 1: direct to content script — fast path, no service-worker round-trip
-      chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_SCRAPE' }, () => {
-        void chrome.runtime.lastError; // suppress "no receiver" errors on chrome-internal URLs
-      });
+      requestScrapeIfJobChanged(tab);
 
-      // Path 2: service worker ensures the content script is injected, then scrapes
-      chrome.runtime.sendMessage({ type: 'SIDEPANEL_OPENED', tabId: tab.id })
-        .catch(() => {});
-
-      // Fallback: one retry after 3 s for tabs still initialising at open time
+      // Fallback: one retry after 3 s for cold-start tabs where the content
+      // script was still initialising when the panel opened.
       setTimeout(() => {
         if (currentJob) return;
         chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_SCRAPE' }, () => {
@@ -116,19 +105,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// Re-send REQUEST_SCRAPE every time the panel becomes visible.
-// DOMContentLoaded fires only once; this covers panel close/reopen and
-// tab switches that bring the panel back into view on a different job.
+// On every visibility gain (panel reopened, tab switched) check whether the
+// active tab has changed to a different job.  If so, clear stale data and
+// scrape.  If the same job is still showing, do nothing.
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState !== 'visible') return;
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) {
-      chrome.runtime.sendMessage({ type: 'TRIGGER_SCRAPE_FOR_TAB', tabId: tab.id })
-        .catch(() => {});
-    }
+    if (tab?.id) requestScrapeIfJobChanged(tab);
   } catch (err) {
-    console.warn('[JobLink] visibilitychange REQUEST_SCRAPE failed:', err.message);
+    console.warn('[JobLink] visibilitychange scrape check failed:', err.message);
   }
 });
 
@@ -167,6 +153,73 @@ document.querySelectorAll('.collapsible-toggle').forEach(btn => {
 });
 
 // ── UI functions ──────────────────────────────────────────────
+
+/**
+ * Extract a stable job identity string from a URL.
+ *
+ * LinkedIn: returns the numeric job ID found in the currentJobId query param
+ * or the /jobs/view/{id} path segment (both formats map to the same posting).
+ * Other sites: returns origin + pathname + search so any URL change is caught.
+ * Returns null when no URL is provided or parsing fails.
+ *
+ * @param {string|undefined} url
+ * @returns {string|null}
+ */
+function jobIdFromUrl(url) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'linkedin.com' || parsed.hostname.endsWith('.linkedin.com')) {
+      const fromQuery = parsed.searchParams.get('currentJobId');
+      if (fromQuery) return fromQuery;
+      const m = parsed.pathname.match(/\/jobs\/view\/(\d+)/);
+      if (m) return m[1];
+      return null; // LinkedIn list/feed page — no job identity
+    }
+    return parsed.origin + parsed.pathname + parsed.search;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Compare the active tab's job identity against the currently displayed job.
+ * If they match, do nothing — the correct data is already showing.
+ * If they differ (or there is no current job), immediately clear the panel so
+ * stale data does not linger while the fresh scrape is in flight, then fire
+ * REQUEST_SCRAPE via two parallel paths:
+ *   1. Direct chrome.tabs.sendMessage (instant when content script is loaded)
+ *   2. SIDEPANEL_OPENED to the service worker (injects the content script first
+ *      if it is not yet present — handles cold-start tabs)
+ *
+ * @param {{id: number, url?: string}} tab
+ */
+function requestScrapeIfJobChanged(tab) {
+  if (!tab?.id) return;
+
+  const tabJobId       = jobIdFromUrl(tab.url);
+  const displayedJobId = currentJob ? jobIdFromUrl(currentJob.applicationUrl) : null;
+
+  // Same job already showing — nothing to do
+  if (tabJobId && displayedJobId && tabJobId === displayedJobId) return;
+
+  // Different job (or no job loaded yet): clear stale display immediately
+  if (currentJob) {
+    currentJob = null;
+    stateJob.style.display   = 'none';
+    stateEmpty.style.display = 'flex';
+    hideMessages();
+  }
+
+  // Path 1: direct to content script — fast path, no service-worker round-trip
+  chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_SCRAPE' }, () => {
+    void chrome.runtime.lastError; // suppress "no receiver" on chrome-internal URLs
+  });
+
+  // Path 2: service worker injects the content script if not yet present
+  chrome.runtime.sendMessage({ type: 'SIDEPANEL_OPENED', tabId: tab.id })
+    .catch(() => {});
+}
 
 /**
  * Populate the form fields and switch to the loaded state.
