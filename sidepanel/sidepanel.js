@@ -468,6 +468,7 @@ async function enrichCompanyMetadata(job) {
  * The service worker handles the actual upload; this function manages UI state.
  */
 async function handleSave() {
+  console.log('[JobLink] handleSave called');
   if (!currentJob) return;
 
   // Merge user edits back into the job object
@@ -523,6 +524,7 @@ async function handleSave() {
   }
 
   try {
+    console.log('[JobLink] sending SAVE_TO_DRIVE message');
     const response = await chrome.runtime.sendMessage({
       type:     'SAVE_TO_DRIVE',
       payload:  jobToSave,

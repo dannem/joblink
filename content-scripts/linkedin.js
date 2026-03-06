@@ -395,6 +395,12 @@ async function expandDescriptionIfTruncated() {
  * that both code paths stay in sync.
  */
 async function runScrape() {
+  const currentJobId = getCurrentJobId();
+  if (currentJobId && currentJobId === lastScrapedJobId) {
+    console.log('[JobLink] Skipping duplicate scrape — job ID already scraped:', currentJobId);
+    return;
+  }
+
   const runId = ++scrapeRunCounter;
   const runJobIdentity = getCurrentJobIdentity();
   const isStaleRun = () =>
@@ -540,6 +546,7 @@ function startNavigationWatcher() {
     }
 
     lastSeenHref = currentHref;
+    lastScrapedJobId = null; // reset so the upcoming runScrape() is not skipped by the dedup guard
     console.log('[JobLink] URL changed, new jobId detected:', currentHref);
 
     // Debounce: cancel any pending scrape and restart the timer.
