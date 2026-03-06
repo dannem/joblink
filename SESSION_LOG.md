@@ -5,6 +5,33 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 42 — Complete
+Date: 2026-03-06
+Branch: main
+What was built:
+
+- Package type dropdown in sidepanel — CV only, Cover Letter only, CV + Cover Letter,
+  Academic Package; initializes to Settings default but can be overridden per session
+- Academic Package mode — generates CV, Cover Letter, Research Statement, Diversity
+  Statement, and Teaching Statement; AI generates statements from profile documents;
+  9-step progress indicator
+- Academic statement prompt builders — buildResearchStatementPrompt(),
+  buildDiversityStatementPrompt(), buildTeachingStatementPrompt() in ai-helpers.js
+- saveAcademicDocToDrive() in drive-api.js for saving plain text as Google Doc + PDF
+- Default Package dropdown in Settings updated with Academic option
+- CV/CL save guard fix — empty CV no longer created in CL-only mode; fixed silent
+  fallback in drive-api.js
+- AI call failures now surface as visible errors instead of silently saving broken
+  documents
+- OpenAI GPT integration — GPT-4o, GPT-4o Mini, GPT-4 Turbo, o1, o1-mini, o3-mini
+
+Test results: All four package modes confirmed working.
+Known issues: OpenAI requires funded account at platform.openai.com/settings/billing.
+Next steps: Dashboard improvements — move jobs between status folders, better job
+management UI.
+
+---
+
 Session 41 — Complete
 Date: 2026-03-05
 Branch: main
