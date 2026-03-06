@@ -444,6 +444,12 @@ async function enrichCompanyMetadata(job) {
     const modelMap = {
       sonnet:           AI_MODELS.claude,
       haiku:            AI_MODELS.claudeHaiku,
+      'gpt-4o':         AI_MODELS.gpt4o,
+      'gpt-4o-mini':    AI_MODELS.gpt4oMini,
+      'gpt-4-turbo':    AI_MODELS.gpt4Turbo,
+      o1:               AI_MODELS.o1,
+      'o1-mini':        AI_MODELS.o1Mini,
+      'o3-mini':        AI_MODELS.o3Mini,
       geminiFlash25:    AI_MODELS.geminiFlash25,
       'gemini-2.5-pro': AI_MODELS.geminiPro,
     };
@@ -594,6 +600,12 @@ async function handleEvaluate() {
     const modelMap = {
       sonnet:           AI_MODELS.claude,
       haiku:            AI_MODELS.claudeHaiku,
+      'gpt-4o':         AI_MODELS.gpt4o,
+      'gpt-4o-mini':    AI_MODELS.gpt4oMini,
+      'gpt-4-turbo':    AI_MODELS.gpt4Turbo,
+      o1:               AI_MODELS.o1,
+      'o1-mini':        AI_MODELS.o1Mini,
+      'o3-mini':        AI_MODELS.o3Mini,
       geminiFlash25:    AI_MODELS.geminiFlash25,
       'gemini-2.5-pro': AI_MODELS.geminiPro,
     };
@@ -765,6 +777,12 @@ async function handlePreparePackage() {
     const modelMap = {
       sonnet:           AI_MODELS.claude,
       haiku:            AI_MODELS.claudeHaiku,
+      'gpt-4o':         AI_MODELS.gpt4o,
+      'gpt-4o-mini':    AI_MODELS.gpt4oMini,
+      'gpt-4-turbo':    AI_MODELS.gpt4Turbo,
+      o1:               AI_MODELS.o1,
+      'o1-mini':        AI_MODELS.o1Mini,
+      'o3-mini':        AI_MODELS.o3Mini,
       geminiFlash25:    AI_MODELS.geminiFlash25,
       'gemini-2.5-pro': AI_MODELS.geminiPro,
     };
