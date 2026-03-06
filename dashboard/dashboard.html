@@ -69,6 +69,7 @@
       <table class="job-table">
         <thead>
           <tr>
+            <th class="col-checkbox"><input type="checkbox" class="select-all" data-status="preparation"></th>
             <th data-column="position">Position <span class="sort-indicator">↕</span></th>
             <th data-column="company">Company <span class="sort-indicator">↕</span></th>
             <th data-column="location">Location <span class="sort-indicator">↕</span></th>
@@ -81,6 +82,18 @@
         </thead>
         <tbody id="tbody-preparation"></tbody>
       </table>
+      <div id="bulk-bar-preparation" class="bulk-bar hidden">
+        <span id="bulk-count-preparation" class="bulk-count">0 selected</span>
+        <span class="bulk-sep">—</span>
+        <span class="bulk-label">Move to:</span>
+        <select id="bulk-move-select-preparation" class="bulk-move-select">
+          <option value="submitted">Submitted</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <button class="bulk-btn bulk-btn--move" data-status="preparation">Move</button>
+        <button class="bulk-btn bulk-btn--reject" data-status="preparation">Reject</button>
+        <button class="bulk-btn bulk-btn--clear" data-status="preparation">Clear selection</button>
+      </div>
     </div>
   </section>
 
@@ -94,6 +107,7 @@
       <table class="job-table">
         <thead>
           <tr>
+            <th class="col-checkbox"><input type="checkbox" class="select-all" data-status="submitted"></th>
             <th data-column="position">Position <span class="sort-indicator">↕</span></th>
             <th data-column="company">Company <span class="sort-indicator">↕</span></th>
             <th data-column="location">Location <span class="sort-indicator">↕</span></th>
@@ -106,6 +120,18 @@
         </thead>
         <tbody id="tbody-submitted"></tbody>
       </table>
+      <div id="bulk-bar-submitted" class="bulk-bar hidden">
+        <span id="bulk-count-submitted" class="bulk-count">0 selected</span>
+        <span class="bulk-sep">—</span>
+        <span class="bulk-label">Move to:</span>
+        <select id="bulk-move-select-submitted" class="bulk-move-select">
+          <option value="preparation">Preparation</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <button class="bulk-btn bulk-btn--move" data-status="submitted">Move</button>
+        <button class="bulk-btn bulk-btn--reject" data-status="submitted">Reject</button>
+        <button class="bulk-btn bulk-btn--clear" data-status="submitted">Clear selection</button>
+      </div>
     </div>
   </section>
 
@@ -119,6 +145,7 @@
       <table class="job-table">
         <thead>
           <tr>
+            <th class="col-checkbox"><input type="checkbox" class="select-all" data-status="rejected"></th>
             <th data-column="position">Position <span class="sort-indicator">↕</span></th>
             <th data-column="company">Company <span class="sort-indicator">↕</span></th>
             <th data-column="location">Location <span class="sort-indicator">↕</span></th>
@@ -131,6 +158,17 @@
         </thead>
         <tbody id="tbody-rejected"></tbody>
       </table>
+      <div id="bulk-bar-rejected" class="bulk-bar hidden">
+        <span id="bulk-count-rejected" class="bulk-count">0 selected</span>
+        <span class="bulk-sep">—</span>
+        <span class="bulk-label">Move to:</span>
+        <select id="bulk-move-select-rejected" class="bulk-move-select">
+          <option value="preparation">Preparation</option>
+          <option value="submitted">Submitted</option>
+        </select>
+        <button class="bulk-btn bulk-btn--move" data-status="rejected">Move</button>
+        <button class="bulk-btn bulk-btn--clear" data-status="rejected">Clear selection</button>
+      </div>
     </div>
   </section>
 

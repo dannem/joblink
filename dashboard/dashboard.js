@@ -46,6 +46,13 @@ const sortState = {
 /** Folder ID of the job currently open in the detail panel, or null. */
 let detailFolderId = null;
 
+/** Map of status key → Set of selected job folder IDs for bulk actions. */
+const selections = {
+  preparation: new Set(),
+  submitted:   new Set(),
+  rejected:    new Set(),
+};
+
 // ── Entry point ───────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -71,6 +78,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       updateSortIndicators();
       ['preparation', 'submitted', 'rejected'].forEach(status => {
+        clearSelection(status);
         renderSection(status, jobsByStatus[status]);
       });
       applyFilters();
@@ -110,6 +118,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('filter-location').value = 'all';
     document.getElementById('filter-company').value  = 'all';
     applyFilters();
+  });
+
+  // Wire select-all checkboxes
+  document.querySelectorAll('.select-all').forEach(cb => {
+    cb.addEventListener('change', () => handleSelectAll(cb.dataset.status, cb.checked));
+  });
+
+  // Wire bulk action bar buttons
+  document.querySelectorAll('.bulk-btn--move').forEach(btn => {
+    btn.addEventListener('click', () => handleBulkMove(btn.dataset.status));
+  });
+  document.querySelectorAll('.bulk-btn--reject').forEach(btn => {
+    btn.addEventListener('click', () => handleBulkReject(btn.dataset.status));
+  });
+  document.querySelectorAll('.bulk-btn--clear').forEach(btn => {
+    btn.addEventListener('click', () => clearSelection(btn.dataset.status));
   });
 
   // Wire detail panel
@@ -167,6 +191,12 @@ async function loadDashboard() {
     renderSection('submitted',   subJobs);
     renderSection('rejected',    rejJobs);
     updateSortIndicators();
+
+    // Clear bulk selections — rows just re-rendered
+    ['preparation', 'submitted', 'rejected'].forEach(s => {
+      selections[s].clear();
+      updateBulkBar(s);
+    });
 
     // Populate dynamic filter dropdowns and re-apply any active filters
     populateFilterDropdowns();
@@ -370,7 +400,7 @@ function renderSection(status, jobs) {
   if (jobs.length === 0) {
     const tr = document.createElement('tr');
     tr.className = 'empty-row';
-    tr.innerHTML = `<td colspan="8">No jobs in this folder.</td>`;
+    tr.innerHTML = `<td colspan="9">No jobs in this folder.</td>`;
     tbody.appendChild(tr);
     return;
   }
@@ -410,6 +440,7 @@ function buildJobRow(job, currentStatus, otherStatuses) {
   ).join('');
 
   tr.innerHTML = `
+    <td class="col-checkbox"><input type="checkbox" class="row-checkbox"></td>
     <td class="cell-position" title="${escHtml(job.jobTitle || '')}">${escHtml(truncate(job.jobTitle || '—', 50))}</td>
     <td>${escHtml(job.company || '—')}</td>
     <td>${escHtml(job.location || '—')}</td>
@@ -429,12 +460,17 @@ function buildJobRow(job, currentStatus, otherStatuses) {
     </td>
   `;
 
+  // Wire row checkbox
+  const rowCb = tr.querySelector('.row-checkbox');
+  rowCb.addEventListener('change', () => handleRowCheckbox(currentStatus, job.folderId, rowCb.checked));
+
   // Wire Move button
   tr.querySelector('.move-btn').addEventListener('click', handleMove);
 
-  // Wire row click to open detail panel (ignore clicks inside the Move cell)
+  // Wire row click to open detail panel (ignore Move cell and checkbox cell)
   tr.addEventListener('click', (e) => {
     if (e.target.closest('.move-cell')) return;
+    if (e.target.closest('.col-checkbox')) return;
     openDetailPanel(job.folderId);
   });
 
@@ -703,7 +739,7 @@ function applyFilters() {
     if (dataRows.length > 0 && visibleCount === 0) {
       const tr = document.createElement('tr');
       tr.className = 'empty-row filter-empty-row';
-      tr.innerHTML = '<td colspan="8">No jobs match the current filters.</td>';
+      tr.innerHTML = '<td colspan="9">No jobs match the current filters.</td>';
       tbody.appendChild(tr);
       // Keep the section visible so the user sees the "no matches" message
       section.style.display = '';
@@ -712,6 +748,9 @@ function applyFilters() {
       section.style.display = (dataRows.length === 0 || visibleCount > 0) ? '' : 'none';
     }
   });
+
+  // Sync select-all state with newly visible/hidden rows
+  ['preparation', 'submitted', 'rejected'].forEach(s => updateSelectAllState(s));
 }
 
 // ── Detail panel ───────────────────────────────────────────────
@@ -935,6 +974,156 @@ async function handleDetailMove() {
     showError('Move failed: ' + err.message);
     btn.disabled    = false;
     btn.textContent = 'Move';
+  }
+}
+
+// ── Bulk actions ───────────────────────────────────────────────
+
+/**
+ * Select or deselect all visible rows in a section.
+ *
+ * @param {string}  status
+ * @param {boolean} checked
+ */
+function handleSelectAll(status, checked) {
+  const tbody = document.getElementById(`tbody-${status}`);
+  tbody.querySelectorAll('tr[data-folder-id]').forEach(row => {
+    if (row.style.display === 'none') return; // skip filtered-out rows
+    const cb = row.querySelector('.row-checkbox');
+    if (cb) cb.checked = checked;
+    if (checked) {
+      selections[status].add(row.dataset.folderId);
+    } else {
+      selections[status].delete(row.dataset.folderId);
+    }
+  });
+  updateBulkBar(status);
+}
+
+/**
+ * Handle a single row checkbox change.
+ *
+ * @param {string}  status
+ * @param {string}  folderId
+ * @param {boolean} checked
+ */
+function handleRowCheckbox(status, folderId, checked) {
+  if (checked) {
+    selections[status].add(folderId);
+  } else {
+    selections[status].delete(folderId);
+  }
+  updateSelectAllState(status);
+  updateBulkBar(status);
+}
+
+/**
+ * Sync the select-all checkbox to reflect whether all visible rows are checked.
+ *
+ * @param {string} status
+ */
+function updateSelectAllState(status) {
+  const tbody = document.getElementById(`tbody-${status}`);
+  if (!tbody) return;
+  const visibleRows = [...tbody.querySelectorAll('tr[data-folder-id]')]
+    .filter(r => r.style.display !== 'none');
+  const allChecked = visibleRows.length > 0 &&
+    visibleRows.every(r => { const cb = r.querySelector('.row-checkbox'); return cb && cb.checked; });
+  const selectAll = document.querySelector(`.select-all[data-status="${status}"]`);
+  if (selectAll) selectAll.checked = allChecked;
+}
+
+/**
+ * Show or hide the bulk action bar based on how many items are selected.
+ *
+ * @param {string} status
+ */
+function updateBulkBar(status) {
+  const count   = selections[status].size;
+  const bar      = document.getElementById(`bulk-bar-${status}`);
+  const countEl  = document.getElementById(`bulk-count-${status}`);
+  if (countEl) countEl.textContent = `${count} selected`;
+  if (bar) bar.classList.toggle('hidden', count === 0);
+}
+
+/**
+ * Deselect all rows in a section and hide the bulk bar.
+ *
+ * @param {string} status
+ */
+function clearSelection(status) {
+  selections[status].clear();
+  const tbody = document.getElementById(`tbody-${status}`);
+  if (tbody) tbody.querySelectorAll('.row-checkbox').forEach(cb => { cb.checked = false; });
+  const selectAll = document.querySelector(`.select-all[data-status="${status}"]`);
+  if (selectAll) selectAll.checked = false;
+  updateBulkBar(status);
+}
+
+/**
+ * Move all selected jobs in a section to the chosen target status folder.
+ *
+ * @param {string} status
+ */
+async function handleBulkMove(status) {
+  const targetStatus = document.getElementById(`bulk-move-select-${status}`).value;
+  if (!targetStatus || targetStatus === status) return;
+
+  const fromParentId = folderIds[status];
+  const toParentId   = folderIds[targetStatus];
+  if (!fromParentId || !toParentId) {
+    showError(`Cannot move: ${targetStatus} folder ID not found in storage.`);
+    return;
+  }
+
+  const ids = [...selections[status]];
+  if (ids.length === 0) return;
+
+  const moveBtns = document.querySelectorAll(`.bulk-btn--move[data-status="${status}"]`);
+  moveBtns.forEach(b => { b.disabled = true; b.textContent = '…'; });
+
+  try {
+    for (const folderId of ids) {
+      await moveDriveFolder(folderId, fromParentId, toParentId);
+    }
+    clearSelection(status);
+    await loadDashboard();
+  } catch (err) {
+    showError('Bulk move failed: ' + err.message);
+    moveBtns.forEach(b => { b.disabled = false; b.textContent = 'Move'; });
+  }
+}
+
+/**
+ * Move all selected jobs in a section directly to the Rejected folder.
+ *
+ * @param {string} status
+ */
+async function handleBulkReject(status) {
+  if (status === 'rejected') return;
+
+  const fromParentId = folderIds[status];
+  const toParentId   = folderIds.rejected;
+  if (!fromParentId || !toParentId) {
+    showError('Cannot reject: rejected folder ID not found in storage.');
+    return;
+  }
+
+  const ids = [...selections[status]];
+  if (ids.length === 0) return;
+
+  const rejectBtns = document.querySelectorAll(`.bulk-btn--reject[data-status="${status}"]`);
+  rejectBtns.forEach(b => { b.disabled = true; b.textContent = '…'; });
+
+  try {
+    for (const folderId of ids) {
+      await moveDriveFolder(folderId, fromParentId, toParentId);
+    }
+    clearSelection(status);
+    await loadDashboard();
+  } catch (err) {
+    showError('Bulk reject failed: ' + err.message);
+    rejectBtns.forEach(b => { b.disabled = false; b.textContent = 'Reject'; });
   }
 }
 

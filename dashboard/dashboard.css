@@ -588,3 +588,99 @@ th[data-column].sort-active .sort-indicator {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* ── Checkbox column ─────────────────────────────────────── */
+
+.job-table th.col-checkbox,
+.job-table td.col-checkbox {
+  width: 32px;
+  min-width: 32px;
+  padding: 10px 4px 10px 12px;
+  text-align: center;
+}
+
+.col-checkbox input[type="checkbox"] {
+  cursor: pointer;
+}
+
+/* ── Bulk action bar ─────────────────────────────────────── */
+
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #eff6ff;
+  border-top: 1px solid #bfdbfe;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: #374151;
+}
+
+.bulk-count {
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+.bulk-sep {
+  color: #9ca3af;
+}
+
+.bulk-move-select {
+  padding: 4px 8px;
+  border: 1px solid #bfdbfe;
+  border-radius: 4px;
+  font-size: 0.83rem;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.bulk-btn {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.83rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.bulk-btn--move {
+  background: #2563eb;
+  color: white;
+}
+
+.bulk-btn--move:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.bulk-btn--move:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.bulk-btn--reject {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.bulk-btn--reject:hover:not(:disabled) {
+  background: #fecaca;
+}
+
+.bulk-btn--reject:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bulk-btn--clear {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.bulk-btn--clear:hover {
+  background: #e5e7eb;
+}
