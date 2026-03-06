@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobLink Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+  <header class="dash-header">
+    <span class="dash-logo">JobLink</span>
+    <span class="dash-subtitle">Dashboard</span>
+  </header>
+
+  <div id="error-banner" class="error-banner" style="display:none;"></div>
+  <div id="loading-banner" class="loading-banner">Loading jobs…</div>
+
+  <!-- ── Statistics ─────────────────────────────────────────── -->
+  <div class="stats-row">
+    <div class="stat-card stat-card--preparation">
+      <div class="stat-number" id="count-preparation">—</div>
+      <div class="stat-label">Preparation</div>
+    </div>
+    <div class="stat-card stat-card--submitted">
+      <div class="stat-number" id="count-submitted">—</div>
+      <div class="stat-label">Submitted</div>
+    </div>
+    <div class="stat-card stat-card--rejected">
+      <div class="stat-number" id="count-rejected">—</div>
+      <div class="stat-label">Rejected</div>
+    </div>
+  </div>
+
+  <!-- ── Preparation section ────────────────────────────────── -->
+  <section class="job-section" id="section-preparation">
+    <button class="section-toggle" data-target="body-preparation">
+      <span class="section-title">Preparation</span>
+      <span class="section-arrow">▼</span>
+    </button>
+    <div id="body-preparation" class="section-body">
+      <table class="job-table">
+        <thead>
+          <tr>
+            <th>Position</th>
+            <th>Company</th>
+            <th>Location</th>
+            <th>Date Saved</th>
+            <th>Salary</th>
+            <th>Type</th>
+            <th>Drive Link</th>
+            <th>Move To</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-preparation"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Submitted section ──────────────────────────────────── -->
+  <section class="job-section" id="section-submitted">
+    <button class="section-toggle" data-target="body-submitted">
+      <span class="section-title">Submitted</span>
+      <span class="section-arrow">▼</span>
+    </button>
+    <div id="body-submitted" class="section-body">
+      <table class="job-table">
+        <thead>
+          <tr>
+            <th>Position</th>
+            <th>Company</th>
+            <th>Location</th>
+            <th>Date Saved</th>
+            <th>Salary</th>
+            <th>Type</th>
+            <th>Drive Link</th>
+            <th>Move To</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-submitted"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Rejected section ───────────────────────────────────── -->
+  <section class="job-section" id="section-rejected">
+    <button class="section-toggle" data-target="body-rejected">
+      <span class="section-title">Rejected</span>
+      <span class="section-arrow">▼</span>
+    </button>
+    <div id="body-rejected" class="section-body">
+      <table class="job-table">
+        <thead>
+          <tr>
+            <th>Position</th>
+            <th>Company</th>
+            <th>Location</th>
+            <th>Date Saved</th>
+            <th>Salary</th>
+            <th>Type</th>
+            <th>Drive Link</th>
+            <th>Move To</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-rejected"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <script src="../utils/helpers.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

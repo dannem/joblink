@@ -7,6 +7,8 @@
 importScripts('../utils/helpers.js');
 // Import Drive API functions — all Drive calls must go through this module
 importScripts('../drive/drive-api.js');
+// Import AI helpers for CLASSIFY_JOB handler
+importScripts('../utils/ai-helpers.js');
 
 /**
  * Handle extension installation.
@@ -408,6 +410,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: false, error: err.message });
       }
     })();
+    return true;
+  }
+
+  if (message.type === 'CLASSIFY_JOB') {
+    const prompt = `Classify this job into exactly one category from: academic, research, clinical, management, industry, other. Reply with the single word only.\n\nTitle: ${message.jobTitle || ''}\n\n${message.description || ''}`;
+    callAI('claude', prompt)
+      .then(result => sendResponse({ result: result.trim().toLowerCase() }))
+      .catch(() => sendResponse({ result: 'other' }));
     return true;
   }
 
