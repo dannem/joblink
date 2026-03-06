@@ -415,10 +415,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 /**
+ * Verify that a Drive folder exists and that its parent is the expected folder.
+ * Returns false if the folder is missing, deleted, or belongs to a different parent.
+ * Used by ensureStatusFolders to detect stale cached IDs after a root-folder change.
+ *
+ * @param {string} token            - OAuth access token
+ * @param {string} folderId         - Drive file ID to check
+ * @param {string} expectedParentId - The parent folder ID it should live inside
+ * @returns {Promise<boolean>}
+ */
+async function folderHasParent(token, folderId, expectedParentId) {
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?fields=parents`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) return false;
+    const data = await res.json();
+    return Array.isArray(data.parents) && data.parents.includes(expectedParentId);
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
  * Ensure the Preparation, Submitted, and Rejected subfolders exist under
  * the user's root folder.  On first save, creates any missing folders and
  * caches all three IDs in chrome.storage.sync.  On subsequent saves,
  * returns the cached IDs immediately without making any Drive API calls.
+ *
+ * If the cached IDs exist but belong to a different parent (i.e. the user
+ * changed their root folder), they are cleared and the folders are recreated
+ * inside the new root.
  *
  * @param {string} token        - OAuth access token
  * @param {string} rootFolderId - The user's configured root jobs folder
@@ -432,7 +460,25 @@ async function ensureStatusFolders(token, rootFolderId) {
   ]);
 
   if (preparationId && submittedId && rejectedId) {
-    return { preparationId, submittedId, rejectedId };
+    // Verify all three actually live inside the current root folder.
+    // If the root folder changed the cached IDs point to the wrong location.
+    const [prepOk, subOk, rejOk] = await Promise.all([
+      folderHasParent(token, preparationId, rootFolderId),
+      folderHasParent(token, submittedId,   rootFolderId),
+      folderHasParent(token, rejectedId,    rootFolderId),
+    ]);
+
+    if (prepOk && subOk && rejOk) {
+      return { preparationId, submittedId, rejectedId };
+    }
+
+    // Stale — cached IDs belong to a different root; clear and recreate below
+    console.log('[JobLink] Cached subfolder IDs are stale (wrong parent) — clearing and recreating.');
+    await chrome.storage.sync.remove([
+      STORAGE_KEYS.PREPARATION_FOLDER_ID,
+      STORAGE_KEYS.SUBMITTED_FOLDER_ID,
+      STORAGE_KEYS.REJECTED_FOLDER_ID,
+    ]);
   }
 
   // One or more IDs are missing — get or create all three in parallel

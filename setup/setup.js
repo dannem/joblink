@@ -241,6 +241,12 @@ async function handleSaveFolder() {
     await setStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID,   selectedFolderId);
     await setStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_NAME, selectedFolderName);
     await setStorageValue(STORAGE_KEYS.SETUP_COMPLETE, true);
+    // Clear cached subfolder IDs so they are recreated inside the new root on next save.
+    await chrome.storage.sync.remove([
+      STORAGE_KEYS.PREPARATION_FOLDER_ID,
+      STORAGE_KEYS.SUBMITTED_FOLDER_ID,
+      STORAGE_KEYS.REJECTED_FOLDER_ID,
+    ]);
     // First-run banner no longer needed once the user has saved a folder
     document.getElementById('first-run-banner').style.display = 'none';
     showSaveConfirm('save-folder-confirm');
