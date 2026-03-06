@@ -12,11 +12,19 @@
 // ── Model constants ────────────────────────────────────────────────────────
 
 const AI_MODELS = {
-  claude:       'claude-sonnet-4-6',         // Sonnet — high quality
-  claudeHaiku:  'claude-haiku-4-5-20251001', // Haiku — fast and cheap
-  openai:       'gpt-4o',
-  geminiFlash25: 'gemini-2.5-flash', // Flash 2.5
-  geminiPro:     'gemini-2.5-pro', // Pro 2.5
+  // Anthropic
+  claude:       'claude-sonnet-4-6',
+  claudeHaiku:  'claude-haiku-4-5-20251001',
+  // OpenAI
+  gpt4o:        'gpt-4o',
+  gpt4oMini:    'gpt-4o-mini',
+  gpt4Turbo:    'gpt-4-turbo',
+  o1:           'o1',
+  o1Mini:       'o1-mini',
+  o3Mini:       'o3-mini',
+  // Google
+  geminiFlash25: 'gemini-2.5-flash',
+  geminiPro:     'gemini-2.5-pro',
 };
 
 // ── Prompt builder ─────────────────────────────────────────────────────────
@@ -103,7 +111,7 @@ async function callAnthropicAPI(apiKey, prompt, model = AI_MODELS.claude) {
  * @returns {Promise<string>} Model response text
  * @throws {Error} On HTTP error or missing response content
  */
-async function callOpenAIAPI(apiKey, prompt) {
+async function callOpenAIAPI(apiKey, prompt, model = AI_MODELS.gpt4o) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -111,7 +119,7 @@ async function callOpenAIAPI(apiKey, prompt) {
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: AI_MODELS.openai,
+      model: model,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
@@ -125,6 +133,20 @@ async function callOpenAIAPI(apiKey, prompt) {
   const text = data.choices?.[0]?.message?.content;
   if (!text) throw new Error('No content returned from OpenAI.');
   return text;
+}
+
+/**
+ * Read the OpenAI API key from storage and call the Chat Completions API.
+ * Routes OpenAI model IDs (gpt-*, o1*, o3*) from the package pipeline.
+ *
+ * @param {string} prompt
+ * @param {string} [model] - Model ID (defaults to AI_MODELS.gpt4o)
+ * @returns {Promise<string>} Model response text
+ */
+async function callOpenAI(prompt, model = AI_MODELS.gpt4o) {
+  const apiKey = await getStorageValue(STORAGE_KEYS.OPENAI_API_KEY);
+  if (!apiKey) throw new Error('No OpenAI API key set. Open Settings to add your key.');
+  return callOpenAIAPI(apiKey, prompt, model);
 }
 
 /**
@@ -207,6 +229,12 @@ function parseAIResponse(text) {
  * @throws {Error} If the API key is not set or the API call fails
  */
 async function callAI(provider, prompt, model = null) {
+  // OpenAI models selected via the package dropdown arrive with provider='claude'.
+  // Detect by model ID prefix and re-route before the normal key lookup.
+  if (model && (model.startsWith('gpt-') || model.startsWith('o1') || model.startsWith('o3'))) {
+    return callOpenAI(prompt, model);
+  }
+
   // Gemini models selected via the package dropdown arrive with provider='claude'.
   // Detect them by model ID prefix and re-route before the normal key lookup.
   if (model && model.startsWith('gemini-')) {
@@ -232,7 +260,7 @@ async function callAI(provider, prompt, model = null) {
 
   switch (provider) {
     case 'claude': return callAnthropicAPI(apiKey, prompt, model || AI_MODELS.claude);
-    case 'openai': return callOpenAIAPI(apiKey, prompt);
+    case 'openai': return callOpenAIAPI(apiKey, prompt, model || AI_MODELS.gpt4o);
     case 'gemini': return callGeminiAPI(apiKey, prompt, model || AI_MODELS.gemini);
   }
 }
