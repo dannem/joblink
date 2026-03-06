@@ -43,6 +43,9 @@ const sortState = {
   direction: 'desc',
 };
 
+/** Folder ID of the job currently open in the detail panel, or null. */
+let detailFolderId = null;
+
 // ── Entry point ───────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -108,6 +111,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('filter-company').value  = 'all';
     applyFilters();
   });
+
+  // Wire detail panel
+  document.getElementById('detail-close').addEventListener('click', closeDetailPanel);
+  document.getElementById('job-detail-overlay').addEventListener('click', closeDetailPanel);
+  document.getElementById('detail-save-notes').addEventListener('click', saveDetailNotes);
+  document.getElementById('detail-move-btn').addEventListener('click', handleDetailMove);
 
   await loadDashboard();
 });
@@ -217,7 +226,7 @@ async function listSubfolders(folderId) {
 async function listFilesInFolder(folderId) {
   const params = new URLSearchParams({
     q: `'${folderId}' in parents and trashed = false`,
-    fields: 'files(id,name)',
+    fields: 'files(id,name,mimeType)',
     pageSize: '20',
   });
   const res = await driveGet(`${DRIVE_API}/files?${params}`);
@@ -422,6 +431,12 @@ function buildJobRow(job, currentStatus, otherStatuses) {
 
   // Wire Move button
   tr.querySelector('.move-btn').addEventListener('click', handleMove);
+
+  // Wire row click to open detail panel (ignore clicks inside the Move cell)
+  tr.addEventListener('click', (e) => {
+    if (e.target.closest('.move-cell')) return;
+    openDetailPanel(job.folderId);
+  });
 
   return tr;
 }
@@ -697,6 +712,230 @@ function applyFilters() {
       section.style.display = (dataRows.length === 0 || visibleCount > 0) ? '' : 'none';
     }
   });
+}
+
+// ── Detail panel ───────────────────────────────────────────────
+
+/**
+ * Return the status key ('preparation'|'submitted'|'rejected') for a job folder.
+ *
+ * @param {string} folderId
+ * @returns {string|null}
+ */
+function findJobStatus(folderId) {
+  for (const status of ['preparation', 'submitted', 'rejected']) {
+    if (jobsByStatus[status].some(j => j.folderId === folderId)) return status;
+  }
+  return null;
+}
+
+/**
+ * Return the Drive file view URL for a file object.
+ * Google Docs get an /edit URL; all other files get a /view URL.
+ *
+ * @param {{id: string, mimeType: string}} file
+ * @returns {string}
+ */
+function fileViewUrl(file) {
+  if (file.mimeType === 'application/vnd.google-apps.document') {
+    return `https://docs.google.com/document/d/${file.id}/edit`;
+  }
+  return `https://drive.google.com/file/d/${file.id}/view`;
+}
+
+/**
+ * Open the detail panel for the given job folder.
+ *
+ * @param {string} folderId
+ */
+async function openDetailPanel(folderId) {
+  const job = findJobByFolderId(folderId);
+  if (!job) return;
+
+  const status = findJobStatus(folderId);
+  detailFolderId = folderId;
+
+  // Title
+  document.getElementById('detail-title').textContent = job.jobTitle || '—';
+
+  // Meta row
+  const dateStr = job.scrapedAt
+    ? new Date(job.scrapedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : '—';
+
+  document.getElementById('detail-meta').innerHTML = `
+    <div class="detail-meta-item">
+      <span class="detail-meta-label">Company</span>
+      <span class="detail-meta-value">${escHtml(job.company || '—')}</span>
+    </div>
+    <div class="detail-meta-item">
+      <span class="detail-meta-label">Location</span>
+      <span class="detail-meta-value">${escHtml(job.location || '—')}</span>
+    </div>
+    <div class="detail-meta-item">
+      <span class="detail-meta-label">Date Saved</span>
+      <span class="detail-meta-value">${dateStr}</span>
+    </div>
+    ${job.salary ? `
+    <div class="detail-meta-item">
+      <span class="detail-meta-label">Salary</span>
+      <span class="detail-meta-value salary">${escHtml(job.salary)}</span>
+    </div>` : ''}
+    ${job.jobType ? `
+    <div class="detail-meta-item">
+      <span class="detail-meta-label">Type</span>
+      <span class="detail-meta-value">${typeBadgeHtml(job.jobType)}</span>
+    </div>` : ''}
+    ${status ? `
+    <div class="detail-meta-item">
+      <span class="detail-meta-label">Status</span>
+      <span class="detail-meta-value">
+        <span class="status-badge status-badge--${status}">${STATUS_LABELS[status]}</span>
+      </span>
+    </div>` : ''}
+  `;
+
+  // Move To dropdown — show all statuses except current
+  const otherStatuses = Object.keys(STATUS_LABELS).filter(s => s !== status);
+  document.getElementById('detail-move-select').innerHTML = otherStatuses
+    .map(s => `<option value="${s}">${STATUS_LABELS[s]}</option>`)
+    .join('');
+
+  // Notes
+  document.getElementById('detail-notes').value = job.notes || '';
+
+  // Description
+  document.getElementById('detail-description').textContent = job.description || '';
+
+  // Files list — show loading placeholder, fetch async
+  const filesList = document.getElementById('detail-files-list');
+  filesList.innerHTML = '<span style="color:#9ca3af;font-size:0.83rem;">Loading…</span>';
+  loadDetailFiles(folderId, filesList);
+
+  // Show overlay and slide panel in
+  const panel   = document.getElementById('job-detail-panel');
+  const overlay = document.getElementById('job-detail-overlay');
+  panel.classList.remove('hidden');
+  overlay.classList.remove('hidden');
+  requestAnimationFrame(() => panel.classList.add('open'));
+}
+
+/**
+ * Close the detail panel with a slide-out transition.
+ */
+function closeDetailPanel() {
+  const panel   = document.getElementById('job-detail-panel');
+  const overlay = document.getElementById('job-detail-overlay');
+  panel.classList.remove('open');
+  panel.addEventListener('transitionend', () => {
+    panel.classList.add('hidden');
+    overlay.classList.add('hidden');
+  }, { once: true });
+  detailFolderId = null;
+}
+
+/**
+ * Fetch and render the list of documents in a job folder.
+ * Excludes job_info.json (internal file).
+ *
+ * @param {string}      folderId
+ * @param {HTMLElement} container
+ */
+async function loadDetailFiles(folderId, container) {
+  try {
+    const files = await listFilesInFolder(folderId);
+    const docs  = files.filter(f => f.name !== 'job_info.json');
+    if (docs.length === 0) {
+      container.innerHTML = '<span style="color:#9ca3af;font-size:0.83rem;">No documents saved.</span>';
+      return;
+    }
+    container.innerHTML = docs.map(f =>
+      `<a class="detail-file-link" href="${fileViewUrl(f)}" target="_blank" rel="noopener">${escHtml(f.name)}</a>`
+    ).join('');
+  } catch (err) {
+    container.innerHTML = '<span style="color:#b91c1c;font-size:0.83rem;">Could not load files.</span>';
+    console.warn('[JobLink Dashboard] Could not load detail files:', err.message);
+  }
+}
+
+/**
+ * Save the notes textarea content back to job_info.json in Drive.
+ */
+async function saveDetailNotes() {
+  const job = findJobByFolderId(detailFolderId);
+  if (!job) return;
+
+  const notes = document.getElementById('detail-notes').value;
+  const btn   = document.getElementById('detail-save-notes');
+  btn.disabled    = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const updated = { ...job, notes };
+    delete updated.salary;   // dashboard-only
+    delete updated.folderId; // dashboard-only
+    delete updated.fileId;   // dashboard-only
+
+    const res = await fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(job.fileId)}?uploadType=media`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization:  `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updated, null, 2),
+      }
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Upload failed: ${res.status}`);
+    }
+
+    // Persist in memory so re-opening the panel shows the saved value
+    job.notes = notes;
+    btn.textContent = 'Saved!';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Save Notes'; }, 1500);
+  } catch (err) {
+    btn.disabled    = false;
+    btn.textContent = 'Save Notes';
+    showError('Could not save notes: ' + err.message);
+  }
+}
+
+/**
+ * Move the currently open job to the selected status folder, then close and refresh.
+ */
+async function handleDetailMove() {
+  const job = findJobByFolderId(detailFolderId);
+  if (!job) return;
+
+  const currentStatus = findJobStatus(detailFolderId);
+  const targetStatus  = document.getElementById('detail-move-select').value;
+
+  if (!targetStatus || targetStatus === currentStatus) return;
+
+  const fromParentId = folderIds[currentStatus];
+  const toParentId   = folderIds[targetStatus];
+
+  if (!fromParentId || !toParentId) {
+    showError(`Cannot move: ${targetStatus} folder ID not found in storage.`);
+    return;
+  }
+
+  const btn = document.getElementById('detail-move-btn');
+  btn.disabled    = true;
+  btn.textContent = '…';
+
+  try {
+    await moveDriveFolder(detailFolderId, fromParentId, toParentId);
+    closeDetailPanel();
+    await loadDashboard();
+  } catch (err) {
+    showError('Move failed: ' + err.message);
+    btn.disabled    = false;
+    btn.textContent = 'Move';
+  }
 }
 
 // ── Auth ───────────────────────────────────────────────────────

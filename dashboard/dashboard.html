@@ -134,6 +134,37 @@
     </div>
   </section>
 
+  <!-- ── Job detail panel ───────────────────────────────────── -->
+  <div id="job-detail-panel" class="job-detail-panel hidden">
+    <div class="job-detail-header">
+      <h2 id="detail-title"></h2>
+      <button id="detail-close">✕</button>
+    </div>
+    <div class="job-detail-body">
+      <div class="job-detail-meta" id="detail-meta"></div>
+      <div class="job-detail-actions">
+        <div class="move-cell">
+          <select id="detail-move-select" class="move-select"></select>
+          <button id="detail-move-btn" class="move-btn">Move</button>
+        </div>
+      </div>
+      <div class="job-detail-files">
+        <h3>Documents</h3>
+        <div id="detail-files-list"></div>
+      </div>
+      <div class="job-detail-notes">
+        <h3>Notes</h3>
+        <textarea id="detail-notes"></textarea>
+        <button id="detail-save-notes">Save Notes</button>
+      </div>
+      <div class="job-detail-description">
+        <h3>Job Description</h3>
+        <div id="detail-description"></div>
+      </div>
+    </div>
+  </div>
+  <div id="job-detail-overlay" class="hidden"></div>
+
   <script src="../utils/helpers.js"></script>
   <script src="dashboard.js"></script>
 </body>

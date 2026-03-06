@@ -368,3 +368,223 @@ th[data-column].sort-active .sort-indicator {
   color: #374151;
   font-weight: 700;
 }
+
+/* ── Hidden utility ──────────────────────────────────────── */
+
+.hidden {
+  display: none !important;
+}
+
+/* ── Clickable table rows ────────────────────────────────── */
+
+.job-table tbody tr[data-folder-id] {
+  cursor: pointer;
+}
+
+/* ── Job detail overlay ──────────────────────────────────── */
+
+.job-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+/* ── Job detail panel ────────────────────────────────────── */
+
+.job-detail-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 480px;
+  height: 100vh;
+  background: white;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
+  z-index: 101;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+}
+
+.job-detail-panel.open {
+  transform: translateX(0);
+}
+
+.job-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.job-detail-header h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.4;
+}
+
+#detail-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+#detail-close:hover {
+  color: #374151;
+  background: #f3f4f6;
+}
+
+.job-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px 24px;
+}
+
+.job-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  padding: 14px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.detail-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.detail-meta-label {
+  font-size: 0.68rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.detail-meta-value {
+  font-size: 0.85rem;
+  color: #333;
+  font-weight: 500;
+}
+
+.detail-meta-value.salary {
+  color: #059669;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge--preparation { background: #fef3c7; color: #92400e; }
+.status-badge--submitted   { background: #dbeafe; color: #1d4ed8; }
+.status-badge--rejected    { background: #fee2e2; color: #b91c1c; }
+
+.job-detail-actions {
+  padding: 12px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.job-detail-files,
+.job-detail-notes,
+.job-detail-description {
+  padding: 14px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.job-detail-description {
+  border-bottom: none;
+}
+
+.job-detail-files h3,
+.job-detail-notes h3,
+.job-detail-description h3 {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+
+.detail-file-link {
+  display: block;
+  padding: 5px 0;
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #f9fafb;
+}
+
+.detail-file-link:last-child {
+  border-bottom: none;
+}
+
+.detail-file-link:hover {
+  text-decoration: underline;
+}
+
+#detail-notes {
+  width: 100%;
+  height: 100px;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: #333;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+#detail-notes:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+#detail-save-notes {
+  margin-top: 8px;
+  padding: 6px 14px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.83rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+#detail-save-notes:hover {
+  background: #1d4ed8;
+}
+
+#detail-save-notes:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+#detail-description {
+  font-size: 0.83rem;
+  color: #333;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
