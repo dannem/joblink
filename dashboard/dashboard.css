@@ -346,3 +346,25 @@ body {
   background: #f3f4f6;
   border-color: #9ca3af;
 }
+
+/* ── Sortable column headers ─────────────────────────────── */
+
+th[data-column] {
+  cursor: pointer;
+  user-select: none;
+}
+
+th[data-column]:hover {
+  background: #f3f4f6;
+}
+
+.sort-indicator {
+  margin-left: 4px;
+  color: #d1d5db;
+  font-size: 0.7rem;
+}
+
+th[data-column].sort-active .sort-indicator {
+  color: #374151;
+  font-weight: 700;
+}

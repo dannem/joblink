@@ -37,6 +37,12 @@ const filters = {
   company:  'all',
 };
 
+/** Current sort state for the job tables. */
+const sortState = {
+  column:    'date',
+  direction: 'desc',
+};
+
 // ── Entry point ───────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -47,6 +53,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       const body = document.getElementById(targetId);
       const collapsed = body.classList.toggle('hidden');
       btn.classList.toggle('collapsed', collapsed);
+    });
+  });
+
+  // Wire sortable column headers
+  document.querySelectorAll('th[data-column]').forEach(th => {
+    th.addEventListener('click', () => {
+      const column = th.dataset.column;
+      if (sortState.column === column) {
+        sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortState.column    = column;
+        sortState.direction = 'desc';
+      }
+      updateSortIndicators();
+      ['preparation', 'submitted', 'rejected'].forEach(status => {
+        renderSection(status, jobsByStatus[status]);
+      });
+      applyFilters();
     });
   });
 
@@ -133,6 +157,7 @@ async function loadDashboard() {
     renderSection('preparation', prepJobs);
     renderSection('submitted',   subJobs);
     renderSection('rejected',    rejJobs);
+    updateSortIndicators();
 
     // Populate dynamic filter dropdowns and re-apply any active filters
     populateFilterDropdowns();
@@ -258,6 +283,62 @@ function extractSalary(description) {
   return '';
 }
 
+// ── Sorting ────────────────────────────────────────────────────
+
+/**
+ * Sort a jobs array by the given column and direction.
+ *
+ * @param {Array}           jobs
+ * @param {string}          column    - 'position'|'company'|'location'|'date'|'salary'|'type'
+ * @param {'asc'|'desc'}    direction
+ * @returns {Array}
+ */
+function sortJobs(jobs, column, direction) {
+  const sorted = [...jobs];
+  sorted.sort((a, b) => {
+    let valA, valB;
+    switch (column) {
+      case 'position': valA = (a.jobTitle  || '').toLowerCase(); valB = (b.jobTitle  || '').toLowerCase(); break;
+      case 'company':  valA = (a.company   || '').toLowerCase(); valB = (b.company   || '').toLowerCase(); break;
+      case 'location': valA = (a.location  || '').toLowerCase(); valB = (b.location  || '').toLowerCase(); break;
+      case 'date':     valA = a.scrapedAt  || '';                valB = b.scrapedAt  || '';                break;
+      case 'salary':   valA = extractFirstNumber(a.salary || ''); valB = extractFirstNumber(b.salary || ''); break;
+      case 'type':     valA = (a.jobType   || '').toLowerCase(); valB = (b.jobType   || '').toLowerCase(); break;
+      default:         valA = ''; valB = '';
+    }
+    if (valA < valB) return direction === 'asc' ? -1 : 1;
+    if (valA > valB) return direction === 'asc' ?  1 : -1;
+    return 0;
+  });
+  return sorted;
+}
+
+/**
+ * Extract the first numeric value from a salary string for numeric sorting.
+ *
+ * @param {string} salaryStr
+ * @returns {number}
+ */
+function extractFirstNumber(salaryStr) {
+  const match = salaryStr.replace(/,/g, '').match(/\d+/);
+  return match ? parseInt(match[0], 10) : 0;
+}
+
+/**
+ * Sync the ↕/↑/↓ indicators on all sortable column headers with sortState.
+ */
+function updateSortIndicators() {
+  document.querySelectorAll('th[data-column]').forEach(th => {
+    const indicator = th.querySelector('.sort-indicator');
+    if (!indicator) return;
+    const isActive = th.dataset.column === sortState.column;
+    th.classList.toggle('sort-active', isActive);
+    indicator.textContent = isActive
+      ? (sortState.direction === 'asc' ? '↑' : '↓')
+      : '↕';
+  });
+}
+
 // ── Table rendering ────────────────────────────────────────────
 
 const STATUS_LABELS = {
@@ -285,9 +366,10 @@ function renderSection(status, jobs) {
     return;
   }
 
+  const sorted = sortJobs(jobs, sortState.column, sortState.direction);
   const otherStatuses = Object.keys(STATUS_LABELS).filter(s => s !== status);
 
-  jobs.forEach(job => {
+  sorted.forEach(job => {
     const tr = buildJobRow(job, status, otherStatuses);
     tbody.appendChild(tr);
   });
