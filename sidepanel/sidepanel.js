@@ -899,20 +899,16 @@ async function handlePreparePackage() {
       activeStep = 4;
       updateProgress(4, 'active');
       if (clTemplateDocId) {
-        try {
-          const clPrompt = buildCLBodyPrompt(jobToSave, newSummary);
-          const rawClJson = await callAI('claude', clPrompt, selectedModel);
-          const parsed = parseAIResponse(rawClJson);
-          if (parsed && Array.isArray(parsed.bodyParagraphs) && parsed.bodyParagraphs.length > 0) {
-            clBodyParagraphs = parsed.bodyParagraphs;
-          }
-          if (parsed && parsed.companyBlock && typeof parsed.companyBlock === 'object') {
-            clCompanyBlock = parsed.companyBlock;
-          }
-          console.log('[JobLink] CL body paragraphs:', clBodyParagraphs ? clBodyParagraphs.length + ' paras' : 'NULL');
-        } catch (err) {
-          console.warn('[JobLink] CL generation failed:', err.message);
+        const clPrompt = buildCLBodyPrompt(jobToSave, newSummary);
+        const rawClJson = await callAI('claude', clPrompt, selectedModel);
+        const parsed = parseAIResponse(rawClJson);
+        if (parsed && Array.isArray(parsed.bodyParagraphs) && parsed.bodyParagraphs.length > 0) {
+          clBodyParagraphs = parsed.bodyParagraphs;
         }
+        if (parsed && parsed.companyBlock && typeof parsed.companyBlock === 'object') {
+          clCompanyBlock = parsed.companyBlock;
+        }
+        console.log('[JobLink] CL body paragraphs:', clBodyParagraphs ? clBodyParagraphs.length + ' paras' : 'NULL');
       }
       updateProgress(4, 'done');
     }
