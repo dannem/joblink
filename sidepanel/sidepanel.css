@@ -141,6 +141,14 @@ body {
   color: #9ca3af;
 }
 
+/* ── Duplicate-check hint ────────────────────────────────── */
+
+.duplicate-check-hint {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-top: -6px; /* pull up snug under the status bar */
+}
+
 /* ── Form fields ─────────────────────────────────────────── */
 
 .fields {

@@ -42,9 +42,10 @@ const fitScoreNumber    = document.getElementById('fit-score-number');
 const aiCorrespondence  = document.getElementById('ai-correspondence');
 const aiDiscrepancies   = document.getElementById('ai-discrepancies');
 const aiRecommendation  = document.getElementById('ai-recommendation');
-const jobStatusBar      = document.getElementById('job-status-bar');
-const jobStatusText     = document.getElementById('job-status-text');
-const jobStatusIcon     = document.getElementById('job-status-icon');
+const jobStatusBar        = document.getElementById('job-status-bar');
+const jobStatusText       = document.getElementById('job-status-text');
+const jobStatusIcon       = document.getElementById('job-status-icon');
+const duplicateCheckHint  = document.getElementById('duplicate-check-hint');
 const btnPreparePackage  = document.getElementById('btn-prepare-package');
 const btnEvaluateFit     = document.getElementById('evaluate-fit-btn');
 const packageModel       = document.getElementById('package-model');
@@ -324,7 +325,7 @@ function showJob(job) {
   resetProgress(currentPackageMode, false);
 
   hideMessages();
-  setStatusBar('checking');
+  setStatusBar('new');
   stateEmpty.style.display = 'none';
   stateJob.style.display   = 'flex';
 
@@ -371,20 +372,28 @@ async function checkDuplicate(job) {
   }
   lastDuplicateCheckId = jobId;
 
-  setStatusBar('checking');
+  // Show a subtle hint below the status bar — never block the UI.
+  duplicateCheckHint.style.display = 'block';
 
-  try {
+  const driveCheck = async () => {
     const token = await new Promise((resolve, reject) => {
       chrome.identity.getAuthToken({ interactive: false }, (t) => {
         if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
         else resolve(t);
       });
     });
-
-    if (!token) { setStatusBar('new'); return; }
-
+    if (!token) return null;
     console.log('[JobLink] Checking duplicate for:', job.company, '/', job.jobTitle);
-    const match = await checkExistingApplication(token, job);
+    return await checkExistingApplication(token, job);
+  };
+
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('timeout')), 5000)
+  );
+
+  try {
+    const match = await Promise.race([driveCheck(), timeout]);
+    duplicateCheckHint.style.display = 'none';
     console.log('[JobLink] Duplicate check result:', match);
 
     if (!match) {
@@ -397,8 +406,11 @@ async function checkDuplicate(job) {
       setStatusBar('prep');
     }
   } catch (err) {
-    console.warn('[JobLink] Duplicate check failed:', err.message);
-    setStatusBar('new');
+    duplicateCheckHint.style.display = 'none';
+    if (err.message !== 'timeout') {
+      console.warn('[JobLink] Duplicate check failed:', err.message);
+    }
+    // On timeout or error the status bar already shows 'new' — leave it.
   }
 }
 
