@@ -5,6 +5,35 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 40 — Complete
+Date: 2026-03-05
+Branch: main
+What was built:
+
+- Stale data yellow warning banner — shown when job title contains feed page junk
+  text; also shown on empty state when tab is a web page; hides automatically when
+  clean job data loads
+- Default Package setting wired up in handlePreparePackage() — respects cv, cl,
+  both from storage; progress indicator shows only relevant steps per mode
+- Settings page: Default Package section with CV only / Cover Letter only / Both
+  options
+- Settings page: Choose buttons for CV Templates, Cover Letter Templates, My Profile
+  folders fixed — folder picker moved to fixed overlay position
+- Progress indicator resets when navigating to a new job
+- Duplicate checker dedup guard — prevents repeated Drive API calls for same job
+- Duplicate check timeout — 5 second cap prevents UI blocking
+- "Checking Drive..." indicator made less prominent — moved to small grey hint text
+  below the status bar instead of replacing the bar content
+
+Test results: CV only, Cover Letter only, and Both modes all confirmed working.
+Folder picker confirmed working. Progress indicator resets correctly on job navigation.
+
+Known issues: None.
+Next steps: Consider OpenAI GPT-4o integration. Continue testing generic scraper on
+more careers sites.
+
+---
+
 Session 39 — Complete
 Date: 2026-03-05
 Branch: main
