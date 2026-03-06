@@ -566,3 +566,15 @@ body {
 .dashboard-link:hover {
   text-decoration: underline;
 }
+
+/* ── Dashboard footer (always visible at bottom) ─────────── */
+
+.panel-footer {
+  flex-shrink: 0;
+  padding: 8px 16px 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.panel-footer .btn {
+  width: 100%;
+}
