@@ -401,12 +401,17 @@ async function checkDuplicate(job) {
 
     if (!match) {
       setStatusBar('new');
-    } else if (match.status === 'submitted') {
-      setStatusBar('submitted');
-    } else if (match.status === 'rejected') {
-      setStatusBar('rejected');
     } else {
-      setStatusBar('prep');
+      if (match.status === 'submitted') {
+        setStatusBar('submitted');
+      } else if (match.status === 'rejected') {
+        setStatusBar('rejected');
+      } else {
+        setStatusBar('prep');
+      }
+      if (match.folder?.id) {
+        showDriveLink(`https://drive.google.com/drive/folders/${match.folder.id}`);
+      }
     }
   } catch (err) {
     duplicateCheckHint.style.display = 'none';
