@@ -141,6 +141,23 @@ body {
   color: #9ca3af;
 }
 
+/* ── Drive folder link ───────────────────────────────────── */
+
+#drive-link-container {
+  text-align: center;
+  font-size: 0.82rem;
+}
+
+#drive-link {
+  color: #9ca3af;
+  text-decoration: none;
+}
+
+#drive-link:hover {
+  color: #6b7280;
+  text-decoration: underline;
+}
+
 /* ── Duplicate-check hint ────────────────────────────────── */
 
 .duplicate-check-hint {

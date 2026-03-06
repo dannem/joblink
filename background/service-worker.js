@@ -581,5 +581,8 @@ async function handleSaveToDrive(job, pdfBase64) {
   }
 
   console.log(`[JobLink] Saved to Drive: Preparation/${folderName} (folder ID: ${folder.id})`);
-  return { success: true };
+  return {
+    success: true,
+    folderUrl: `https://drive.google.com/drive/folders/${folder.id}`,
+  };
 }

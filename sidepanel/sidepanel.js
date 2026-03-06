@@ -46,6 +46,8 @@ const jobStatusBar        = document.getElementById('job-status-bar');
 const jobStatusText       = document.getElementById('job-status-text');
 const jobStatusIcon       = document.getElementById('job-status-icon');
 const duplicateCheckHint  = document.getElementById('duplicate-check-hint');
+const driveLinkContainer  = document.getElementById('drive-link-container');
+const driveLink           = document.getElementById('drive-link');
 const btnPreparePackage  = document.getElementById('btn-prepare-package');
 const btnEvaluateFit     = document.getElementById('evaluate-fit-btn');
 const packageModel       = document.getElementById('package-model');
@@ -184,9 +186,10 @@ function clearJobOnStartup() {
   sourceBadge.textContent = '';
   sourceBadge.className   = 'source-badge';
 
-  stateJob.style.display      = 'none';
-  stateEmpty.style.display    = 'flex';
-  staleWarning.style.display  = 'none';
+  stateJob.style.display        = 'none';
+  stateEmpty.style.display      = 'flex';
+  staleWarning.style.display    = 'none';
+  driveLinkContainer.style.display = 'none';
   hideMessages();
 
   chrome.storage.session.remove(SESSION_KEYS.CURRENT_JOB).catch(() => {});
@@ -528,6 +531,7 @@ async function handleSave() {
 
     if (response && response.success) {
       showSuccess();
+      if (response.folderUrl) showDriveLink(response.folderUrl);
     } else {
       showError(response?.error || 'Save failed — please try again.');
     }
@@ -548,6 +552,7 @@ async function handleClear() {
   currentJob = null;
   chrome.storage.session.remove(SESSION_KEYS.CURRENT_JOB).catch(() => {});
   hideMessages();
+  driveLinkContainer.style.display = 'none';
   stateJob.style.display   = 'none';
   stateEmpty.style.display = 'flex';
 
@@ -690,6 +695,7 @@ function resetProgress(packageMode, show = true) {
   packageStatus.style.display   = 'none';
   packageStatus.className       = 'package-status';
   packageStatus.textContent     = '';
+  if (!show) driveLinkContainer.style.display = 'none';
 }
 
 async function handlePreparePackage() {
@@ -892,7 +898,7 @@ async function handlePreparePackage() {
       companyBlock:   clCompanyBlock,
       bodyParagraphs: clBodyParagraphs,
     };
-    await savePreparedPackage(
+    const saveResult = await savePreparedPackage(
       token, jobToSave,
       { templateDocId: selectedTemplate?.id ?? null, newSummary, newBullets },
       clData,
@@ -902,6 +908,9 @@ async function handlePreparePackage() {
 
     updateProgress(5, 'done');
     setStatusBar('submitted');
+    if (saveResult?.submittedFolderId) {
+      showDriveLink(`https://drive.google.com/drive/folders/${saveResult.submittedFolderId}`);
+    }
 
   } catch (err) {
     if (activeStep >= 0) updateProgress(activeStep, 'error');
@@ -946,6 +955,15 @@ function showError(text) {
   msgError.textContent     = text;
   msgError.style.display   = 'block';
   msgSuccess.style.display = 'none';
+}
+
+/**
+ * Show the Drive folder link below the Save/Clear buttons.
+ * @param {string} url - Full Drive folder URL
+ */
+function showDriveLink(url) {
+  driveLink.href = url;
+  driveLinkContainer.style.display = 'block';
 }
 
 /** Hide both status banners. */
