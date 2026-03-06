@@ -528,6 +528,7 @@ async function handleSave() {
       payload:  jobToSave,
       pdfBase64,
     });
+    console.log('[JobLink] save response:', JSON.stringify(response));
 
     if (response && response.success) {
       showSuccess();

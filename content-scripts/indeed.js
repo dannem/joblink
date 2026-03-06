@@ -163,6 +163,12 @@ function sendJobData(jobData) {
  * that both code paths stay in sync.
  */
 function runScrape() {
+  const currentHref = window.location.href;
+  if (currentHref === lastScrapedHref) {
+    console.log('[JobLink] Skipping duplicate scrape — URL unchanged:', currentHref);
+    return;
+  }
+  lastScrapedHref = currentHref;
   const jobData = scrapeIndeedJob();
   console.log('[JobLink] Indeed scraper result:', jobData);
   sendJobData(jobData);
@@ -175,6 +181,10 @@ let lastSeenHref = window.location.href;
 
 /** Debounce timer handle for re-scrape scheduling; null when idle. */
 let debounceTimer = null;
+
+/** URL of the most recently completed scrape — prevents duplicate scrapes
+ *  when REQUEST_SCRAPE is sent multiple times for the same page. */
+let lastScrapedHref = null;
 
 /**
  * Start a MutationObserver that detects in-page job navigation on Indeed.
