@@ -32,6 +32,33 @@
     </div>
   </div>
 
+  <!-- ── Filter bar ────────────────────────────────────────── -->
+  <div class="filter-bar">
+    <input type="text" id="filter-keyword" class="filter-input" placeholder="Search position, company, location…">
+    <select id="filter-status" class="filter-select">
+      <option value="all">All Statuses</option>
+      <option value="preparation">Preparation</option>
+      <option value="submitted">Submitted</option>
+      <option value="rejected">Rejected</option>
+    </select>
+    <select id="filter-type" class="filter-select">
+      <option value="all">All Types</option>
+      <option value="academic">Academic</option>
+      <option value="research">Research</option>
+      <option value="clinical">Clinical</option>
+      <option value="management">Management</option>
+      <option value="industry">Industry</option>
+      <option value="other">Other</option>
+    </select>
+    <select id="filter-location" class="filter-select">
+      <option value="all">All Locations</option>
+    </select>
+    <select id="filter-company" class="filter-select">
+      <option value="all">All Companies</option>
+    </select>
+    <button id="filter-clear" class="filter-clear-btn">Clear Filters</button>
+  </div>
+
   <!-- ── Preparation section ────────────────────────────────── -->
   <section class="job-section" id="section-preparation">
     <button class="section-toggle" data-target="body-preparation">

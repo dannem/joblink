@@ -281,3 +281,68 @@ body {
   background: #9ca3af;
   cursor: not-allowed;
 }
+
+/* ── Filter bar ─────────────────────────────────────────── */
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+}
+
+.filter-input {
+  flex: 1;
+  min-width: 180px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #333;
+  background: white;
+  font-family: inherit;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.filter-select {
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #333;
+  background: white;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+.filter-clear-btn {
+  padding: 6px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.83rem;
+  color: #666;
+  background: white;
+  cursor: pointer;
+  white-space: nowrap;
+  font-weight: 500;
+  font-family: inherit;
+}
+
+.filter-clear-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}

@@ -28,6 +28,15 @@ const jobsByStatus = {
   rejected:    [],
 };
 
+/** Current filter state — persists across loadDashboard() calls (e.g. after a move). */
+const filters = {
+  keyword:  '',
+  status:   'all',
+  type:     'all',
+  location: 'all',
+  company:  'all',
+};
+
 // ── Entry point ───────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -39,6 +48,41 @@ document.addEventListener('DOMContentLoaded', async () => {
       const collapsed = body.classList.toggle('hidden');
       btn.classList.toggle('collapsed', collapsed);
     });
+  });
+
+  // Wire filter controls
+  document.getElementById('filter-keyword').addEventListener('input', e => {
+    filters.keyword = e.target.value;
+    applyFilters();
+  });
+  document.getElementById('filter-status').addEventListener('change', e => {
+    filters.status = e.target.value;
+    applyFilters();
+  });
+  document.getElementById('filter-type').addEventListener('change', e => {
+    filters.type = e.target.value;
+    applyFilters();
+  });
+  document.getElementById('filter-location').addEventListener('change', e => {
+    filters.location = e.target.value;
+    applyFilters();
+  });
+  document.getElementById('filter-company').addEventListener('change', e => {
+    filters.company = e.target.value;
+    applyFilters();
+  });
+  document.getElementById('filter-clear').addEventListener('click', () => {
+    filters.keyword  = '';
+    filters.status   = 'all';
+    filters.type     = 'all';
+    filters.location = 'all';
+    filters.company  = 'all';
+    document.getElementById('filter-keyword').value  = '';
+    document.getElementById('filter-status').value   = 'all';
+    document.getElementById('filter-type').value     = 'all';
+    document.getElementById('filter-location').value = 'all';
+    document.getElementById('filter-company').value  = 'all';
+    applyFilters();
   });
 
   await loadDashboard();
@@ -89,6 +133,10 @@ async function loadDashboard() {
     renderSection('preparation', prepJobs);
     renderSection('submitted',   subJobs);
     renderSection('rejected',    rejJobs);
+
+    // Populate dynamic filter dropdowns and re-apply any active filters
+    populateFilterDropdowns();
+    applyFilters();
 
     // Classify job types asynchronously (non-blocking)
     classifyAllJobs();
@@ -324,6 +372,8 @@ async function classifyAllJobs() {
       // Update the type badge in the table
       const cell = document.querySelector(`.cell-type[data-folder-id="${job.folderId}"]`);
       if (cell) cell.innerHTML = typeBadgeHtml(result);
+      // Re-apply filters now that this job's type is known
+      applyFilters();
 
       // Persist the classification back to Drive (non-blocking on failure)
       await updateJobTypeInDrive(job).catch(err =>
@@ -448,6 +498,123 @@ async function moveDriveFolder(folderId, removeParentId, addParentId) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error?.message || `Move failed: ${res.status}`);
   }
+}
+
+// ── Filtering ─────────────────────────────────────────────────
+
+/**
+ * Populate the Location and Company dropdowns from current job data.
+ * Preserves the selected value if it still exists after a refresh.
+ *
+ * @param {string} folderId
+ * @returns {Object|null}
+ */
+function findJobByFolderId(folderId) {
+  for (const status of ['preparation', 'submitted', 'rejected']) {
+    const found = jobsByStatus[status].find(j => j.folderId === folderId);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * Fill a <select> with a list of string values, preserving the current selection.
+ *
+ * @param {string} id         - Element id of the <select>
+ * @param {string[]} values   - Sorted unique values to add as options
+ * @param {string} currentVal - Currently selected value (to re-select after repopulate)
+ */
+function populateDropdown(id, values, currentVal) {
+  const select = document.getElementById(id);
+  if (!select) return;
+  const allLabel = id === 'filter-location' ? 'All Locations' : 'All Companies';
+  select.innerHTML = `<option value="all">${allLabel}</option>`;
+  values.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = v;
+    if (v === currentVal) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
+
+/**
+ * Rebuild the Location and Company filter dropdowns from loaded job data.
+ */
+function populateFilterDropdowns() {
+  const allJobs = [
+    ...jobsByStatus.preparation,
+    ...jobsByStatus.submitted,
+    ...jobsByStatus.rejected,
+  ];
+  const locations = [...new Set(allJobs.map(j => j.location || '').filter(Boolean))].sort();
+  const companies = [...new Set(allJobs.map(j => j.company  || '').filter(Boolean))].sort();
+  populateDropdown('filter-location', locations, filters.location);
+  populateDropdown('filter-company',  companies, filters.company);
+}
+
+/**
+ * Read the current filter values and show/hide table rows accordingly.
+ * A row is visible only when it matches ALL active filters.
+ * Hides an entire section if no rows in it pass the filter.
+ */
+function applyFilters() {
+  const keyword  = filters.keyword.toLowerCase().trim();
+  const status   = filters.status;
+  const type     = filters.type;
+  const location = filters.location;
+  const company  = filters.company;
+
+  ['preparation', 'submitted', 'rejected'].forEach(sectionStatus => {
+    const section = document.getElementById(`section-${sectionStatus}`);
+    if (!section) return;
+
+    // Status filter — hide the whole section if it doesn't match
+    if (status !== 'all' && status !== sectionStatus) {
+      section.style.display = 'none';
+      return;
+    }
+
+    const tbody = document.getElementById(`tbody-${sectionStatus}`);
+    if (!tbody) { section.style.display = ''; return; }
+
+    // Remove any stale "no filter results" rows from a previous applyFilters call
+    tbody.querySelectorAll('.filter-empty-row').forEach(r => r.remove());
+
+    const dataRows = tbody.querySelectorAll('tr[data-folder-id]');
+    let visibleCount = 0;
+
+    dataRows.forEach(row => {
+      const job = findJobByFolderId(row.dataset.folderId);
+      if (!job) { row.style.display = ''; visibleCount++; return; }
+
+      const matchesKeyword = !keyword ||
+        (job.jobTitle  || '').toLowerCase().includes(keyword) ||
+        (job.company   || '').toLowerCase().includes(keyword) ||
+        (job.location  || '').toLowerCase().includes(keyword);
+
+      const matchesType     = type     === 'all' || (job.jobType  || '').toLowerCase() === type;
+      const matchesLocation = location === 'all' || (job.location || '') === location;
+      const matchesCompany  = company  === 'all' || (job.company  || '') === company;
+
+      const visible = matchesKeyword && matchesType && matchesLocation && matchesCompany;
+      row.style.display = visible ? '' : 'none';
+      if (visible) visibleCount++;
+    });
+
+    // If there are data rows but none are visible, show a "no matches" message
+    if (dataRows.length > 0 && visibleCount === 0) {
+      const tr = document.createElement('tr');
+      tr.className = 'empty-row filter-empty-row';
+      tr.innerHTML = '<td colspan="8">No jobs match the current filters.</td>';
+      tbody.appendChild(tr);
+      // Keep the section visible so the user sees the "no matches" message
+      section.style.display = '';
+    } else {
+      // Hide section entirely if no data rows exist and nothing matches
+      section.style.display = (dataRows.length === 0 || visibleCount > 0) ? '' : 'none';
+    }
+  });
 }
 
 // ── Auth ───────────────────────────────────────────────────────
