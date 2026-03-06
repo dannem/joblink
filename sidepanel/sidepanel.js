@@ -59,6 +59,11 @@ let currentJob = null;
 /** Which documents to generate in Prepare Package: 'both' | 'cv' | 'cl' */
 let currentPackageMode = 'both';
 
+/** Dedup guard for checkDuplicate — stores the identity of the last job checked.
+ *  Prevents repeated Drive API calls when showJob() fires more than once for the
+ *  same posting (dual scrape paths: direct sendMessage + SIDEPANEL_OPENED). */
+let lastDuplicateCheckId = null;
+
 // ── Initialisation ────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -73,7 +78,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     const savedPackage = await getStorageValue(STORAGE_KEYS.DEFAULT_PACKAGE);
-    if (savedPackage) currentPackageMode = savedPackage;
+    if (savedPackage) {
+      currentPackageMode = savedPackage;
+      console.log('[JobLink] loaded packageMode from storage:', savedPackage);
+    }
   } catch (_) { /* non-fatal — defaults to 'both' */ }
 
   // Trigger a fresh scrape from the active tab.
@@ -163,6 +171,7 @@ document.querySelectorAll('.collapsible-toggle').forEach(btn => {
  */
 function clearJobOnStartup() {
   currentJob = null;
+  lastDuplicateCheckId = null;
 
   fieldTitle.value        = '';
   fieldCompany.value      = '';
@@ -250,6 +259,7 @@ function requestScrapeIfJobChanged(tab) {
   // on same-job refreshes while still preventing stale data on navigation.
   if (currentJob && !sameJob) {
     currentJob = null;
+    lastDuplicateCheckId = null;
     stateJob.style.display      = 'none';
     stateEmpty.style.display    = 'flex';
     staleWarning.style.display  = isJobRelevantUrl(tab.url) ? 'flex' : 'none';
@@ -352,6 +362,15 @@ function setStatusBar(status) {
  * @param {Object} job - { company, jobTitle } from the current job
  */
 async function checkDuplicate(job) {
+  // Skip if we already ran this check for the same job — showJob() can be
+  // called multiple times per posting when both scrape paths return data.
+  const jobId = (job.applicationUrl || '') + '|' + (job.company || '') + '|' + (job.jobTitle || '');
+  if (jobId === lastDuplicateCheckId) {
+    console.log('[JobLink] checkDuplicate: skipping duplicate call for:', job.jobTitle);
+    return;
+  }
+  lastDuplicateCheckId = jobId;
+
   setStatusBar('checking');
 
   try {
@@ -779,6 +798,8 @@ async function handlePreparePackage() {
         console.warn('[JobLink] Could not read template structure:', err.message);
       }
       updateProgress(1, 'done');
+    } else {
+      updateProgress(1, 'skipped');
     }
 
     // Step 2 — Read CL template (skip when mode is 'cv')
@@ -816,6 +837,8 @@ async function handlePreparePackage() {
         }
       }
       updateProgress(3, 'done');
+    } else {
+      updateProgress(3, 'skipped');
     }
 
     // Step 4 — Tailor cover letter (skip when mode is 'cv')
