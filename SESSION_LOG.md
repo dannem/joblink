@@ -5,6 +5,35 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 41 — Complete
+Date: 2026-03-05
+Branch: main
+What was built:
+
+- View in Drive link — appears after both Save to Drive and Prepare Package complete;
+  persists when navigating back to a previously saved job via checkDuplicate(); hidden
+  on clear and job navigation
+- Subfolder cache invalidation — when user changes save location in Settings, cached
+  Preparation/Submitted/Rejected folder IDs are cleared and recreated in new location
+- Parent folder verification in ensureStatusFolders — detects stale cached IDs and
+  recreates subfolders if pointing to wrong parent
+- Indeed scraper loop fix — dedup guard prevents repeated scraping of same URL
+- LinkedIn scraper loop fix — lastScrapedJobId guard prevents repeated scraping of
+  same job
+- OpenAI GPT integration — GPT-4o, GPT-4o Mini, GPT-4 Turbo, o1, o1-mini, o3-mini
+  added to all model dropdowns and modelMaps; callOpenAI() routes through callAI()
+- Package mode fix — CV and CL save steps now correctly wrapped in packageMode guards;
+  AI call failures now surface as visible errors instead of silently saving broken
+  documents
+- Duplicate check dedup guard and 5-second timeout
+
+Test results: Cover Letter only mode confirmed working with Gemini. View in Drive link
+confirmed working. OpenAI integration confirmed working (requires funded account).
+Known issues: OpenAI requires credits at platform.openai.com/settings/billing.
+Next steps: Dashboard improvements — move jobs between status folders from dashboard UI.
+
+---
+
 Session 40 — Complete
 Date: 2026-03-05
 Branch: main
