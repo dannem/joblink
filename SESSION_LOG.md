@@ -5,6 +5,24 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 44 — Complete
+Date: 2026-03-06
+Branch: main
+What was built:
+
+- Dashboard filter bar — keyword search (position + company + location), dropdown
+  filters for Status, Type, Location, Company; Clear Filters button; section headers
+  hide when no matching rows; filter state persists across job moves
+- Dashboard column sorting — click any column header to sort by position, company,
+  location, date, salary, or type; toggle ascending/descending; sort indicators
+  (↕/↑/↓) on headers; sort persists across re-renders
+
+Test results: Filters and sorting confirmed working.
+Known issues: None.
+Next steps: Job detail view, bulk actions, reject button.
+
+---
+
 Session 42 — Complete
 Date: 2026-03-06
 Branch: main
