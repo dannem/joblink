@@ -897,26 +897,31 @@ async function savePreparedPackage(accessToken, job, cvData, clData, selectedTem
 
   // ── 5. Save tailored CV as Google Doc (Docs API in-place tailoring) + PDF ─
   const cvTitle = `CV - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;
-  let cvDocId;
-  if (cvData.templateDocId) {
-    cvDocId = await tailorCVWithDocsAPI(
-      accessToken,
-      cvData.templateDocId,
-      submittedJobFolderId,
-      cvTitle,
-      cvData.newSummary,
-      cvData.newBullets
-    );
+  if (cvData.templateDocId || cvData.html) {
+    console.log('[JobLink] creating CV file');
+    let cvDocId;
+    if (cvData.templateDocId) {
+      cvDocId = await tailorCVWithDocsAPI(
+        accessToken,
+        cvData.templateDocId,
+        submittedJobFolderId,
+        cvTitle,
+        cvData.newSummary,
+        cvData.newBullets
+      );
+    } else {
+      cvDocId = await createGoogleDoc(accessToken, submittedJobFolderId, cvTitle, wrapHtmlDocument(cvTitle, cvData.html));
+    }
+    await exportDocAsPDF(accessToken, cvDocId, submittedJobFolderId, cvTitle);
   } else {
-    // Fallback: create from HTML if no template doc ID available
-    cvDocId = await createGoogleDoc(accessToken, submittedJobFolderId, cvTitle, wrapHtmlDocument(cvTitle, cvData.html || ''));
+    console.log('[JobLink] skipping CV file — no CV data');
   }
-  await exportDocAsPDF(accessToken, cvDocId, submittedJobFolderId, cvTitle);
 
   // ── 6. Save cover letter as Google Doc (Docs API in-place tailoring) + PDF ─
   const clTitle = `Cover Letter - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;
   let clDocId;
   if (clData.templateDocId) {
+    console.log('[JobLink] creating CL file');
     clDocId = await tailorCLWithDocsAPI(
       accessToken,
       clData.templateDocId,
@@ -926,9 +931,10 @@ async function savePreparedPackage(accessToken, job, cvData, clData, selectedTem
       clData.bodyParagraphs || []
     );
   } else if (clData.html) {
+    console.log('[JobLink] creating CL file');
     clDocId = await createGoogleDoc(accessToken, submittedJobFolderId, clTitle, wrapHtmlDocument(clTitle, clData.html));
   } else {
-    console.warn('[JobLink] No CL data at all — skipping cover letter');
+    console.log('[JobLink] skipping CL file — no CL data');
     return { submittedFolderId: submittedJobFolderId };
   }
   await exportDocAsPDF(accessToken, clDocId, submittedJobFolderId, clTitle);
