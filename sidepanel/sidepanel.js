@@ -725,6 +725,7 @@ function resetProgress(packageMode, show = true) {
 }
 
 async function handlePreparePackage() {
+  console.log('[JobLink] packageMode:', currentPackageMode);
   if (!currentJob) return;
   console.log('[JobLink] handlePreparePackage start — currentPackageMode:', currentPackageMode);
 
