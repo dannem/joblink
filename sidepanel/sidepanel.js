@@ -50,6 +50,7 @@ const driveLinkContainer  = document.getElementById('drive-link-container');
 const driveLink           = document.getElementById('drive-link');
 const btnPreparePackage  = document.getElementById('btn-prepare-package');
 const btnEvaluateFit     = document.getElementById('evaluate-fit-btn');
+const packageType        = document.getElementById('package-type');
 const packageModel       = document.getElementById('package-model');
 const packageStatus      = document.getElementById('package-status');
 const packageProgress    = document.getElementById('package-progress');
@@ -83,6 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const savedPackage = await getStorageValue(STORAGE_KEYS.DEFAULT_PACKAGE);
     if (savedPackage) {
       currentPackageMode = savedPackage;
+      packageType.value  = savedPackage;
       console.log('[JobLink] loaded packageMode from storage:', savedPackage);
     }
   } catch (_) { /* non-fatal — defaults to 'both' */ }
@@ -699,24 +701,22 @@ function updateProgress(step, status) {
  */
 function resetProgress(packageMode, show = true) {
   // Show all rows first, then hide the ones not needed for this mode
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 9; i++) {
     const row = document.getElementById(`progress-step-${i}`);
     if (row) row.style.display = '';
     updateProgress(i, 'pending');
   }
+  const hide = (...ids) => ids.forEach(id => {
+    const r = document.getElementById(id); if (r) r.style.display = 'none';
+  });
   if (packageMode === 'cv') {
-    // CV only — hide CL-related steps
-    const r2 = document.getElementById('progress-step-2');
-    const r4 = document.getElementById('progress-step-4');
-    if (r2) r2.style.display = 'none';
-    if (r4) r4.style.display = 'none';
+    hide('progress-step-2', 'progress-step-4', 'progress-step-6', 'progress-step-7', 'progress-step-8');
   } else if (packageMode === 'cl') {
-    // CL only — hide CV-related steps
-    const r1 = document.getElementById('progress-step-1');
-    const r3 = document.getElementById('progress-step-3');
-    if (r1) r1.style.display = 'none';
-    if (r3) r3.style.display = 'none';
+    hide('progress-step-1', 'progress-step-3', 'progress-step-6', 'progress-step-7', 'progress-step-8');
+  } else if (packageMode === 'both') {
+    hide('progress-step-6', 'progress-step-7', 'progress-step-8');
   }
+  // packageMode === 'academic': all 9 steps visible
   packageProgress.style.display = show ? 'block' : 'none';
   packageStatus.style.display   = 'none';
   packageStatus.className       = 'package-status';
@@ -738,10 +738,11 @@ async function handlePreparePackage() {
     description: fieldDesc.value.trim(),
   };
 
-  // Normalize storage values ('cv_only'/'cl_only') to internal short form ('cv'/'cl').
-  const rawMode = currentPackageMode;
+  // Read packageMode from the sidepanel dropdown (user's active choice).
+  // currentPackageMode is only used to set the initial dropdown value on startup.
+  const rawMode = packageType.value || currentPackageMode;
   const packageMode = rawMode === 'cv_only' ? 'cv' : rawMode === 'cl_only' ? 'cl' : rawMode;
-  console.log('[JobLink] handlePreparePackage: currentPackageMode =', currentPackageMode, '→ packageMode =', packageMode);
+  console.log('[JobLink] handlePreparePackage: packageType.value =', packageType.value, '→ packageMode =', packageMode);
 
   btnPreparePackage.disabled = true;
   resetProgress(packageMode); // shows container and hides irrelevant rows
@@ -936,6 +937,25 @@ async function handlePreparePackage() {
     );
 
     updateProgress(5, 'done');
+
+    // Steps 6, 7, 8 — Academic statements (academic mode only)
+    if (packageMode === 'academic' && saveResult?.submittedFolderId) {
+      const academicSteps = [
+        { step: 6, label: 'Research Statement',  buildPrompt: () => buildResearchStatementPrompt(jobToSave, profileText) },
+        { step: 7, label: 'Diversity Statement', buildPrompt: () => buildDiversityStatementPrompt(jobToSave, profileText) },
+        { step: 8, label: 'Teaching Statement',  buildPrompt: () => buildTeachingStatementPrompt(jobToSave, profileText) },
+      ];
+      for (const { step, label, buildPrompt } of academicSteps) {
+        activeStep = step;
+        updateProgress(step, 'active');
+        const prompt = buildPrompt();
+        const text = await callAI('claude', prompt, selectedModel);
+        const docTitle = `${label} - ${jobToSave.jobTitle || 'Application'} (${jobToSave.company || 'Company'})`;
+        await saveAcademicDocToDrive(token, saveResult.submittedFolderId, docTitle, text);
+        updateProgress(step, 'done');
+      }
+    }
+
     setStatusBar('submitted');
     if (saveResult?.submittedFolderId) {
       showDriveLink(`https://drive.google.com/drive/folders/${saveResult.submittedFolderId}`);

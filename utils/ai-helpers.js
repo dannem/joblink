@@ -517,3 +517,71 @@ For bodyParagraphs: write compelling, specific paragraphs that:
 - Are professional but personable, not generic or formulaic
 - Contain no markdown, no bullet points, no bold — plain prose only`;
 }
+
+// ── Academic statement prompt builders ─────────────────────────────────────
+
+function buildResearchStatementPrompt(job, profileText) {
+  return `You are writing a Research Statement for an academic job application.
+
+Write 3–5 paragraphs of polished academic prose. Do NOT return JSON. Return only the plain text of the statement — no headings, no markdown, no bullet points.
+
+The statement should:
+- Describe the candidate's core research interests and the central questions driving their work
+- Summarise past research accomplishments with specific examples and outcomes
+- Articulate a clear research agenda and future directions relevant to this position
+- Connect the candidate's research vision to the institution or department's strengths where evident
+- Be written in first person, confident and specific
+
+JOB:
+Title: ${job.jobTitle || 'N/A'}
+Institution / Company: ${job.company || 'N/A'}
+Location: ${job.location || 'N/A'}
+Description: ${job.description || 'N/A'}
+
+CANDIDATE PROFILE:
+${profileText || '(no profile provided — write based on the job description context)'}`;
+}
+
+function buildDiversityStatementPrompt(job, profileText) {
+  return `You are writing a Diversity, Equity, and Inclusion (DEI) Statement for an academic job application.
+
+Write 2–4 paragraphs of polished academic prose. Do NOT return JSON. Return only the plain text of the statement — no headings, no markdown, no bullet points.
+
+The statement should:
+- Reflect on the candidate's values regarding diversity, equity, and inclusion in research and teaching
+- Describe concrete past experiences supporting underrepresented students or colleagues
+- Articulate specific plans for fostering an inclusive research group or classroom
+- Be genuine and grounded — avoid generic platitudes; use real examples from the profile
+- Be written in first person
+
+JOB:
+Title: ${job.jobTitle || 'N/A'}
+Institution / Company: ${job.company || 'N/A'}
+Location: ${job.location || 'N/A'}
+Description: ${job.description || 'N/A'}
+
+CANDIDATE PROFILE:
+${profileText || '(no profile provided — write based on the job description context)'}`;
+}
+
+function buildTeachingStatementPrompt(job, profileText) {
+  return `You are writing a Teaching Statement for an academic job application.
+
+Write 2–4 paragraphs of polished academic prose. Do NOT return JSON. Return only the plain text of the statement — no headings, no markdown, no bullet points.
+
+The statement should:
+- Articulate the candidate's teaching philosophy and core beliefs about student learning
+- Give specific examples of teaching methods, courses taught, or mentoring experiences
+- Describe how the candidate adapts instruction to diverse learners
+- Connect teaching approach to the role and any courses mentioned in the job description
+- Be written in first person, warm and reflective
+
+JOB:
+Title: ${job.jobTitle || 'N/A'}
+Institution / Company: ${job.company || 'N/A'}
+Location: ${job.location || 'N/A'}
+Description: ${job.description || 'N/A'}
+
+CANDIDATE PROFILE:
+${profileText || '(no profile provided — write based on the job description context)'}`;
+}

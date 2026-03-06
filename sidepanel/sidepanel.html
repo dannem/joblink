@@ -83,6 +83,16 @@
     </div>
 
     <div class="action-row action-row--package-model">
+      <label for="package-type" class="selector-label">Package type</label>
+      <select id="package-type" class="ai-selector">
+        <option value="both">CV + Cover Letter</option>
+        <option value="cv">CV only</option>
+        <option value="cl">Cover Letter only</option>
+        <option value="academic">Academic Package</option>
+      </select>
+    </div>
+
+    <div class="action-row action-row--package-model">
       <label for="package-model" class="selector-label">AI model</label>
       <select id="package-model" class="ai-selector">
         <optgroup label="Anthropic">
@@ -135,6 +145,18 @@
       <div class="progress-step progress-step--pending" id="progress-step-5">
         <span class="progress-icon">⏳</span>
         <span class="progress-label">Saving to Drive</span>
+      </div>
+      <div class="progress-step progress-step--pending" id="progress-step-6">
+        <span class="progress-icon">⏳</span>
+        <span class="progress-label">Research Statement</span>
+      </div>
+      <div class="progress-step progress-step--pending" id="progress-step-7">
+        <span class="progress-icon">⏳</span>
+        <span class="progress-label">Diversity Statement</span>
+      </div>
+      <div class="progress-step progress-step--pending" id="progress-step-8">
+        <span class="progress-icon">⏳</span>
+        <span class="progress-label">Teaching Statement</span>
       </div>
     </div>
 

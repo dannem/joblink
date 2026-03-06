@@ -1222,3 +1222,23 @@ async function tailorCLWithDocsAPI(accessToken, templateDocId, parentFolderId, t
   console.log(`[JobLink] CL tailored: ${bodyParagraphs.length} paragraphs inserted before "Sincerely," in doc ${copiedDocId}`);
   return copiedDocId;
 }
+
+/**
+ * Save a plain-text academic statement as a Google Doc + PDF in the given folder.
+ *
+ * @param {string} accessToken
+ * @param {string} folderId      - Drive folder to save into
+ * @param {string} title         - Document title (used as Doc name and PDF name)
+ * @param {string} text          - Plain text content (double newlines = paragraph breaks)
+ * @returns {Promise<string>} Google Doc ID of the created document
+ */
+async function saveAcademicDocToDrive(accessToken, folderId, title, text) {
+  const paragraphs = text
+    .split(/\n\n+/)
+    .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+    .join('\n');
+  const htmlContent = wrapHtmlDocument(title, paragraphs);
+  const docId = await createGoogleDoc(accessToken, folderId, title, htmlContent);
+  await exportDocAsPDF(accessToken, docId, folderId, title);
+  return docId;
+}
