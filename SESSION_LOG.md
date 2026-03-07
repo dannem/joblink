@@ -5,6 +5,29 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 45 — Complete
+Date: 2026-03-06
+Branch: main
+What was built:
+
+- Job detail panel — slides in from right when clicking a job row; shows title,
+  company, location, date, salary, type, status, all Drive documents as clickable
+  links, notes field with save, full job description, move action; closes on ✕ or
+  overlay click
+- Notes persistence — saved to job_info.json via Drive API PATCH; persists across
+  sessions
+- "Open Dashboard" button always visible at bottom of sidepanel — moved outside
+  job/empty state divs into permanent footer
+- Bulk actions — checkbox column in each table; select-all per section; bulk move
+  to any status; bulk reject; clear selection; bulk bar shows/hides based on
+  selection count; filters respected during bulk operations
+
+Test results: All features confirmed working.
+Known issues: None.
+Next steps: Improve AI output quality — CV tailoring prompts, cover letter tone.
+
+---
+
 Session 44 — Complete
 Date: 2026-03-06
 Branch: main
