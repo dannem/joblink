@@ -60,7 +60,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["dashboard/dashboard.html"],
+      "resources": ["dashboard/dashboard.html", "privacy.html"],
       "matches": ["<all_urls>"]
     }
   ],
