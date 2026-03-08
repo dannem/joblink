@@ -11,8 +11,18 @@
   <!-- ── Header ─────────────────────────────────────────────── -->
   <header class="panel-header">
     <span class="logo">JobLink</span>
+    <span id="pro-status-badge" class="pro-badge pro-badge--free" style="display:none;">Free</span>
     <button id="settings-btn" class="icon-btn" title="Open settings" aria-label="Open settings">&#9881;</button>
   </header>
+
+  <!-- ── Upgrade banner — shown to free users when they click a gated feature ── -->
+  <div id="upgrade-banner" class="upgrade-banner" style="display:none;">
+    <p class="upgrade-banner__msg">✨ <strong>JobLink Pro</strong> unlocks AI-powered Evaluate Fit and Prepare Package.</p>
+    <div class="upgrade-banner__actions">
+      <a id="upgrade-cta-btn" href="https://joblink.lemonsqueezy.com/buy/placeholder" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-small">Upgrade — $4.99/month</a>
+      <button id="upgrade-have-key-btn" class="btn btn-secondary btn-small">I have an API key</button>
+    </div>
+  </div>
 
   <!-- ── Global warning banner (shown above either state) ──── -->
   <div id="stale-warning" style="display: none;">

@@ -17,8 +17,12 @@
 
 // ── DOM references ────────────────────────────────────────────
 
-const stateEmpty     = document.getElementById('state-empty');
-const stateJob       = document.getElementById('state-job');
+const stateEmpty          = document.getElementById('state-empty');
+const stateJob            = document.getElementById('state-job');
+const upgradeBanner       = document.getElementById('upgrade-banner');
+const upgradeCtaBtn       = document.getElementById('upgrade-cta-btn');
+const upgradeHaveKeyBtn   = document.getElementById('upgrade-have-key-btn');
+const proStatusBadge      = document.getElementById('pro-status-badge');
 const sourceBadge    = document.getElementById('source-badge');
 const scrapedTime    = document.getElementById('scraped-time');
 const fieldTitle     = document.getElementById('field-title');
@@ -88,6 +92,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.log('[JobLink] loaded packageMode from storage:', savedPackage);
     }
   } catch (_) { /* non-fatal — defaults to 'both' */ }
+
+  // Show Pro badge and pre-check gate
+  await refreshProStatus();
 
   // Trigger a fresh scrape from the active tab.
   try {
@@ -164,6 +171,20 @@ document.querySelectorAll('.collapsible-toggle').forEach(btn => {
     body.style.display  = isOpen ? 'none' : 'block';
     arrow.textContent   = isOpen ? '▼' : '▲';
   });
+});
+
+upgradeHaveKeyBtn.addEventListener('click', () => {
+  hideUpgradeBanner();
+  chrome.runtime.sendMessage({ type: 'OPEN_SETTINGS' });
+});
+
+// Banner hides when any other part of the panel is clicked
+document.addEventListener('click', (e) => {
+  if (!upgradeBanner.contains(e.target) &&
+      e.target !== btnEvaluateFit &&
+      e.target !== btnPreparePackage) {
+    hideUpgradeBanner();
+  }
 });
 
 // ── UI functions ──────────────────────────────────────────────
@@ -436,6 +457,8 @@ async function checkDuplicate(job) {
  * @param {Object} job - The job object as returned by the scraper
  */
 async function enrichCompanyMetadata(job) {
+  const pro = await isProUser();
+  if (!pro) return;   // silent no-op for free users
   const co = job.company || '';
   const needsEnrichment = !co || co.length > 50 ||
     co.includes('employees') || co.includes('Metropolitan');
@@ -587,11 +610,47 @@ async function handleClear() {
 }
 
 /**
+ * Refresh the Pro badge in the header to reflect current gate status.
+ */
+async function refreshProStatus() {
+  const pro = await isProUser();
+  proStatusBadge.style.display = 'inline';
+  if (pro) {
+    proStatusBadge.textContent = 'Pro';
+    proStatusBadge.className = 'pro-badge pro-badge--pro';
+  } else {
+    proStatusBadge.textContent = 'Free';
+    proStatusBadge.className = 'pro-badge pro-badge--free';
+  }
+}
+
+/**
+ * Show the upgrade banner and scroll it into view.
+ * Hides automatically if the user clicks outside it.
+ */
+function showUpgradeBanner() {
+  upgradeBanner.style.display = 'block';
+  upgradeBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/**
+ * Hide the upgrade banner.
+ */
+function hideUpgradeBanner() {
+  upgradeBanner.style.display = 'none';
+}
+
+/**
  * Run an AI fit evaluation for the currently displayed job.
  * Reads the API key from storage, calls the selected provider via ai-helpers.js,
  * and renders the score and collapsible result sections.
  */
 async function handleEvaluate() {
+  const pro = await isProUser();
+  if (!pro) {
+    showUpgradeBanner();
+    return;
+  }
   if (!currentJob) return;
 
   aiSpinner.style.display = 'block';
@@ -725,6 +784,11 @@ function resetProgress(packageMode, show = true) {
 }
 
 async function handlePreparePackage() {
+  const pro = await isProUser();
+  if (!pro) {
+    showUpgradeBanner();
+    return;
+  }
   console.log('[JobLink] packageMode:', currentPackageMode);
   if (!currentJob) return;
   console.log('[JobLink] handlePreparePackage start — currentPackageMode:', currentPackageMode);

@@ -578,3 +578,51 @@ body {
 .panel-footer .btn {
   width: 100%;
 }
+
+/* ── Pro badge ─────────────────────────────────────────────── */
+.pro-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.pro-badge--free {
+  background: #f0f0f0;
+  color: #888;
+  border: 1px solid #ddd;
+}
+.pro-badge--pro {
+  background: #1a73e8;
+  color: #fff;
+  border: 1px solid #1558b0;
+}
+
+/* ── Upgrade banner ────────────────────────────────────────── */
+.upgrade-banner {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 8px;
+  margin: 10px 12px 4px;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+}
+.upgrade-banner__msg {
+  margin: 0 0 8px;
+  line-height: 1.4;
+  color: #333;
+}
+.upgrade-banner__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  flex: none;
+}

@@ -25,6 +25,8 @@ const STORAGE_KEYS = {
   DEFAULT_AI_MODEL: 'defaultAiModel',
   // User preference for which documents to generate in Prepare Package
   DEFAULT_PACKAGE: 'defaultPackage',
+  LICENCE_KEY: 'LICENCE_KEY',
+  LICENCE_VALID: 'LICENCE_VALID',
 };
 
 // chrome.storage.session key constants — cleared when the browser session ends
@@ -50,6 +52,8 @@ const DEFAULT_STORAGE = {
   [STORAGE_KEYS.GEMINI_API_KEY]: '',
   [STORAGE_KEYS.DEFAULT_AI_MODEL]: 'sonnet',
   [STORAGE_KEYS.DEFAULT_PACKAGE]: 'both',
+  [STORAGE_KEYS.LICENCE_KEY]: '',
+  [STORAGE_KEYS.LICENCE_VALID]: false,
 };
 
 /**
@@ -248,4 +252,19 @@ function generateJobSummaryHtml(job) {
   <div class="footer">Saved by JobLink &mdash; ${esc(savedDate)}</div>
 </body>
 </html>`;
+}
+
+/**
+ * Returns true if the user qualifies as a Pro user.
+ * V1 definition: at least one AI provider API key is saved in storage.
+ * V2 will replace this with licence key validation.
+ * @returns {Promise<boolean>}
+ */
+async function isProUser() {
+  const [anthropic, openai, gemini] = await Promise.all([
+    getStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY),
+    getStorageValue(STORAGE_KEYS.OPENAI_API_KEY),
+    getStorageValue(STORAGE_KEYS.GEMINI_API_KEY),
+  ]);
+  return !!(anthropic || openai || gemini);
 }

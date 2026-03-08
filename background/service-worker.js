@@ -413,6 +413,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'OPEN_SETTINGS') {
+    chrome.runtime.openOptionsPage();
+    return;
+  }
+
   if (message.type === 'CLASSIFY_JOB') {
     const prompt = `Classify this job into exactly one category from: academic, research, clinical, management, industry, other. Reply with the single word only.\n\nTitle: ${message.jobTitle || ''}\n\n${message.description || ''}`;
     callAI('claude', prompt)
