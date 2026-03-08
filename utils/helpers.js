@@ -256,15 +256,16 @@ function generateJobSummaryHtml(job) {
 
 /**
  * Returns true if the user qualifies as a Pro user.
- * V1 definition: at least one AI provider API key is saved in storage.
- * V2 will replace this with licence key validation.
+ * V1: true if at least one AI provider API key is saved, OR a valid licence key is stored.
+ * V2 will replace licence key validation with a live server check.
  * @returns {Promise<boolean>}
  */
 async function isProUser() {
-  const [anthropic, openai, gemini] = await Promise.all([
+  const [anthropic, openai, gemini, licenceValid] = await Promise.all([
     getStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY),
     getStorageValue(STORAGE_KEYS.OPENAI_API_KEY),
     getStorageValue(STORAGE_KEYS.GEMINI_API_KEY),
+    getStorageValue(STORAGE_KEYS.LICENCE_VALID),
   ]);
-  return !!(anthropic || openai || gemini);
+  return !!(anthropic || openai || gemini || licenceValid);
 }

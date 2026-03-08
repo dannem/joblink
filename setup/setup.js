@@ -7,6 +7,9 @@
 
 let accessToken = null;
 
+// Lemon Squeezy checkout URL — update when store is live
+const LEMON_SQUEEZY_CHECKOUT_URL = 'https://joblink.lemonsqueezy.com/buy/placeholder';
+
 // Main save-location folder
 let selectedFolderId = null;
 let selectedFolderName = null;
@@ -77,6 +80,9 @@ function wireEventListeners() {
       selectedClFolderId = id;
     });
   });
+  document.getElementById('activate-licence-btn').addEventListener('click', handleActivateLicence);
+  document.getElementById('revoke-licence-btn').addEventListener('click', handleRevokeLicence);
+
   document.getElementById('btn-pick-profile').addEventListener('click', () => {
     console.log('[JobLink] btn-pick-profile clicked');
     pickFolder('profile-folder-name', 'profile-status', (id) => {
@@ -106,6 +112,10 @@ async function prefillAllFields() {
       cvFolderId,
       clFolderId,
       profileFolderId,
+      // eslint-disable-next-line no-unused-vars
+      _licenceKey,
+      // eslint-disable-next-line no-unused-vars
+      _licenceValid,
     ] = await Promise.all([
       getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_NAME),
       getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID),
@@ -117,6 +127,8 @@ async function prefillAllFields() {
       getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID),
       getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID),
       getStorageValue(STORAGE_KEYS.PROFILE_FOLDER_ID),
+      getStorageValue(STORAGE_KEYS.LICENCE_KEY),
+      getStorageValue(STORAGE_KEYS.LICENCE_VALID),
     ]);
 
     // Dropdowns and text inputs
@@ -161,6 +173,9 @@ async function prefillAllFields() {
       if (names[1]) document.getElementById('cl-templates-folder-name').value  = names[1];
       if (names[2]) document.getElementById('profile-folder-name').value       = names[2];
     }
+
+    // Pro section
+    await refreshProSection();
   } catch (_) { /* non-fatal — user sees empty fields */ }
 }
 
@@ -224,6 +239,108 @@ async function handleConnectDrive() {
     console.error('OAuth failed:', error);
     showError(`Failed to connect to Google Drive: ${error.message}`);
     setButtonLoading(connectBtn, false);
+  }
+}
+
+// ── Pro section ───────────────────────────────────────────────────────────────
+
+/**
+ * Refresh the Pro status section in Settings to match current storage state.
+ */
+async function refreshProSection() {
+  const [anthropic, openai, gemini, licenceKey, licenceValid] = await Promise.all([
+    getStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY),
+    getStorageValue(STORAGE_KEYS.OPENAI_API_KEY),
+    getStorageValue(STORAGE_KEYS.GEMINI_API_KEY),
+    getStorageValue(STORAGE_KEYS.LICENCE_KEY),
+    getStorageValue(STORAGE_KEYS.LICENCE_VALID),
+  ]);
+
+  const hasApiKey = !!(anthropic || openai || gemini);
+  const isPro = !!(hasApiKey || licenceValid);
+
+  const badge        = document.getElementById('pro-settings-badge');
+  const description  = document.getElementById('pro-status-description');
+  const upgradeCta   = document.getElementById('pro-upgrade-cta');
+  const revokeRow    = document.getElementById('revoke-licence-row');
+  const licenceInput = document.getElementById('licence-key-input');
+
+  if (isPro) {
+    badge.textContent = 'Pro';
+    badge.className   = 'pro-badge pro-badge--pro';
+    upgradeCta.style.display = 'none';
+    if (licenceValid) {
+      description.textContent = 'Active — licence key verified.';
+    } else {
+      description.textContent = 'Active — using your own API key.';
+    }
+  } else {
+    badge.textContent = 'Free';
+    badge.className   = 'pro-badge pro-badge--free';
+    upgradeCta.style.display = 'block';
+    description.textContent = 'Upgrade to unlock AI-powered Evaluate Fit and Prepare Package.';
+  }
+
+  if (licenceKey) {
+    licenceInput.value = licenceKey;
+    revokeRow.style.display = 'block';
+  } else {
+    revokeRow.style.display = 'none';
+  }
+}
+
+/**
+ * Handle the Activate licence key button.
+ * V1: accepts any non-empty string and marks it as valid (real validation in V2).
+ */
+async function handleActivateLicence() {
+  const btn       = document.getElementById('activate-licence-btn');
+  const input     = document.getElementById('licence-key-input');
+  const statusMsg = document.getElementById('licence-status-msg');
+  const key       = input.value.trim();
+
+  if (!key) {
+    statusMsg.textContent = 'Please enter a licence key.';
+    statusMsg.className   = 'field-status error';
+    return;
+  }
+
+  setButtonLoading(btn, true);
+  statusMsg.textContent = '';
+  statusMsg.className   = 'field-status';
+
+  try {
+    // V1: accept the key as valid without a server call.
+    // V2: replace this block with a real Lemon Squeezy API validation call.
+    await setStorageValue(STORAGE_KEYS.LICENCE_KEY,   key);
+    await setStorageValue(STORAGE_KEYS.LICENCE_VALID, true);
+
+    statusMsg.textContent = 'Licence activated \u2713';
+    statusMsg.className   = 'field-status success';
+    await refreshProSection();
+  } catch (err) {
+    statusMsg.textContent = 'Failed to activate: ' + err.message;
+    statusMsg.className   = 'field-status error';
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+/**
+ * Remove the stored licence key and revoke Pro status (if it was from the key).
+ */
+async function handleRevokeLicence() {
+  const statusMsg = document.getElementById('licence-status-msg');
+  try {
+    await setStorageValue(STORAGE_KEYS.LICENCE_KEY,   '');
+    await setStorageValue(STORAGE_KEYS.LICENCE_VALID, false);
+    document.getElementById('licence-key-input').value = '';
+    statusMsg.textContent = 'Licence key removed.';
+    statusMsg.className   = 'field-status';
+    await refreshProSection();
+  } catch (err) {
+    statusMsg.textContent = 'Failed to remove key: ' + err.message;
+    statusMsg.className   = 'field-status error';
   }
 }
 

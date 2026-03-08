@@ -636,3 +636,90 @@ body {
   border-top: 1px solid #e5e7eb;
   margin-top: 8px;
 }
+
+/* ── Pro status section ──────────────────────────────────── */
+
+.pro-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.pro-badge--free {
+  background: #f0f0f0;
+  color: #888;
+  border: 1px solid #ddd;
+}
+.pro-badge--pro {
+  background: #1a73e8;
+  color: #fff;
+  border: 1px solid #1558b0;
+}
+
+.pro-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.pro-status-description {
+  font-size: 0.88rem;
+  color: #555;
+  line-height: 1.4;
+}
+
+.pro-upgrade-cta {
+  margin-bottom: 4px;
+}
+
+.pro-upgrade-note {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: #777;
+}
+
+.licence-key-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.licence-key-row .field-input {
+  flex: 1;
+  font-family: monospace;
+  letter-spacing: 0.05em;
+}
+
+.field-status {
+  margin: 6px 0 0;
+  font-size: 0.82rem;
+  min-height: 1.2em;
+}
+
+.field-status.success { color: #166534; }
+.field-status.error   { color: #b91c1c; }
+
+.revoke-licence-row {
+  margin-top: 8px;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #b91c1c;
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.btn-link:hover { color: #7f1d1d; }
+
+/* ── btn-small (shared with sidepanel, defined here for setup page) ── */
+.btn-small {
+  padding: 6px 14px;
+  font-size: 0.82rem;
+}

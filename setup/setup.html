@@ -75,6 +75,53 @@
         </div>
       </section>
 
+      <!-- ── Pro Status ─────────────────────────────────────────── -->
+      <section class="setup-section">
+        <h2>JobLink Pro</h2>
+
+        <!-- Status row -->
+        <div id="pro-status-row" class="pro-status-row">
+          <span id="pro-settings-badge" class="pro-badge pro-badge--free">Free</span>
+          <span id="pro-status-description" class="pro-status-description">
+            Upgrade to unlock AI-powered Evaluate Fit and Prepare Package.
+          </span>
+        </div>
+
+        <!-- Upgrade CTA — shown when free -->
+        <div id="pro-upgrade-cta" class="pro-upgrade-cta">
+          <a href="https://joblink.lemonsqueezy.com/buy/placeholder"
+             target="_blank"
+             rel="noopener noreferrer"
+             class="btn btn-primary btn-small">
+            Upgrade — $4.99/month
+          </a>
+          <p class="pro-upgrade-note">
+            Or enter an API key below to use your own AI credits.
+          </p>
+        </div>
+
+        <!-- Licence key input — always visible -->
+        <div class="field-group" style="margin-top: 16px;">
+          <label class="field-label" for="licence-key-input">Licence Key</label>
+          <div class="licence-key-row">
+            <input type="text"
+                   id="licence-key-input"
+                   class="field-input"
+                   placeholder="XXXX-XXXX-XXXX-XXXX"
+                   autocomplete="off"
+                   spellcheck="false">
+            <button id="activate-licence-btn" class="btn btn-primary btn-small">Activate</button>
+          </div>
+          <p id="licence-status-msg" class="field-status"></p>
+        </div>
+
+        <!-- Revoke link — only shown when a licence key is active -->
+        <div id="revoke-licence-row" class="revoke-licence-row" style="display:none;">
+          <button id="revoke-licence-btn" class="btn-link">Remove licence key</button>
+        </div>
+
+      </section>
+
       <!-- ── 3. Default AI Model ─────────────────────────────────── -->
       <section class="setup-section">
         <h2>Default AI Model</h2>
