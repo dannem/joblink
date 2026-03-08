@@ -5,6 +5,50 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 48 — Complete
+Date: 2026-03-08
+Branch: main
+What was built:
+Pro feature gate — free vs Pro user distinction, upgrade prompt UI, and AI button gating.
+
+utils/helpers.js
+- Added LICENCE_KEY and LICENCE_VALID to STORAGE_KEYS and DEFAULT_STORAGE (foundation for V2 licence key system)
+- Added isProUser() — async function that returns true if any of the three AI provider API keys (Anthropic, OpenAI, Gemini) is non-empty in storage. V2 will extend this to also check a valid licence key.
+
+setup/setup.js
+- Fixed handleSaveKeys() to always write all three API key values (including empty strings), allowing users to clear keys from the Settings page. Previously only non-empty values were written, making it impossible to revoke Pro status via the UI.
+
+sidepanel/sidepanel.html
+- Added #pro-status-badge span in the header between the logo and settings gear button
+- Added #upgrade-banner (yellow panel) between the header and stale-warning div, containing: value proposition message, "Upgrade — $4.99/month" CTA link (placeholder Lemon Squeezy URL), and "I have an API key" button
+
+sidepanel/sidepanel.css
+- Appended styles: .pro-badge, .pro-badge--free (grey pill), .pro-badge--pro (blue pill), .upgrade-banner, .upgrade-banner__msg, .upgrade-banner__actions, .btn-small
+
+sidepanel/sidepanel.js
+- Added DOM refs for upgradeBanner, upgradeCtaBtn, upgradeHaveKeyBtn, proStatusBadge
+- DOMContentLoaded: calls refreshProStatus() after loading saved preferences
+- Added refreshProStatus() — reads isProUser() and updates badge text and class
+- Added showUpgradeBanner() — displays banner and scrolls it into view
+- Added hideUpgradeBanner() — hides the banner
+- Wired upgradeHaveKeyBtn to send OPEN_SETTINGS message (opens Settings page)
+- Document click listener auto-hides banner when user clicks elsewhere
+- Gated handleEvaluate() — calls isProUser(), shows upgrade banner and returns early if false
+- Gated handlePreparePackage() — same gate
+- Gated enrichCompanyMetadata() — silent no-op for free users (no banner)
+
+background/service-worker.js
+- Added OPEN_SETTINGS message handler that calls chrome.runtime.openOptionsPage()
+
+Test results: Manually verified.
+  1. Free user (no API keys): badge shows "Free" (grey), clicking Evaluate Fit or Prepare Package shows upgrade banner, clicking elsewhere dismisses it, "I have an API key" opens Settings.
+  2. Pro user (API key present): badge shows "Pro" (blue), AI features work normally, no banner shown.
+  3. Clearing API keys in Settings correctly revokes Pro status on sidepanel reopen.
+Known issues: None.
+Next steps: Session 49 — Licence key section in Settings (Lemon Squeezy validation).
+
+---
+
 Session 47 — Complete
 Date: 2026-03-07
 Branch: main
