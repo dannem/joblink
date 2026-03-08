@@ -5,6 +5,48 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 50 — Complete
+Date: 2026-03-08
+Branch: main
+What was built:
+OAuth consent screen configuration and Google verification request submission.
+No code changes to the extension itself.
+
+GitHub
+- Repository made public (required for GitHub Pages on free plan)
+- GitHub Pages enabled — branch: main, folder: / (root)
+- Created index.html — simple JobLink homepage with privacy policy link
+- Added Google Search Console HTML verification file (googleedd1bb122087d778.html)
+- Privacy policy live at: https://dannem.github.io/joblink/privacy.html
+- Homepage live at: https://dannem.github.io/joblink/
+
+Google Search Console
+- Property added: https://dannem.github.io/joblink/ (URL prefix type)
+- Ownership verified via HTML file method
+
+Google Auth Platform (replaces old OAuth consent screen UI)
+- App name: JobLink
+- Support email: dannem@gmail.com
+- Homepage: https://dannem.github.io/joblink/
+- Privacy policy: https://dannem.github.io/joblink/privacy.html
+- Authorised domain: dannem.github.io
+- App logo: icon128.png uploaded
+- Branding verified and published
+- All 6 scopes configured: userinfo.email, drive.file, drive.metadata.readonly,
+  drive.readonly, drive, documents
+- Scope justifications written and submitted for all restricted/sensitive scopes
+- Feature type: Drive productivity
+- Demo video: https://youtu.be/05D_ylIW1uM
+- Verification questionnaire completed (all No, both checkboxes ticked)
+- Verification request submitted to Google
+
+Status: Verification pending Google review (typically 2-4 weeks).
+Extension remains functional during review — users see "unverified app" warning until approved.
+Known issues: None.
+Next steps: Session 51 — Manifest and permissions cleanup, console.log audit.
+
+---
+
 Session 48 — Complete
 Date: 2026-03-08
 Branch: main
