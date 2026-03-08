@@ -310,8 +310,8 @@ async function handleSaveTemplates() {
 }
 
 /**
- * Save API keys. Only writes non-empty values so existing keys are not
- * accidentally cleared if the user leaves a field blank.
+ * Save API keys. Always writes all three values, allowing the user to clear
+ * a key by leaving its field blank.
  */
 async function handleSaveKeys() {
   const btn = document.getElementById('save-keys-btn');
@@ -320,9 +320,9 @@ async function handleSaveKeys() {
     const anthropic = document.getElementById('anthropic-key').value.trim();
     const openai    = document.getElementById('openai-key').value.trim();
     const gemini    = document.getElementById('gemini-key').value.trim();
-    if (anthropic) await setStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY, anthropic);
-    if (openai)    await setStorageValue(STORAGE_KEYS.OPENAI_API_KEY,    openai);
-    if (gemini)    await setStorageValue(STORAGE_KEYS.GEMINI_API_KEY,    gemini);
+    await setStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY, anthropic);
+    await setStorageValue(STORAGE_KEYS.OPENAI_API_KEY,    openai);
+    await setStorageValue(STORAGE_KEYS.GEMINI_API_KEY,    gemini);
     showSaveConfirm('save-keys-confirm');
   } catch (error) {
     showError('Failed to save keys: ' + error.message);
