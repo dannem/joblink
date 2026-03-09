@@ -2078,3 +2078,17 @@ Next steps: Manual end-to-end test on both layouts. If passing, merge to main.
 - Generated promo tile (440×280) and marquee banner (1400×560) saved to assets/promo/
 
 **Commit:** git add -A && git commit -m "Session 53: status bar fix + store assets"
+
+## Session 54 — Onboarding Polish
+**Date:** 2026-03-09
+**Branch:** main
+
+### Changes
+- sidepanel.html — empty state split into #empty-configured and #empty-unconfigured sub-divs
+- sidepanel.js — checks SETUP_COMPLETE on DOMContentLoaded; shows "Get started" prompt with Open Settings button for unconfigured users
+- setup.html — first-run banner upgraded from plain text to a numbered 3-step checklist
+- setup.css — dark gradient banner styles + .done strikethrough class added
+- setup.js — steps 1/2/3 pre-ticked in prefillAllFields() if already configured; step 1 ticked in showDriveConnected(); step 2 in handleSaveFolder(); step 3 in handleSaveKeys()
+
+### Note
+onInstalled already opened setup on first install (confirmed in service-worker.js) — no change needed there.

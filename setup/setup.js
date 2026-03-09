@@ -142,6 +142,11 @@ async function prefillAllFields() {
       document.querySelector('.folder-selector').classList.add('selected');
       document.getElementById('save-folder-btn').disabled = false;
     }
+    // Pre-tick step 2 if folder already saved
+    if (rootFolderId) {
+      const step2 = document.getElementById('setup-step-2');
+      if (step2) step2.classList.add('done');
+    }
 
     // Template and profile folder in-memory state — names resolved via Drive API below
     if (cvFolderId)      selectedCvFolderId      = cvFolderId;
@@ -153,6 +158,9 @@ async function prefillAllFields() {
     if (token) {
       accessToken = token;
       showDriveConnected(token);
+      // Pre-tick step 1 if already connected
+      const step1 = document.getElementById('setup-step-1');
+      if (step1) step1.classList.add('done');
 
       // Enable folder selection now that we have a token
       document.getElementById('select-folder-btn').disabled = false;
@@ -199,6 +207,9 @@ async function showDriveConnected(token) {
     document.getElementById('drive-connected').style.display = 'flex';
     document.getElementById('connected-email').textContent = userInfo.email;
   } catch (_) { /* silently ignore — email display is cosmetic */ }
+  // Tick off step 1 in the first-run checklist
+  const step1 = document.getElementById('setup-step-1');
+  if (step1) step1.classList.add('done');
 }
 
 /**
@@ -361,6 +372,9 @@ async function handleSaveFolder() {
     // First-run banner no longer needed once the user has saved a folder
     document.getElementById('first-run-banner').style.display = 'none';
     showSaveConfirm('save-folder-confirm');
+    // Tick off step 2 in the first-run checklist
+    const step2 = document.getElementById('setup-step-2');
+    if (step2) step2.classList.add('done');
   } catch (error) {
     showError('Failed to save folder: ' + error.message);
   } finally {
@@ -435,6 +449,14 @@ async function handleSaveKeys() {
     await setStorageValue(STORAGE_KEYS.OPENAI_API_KEY,    openai);
     await setStorageValue(STORAGE_KEYS.GEMINI_API_KEY,    gemini);
     showSaveConfirm('save-keys-confirm');
+    // Tick off step 3 if any key was entered
+    const anthropic = document.getElementById('anthropic-key').value.trim();
+    const openai    = document.getElementById('openai-key').value.trim();
+    const gemini    = document.getElementById('gemini-key').value.trim();
+    if (anthropic || openai || gemini) {
+      const step3 = document.getElementById('setup-step-3');
+      if (step3) step3.classList.add('done');
+    }
   } catch (error) {
     showError('Failed to save keys: ' + error.message);
   } finally {

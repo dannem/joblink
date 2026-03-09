@@ -81,6 +81,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Always start with a blank slate — never show stale data from a previous session.
   clearJobOnStartup();
 
+  // Show unconfigured state for brand-new users who haven't completed setup
+  try {
+    const setupComplete = await getStorageValue(STORAGE_KEYS.SETUP_COMPLETE);
+    if (!setupComplete) {
+      document.getElementById('empty-configured').style.display = 'none';
+      document.getElementById('empty-unconfigured').style.display = 'flex';
+      document.getElementById('empty-unconfigured').style.flexDirection = 'column';
+      document.getElementById('empty-unconfigured').style.alignItems = 'center';
+    }
+  } catch (_) { /* non-fatal — defaults to configured state */ }
+
   // Load saved default AI model and package mode.
   try {
     const savedModel = await getStorageValue(STORAGE_KEYS.DEFAULT_AI_MODEL);
@@ -157,6 +168,10 @@ btnEvaluateFit.addEventListener('click', handleEvaluate);
 
 btnDashboard.addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('dashboard/dashboard.html') });
+});
+
+document.getElementById('btn-open-setup').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('setup/setup.html') });
 });
 
 // Gear icon opens the settings / setup page in a new tab.

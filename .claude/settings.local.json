@@ -23,7 +23,9 @@
       "WebSearch",
       "WebFetch(domain:scrapfly.io)",
       "WebFetch(domain:www.scraperapi.com)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(\"C:/Projects/joblink/setup/setup.css\":*)",
+      "Bash(\"C:/Projects/joblink/SESSION_LOG.md\":*)"
     ]
   }
 }

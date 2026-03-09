@@ -32,8 +32,18 @@
 
   <!-- ── Empty state ────────────────────────────────────────── -->
   <div id="state-empty" class="panel-state panel-state--centered">
-    <div class="empty-icon">&#128203;</div>
-    <p class="empty-msg">Navigate to a LinkedIn, Indeed, or any careers page to capture it.</p>
+    <!-- Shown when setup is complete -->
+    <div id="empty-configured">
+      <div class="empty-icon">&#128203;</div>
+      <p class="empty-msg">Navigate to a LinkedIn, Indeed, or any careers page to capture it.</p>
+    </div>
+    <!-- Shown on first run before setup is complete -->
+    <div id="empty-unconfigured" style="display:none;">
+      <div class="empty-icon">&#128640;</div>
+      <p class="empty-msg"><strong>Welcome to JobLink!</strong></p>
+      <p class="empty-msg-sub">Complete a quick setup to start saving jobs to your Google Drive.</p>
+      <button id="btn-open-setup" class="btn btn-primary" style="margin-top:12px;">Open Settings to get started</button>
+    </div>
   </div>
 
   <!-- ── Job loaded state ───────────────────────────────────── -->
