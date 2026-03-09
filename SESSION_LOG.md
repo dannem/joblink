@@ -5,6 +5,46 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+Session 51 — Complete
+Date: 2026-03-09
+Branch: main
+What was built:
+Two pre-submission housekeeping tasks.
+
+Task 1 — console.log audit and cleanup
+Audited all JS files for console.log statements. Reduced from 73 to 5 calls.
+- Removed entirely: all lines that exposed user data (job objects, save payloads,
+  tab URLs, AI results, scraper output, folder IDs with names)
+- Removed entirely: pure debug noise (navigation traces, retry counters, picker
+  button click traces, step entry/exit logs)
+- Converted to console.warn: meaningful operational signals worth seeing in DevTools
+  (scraper skip/abort conditions, stale DOM detection, LinkedIn dedup guard,
+  stale payload guards, subfolder cache invalidation, script injection)
+- Kept as console.log: install/version messages in service-worker.js (harmless),
+  Drive operation confirmations in drive-api.js (Google Doc saved, CV tailored,
+  CL tailored — non-sensitive, useful for Drive audit trail)
+Files changed: content-scripts/linkedin.js, content-scripts/indeed.js,
+  content-scripts/generic.js, background/service-worker.js, sidepanel/sidepanel.js,
+  setup/setup.js, drive/drive-api.js, utils/ai-helpers.js
+
+Task 2 — Permissions justification document
+Created PERMISSIONS_JUSTIFICATION.md in the project root. Covers:
+- All 6 Chrome extension permissions (storage, identity, sidePanel, activeTab,
+  scripting, tabs) with plain-English justifications
+- All 3 host_permissions entries (<all_urls>, LinkedIn, Indeed) with justifications
+- All 6 Google OAuth scopes with classifications (non-sensitive / sensitive /
+  restricted) and justifications
+- Data handling summary (no backend, no collection, user-owned storage, local keys)
+Intended for use during Chrome Web Store submission (Session 57) and as supporting
+documentation for the pending Google OAuth verification review.
+
+Test results: No functional changes — console.log removal is non-functional.
+Extension loads without errors. No regressions expected.
+Known issues: None.
+Next steps: Session 52 — README.md and Chrome Web Store store description.
+
+---
+
 Session 50 — Complete
 Date: 2026-03-08
 Branch: main
