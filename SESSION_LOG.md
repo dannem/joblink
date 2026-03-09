@@ -2092,3 +2092,17 @@ Next steps: Manual end-to-end test on both layouts. If passing, merge to main.
 
 ### Note
 onInstalled already opened setup on first install (confirmed in service-worker.js) — no change needed there.
+
+## Session 55 — Error Handling Audit
+**Date:** 2026-03-09
+**Branch:** main
+
+### Changes
+- sidepanel.js — added friendlyDriveError() helper that translates raw Drive/OAuth error patterns into plain-English messages (handles: no folder set, auth expired, 403, quota, network, timeout, missing CV templates, missing profile files)
+- sidepanel.js — handleSave() now passes response.error through friendlyDriveError()
+- sidepanel.js — handlePreparePackage() rootFolderId check now throws a plain-English message matching the friendlyDriveError pattern
+- sidepanel.js — handlePreparePackage() catch block now uses friendlyDriveError(err)
+
+### Notes
+- ai-helpers.js error messages were already plain-English — no changes needed
+- drive-api.js raw API wrappers left as-is; translation happens at call sites in sidepanel.js

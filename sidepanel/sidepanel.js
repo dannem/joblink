@@ -590,7 +590,7 @@ async function handleSave() {
       currentJobSaved = true;
       if (response.folderUrl) showDriveLink(response.folderUrl);
     } else {
-      showError(response?.error || 'Save failed — please try again.');
+      showError(friendlyDriveError(response?.error || 'Save failed — please try again.'));
     }
   } catch (err) {
     showError('Could not reach the service worker. Try reloading the extension.');
@@ -834,7 +834,7 @@ async function handlePreparePackage() {
     });
 
     const rootFolderId = await getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID);
-    if (!rootFolderId) throw new Error('No Drive folder configured.');
+    if (!rootFolderId) throw new Error('No save folder set. Open Settings and choose a Google Drive folder first.');
 
     // Step 0 — Read candidate profile from My_Profile (always; non-fatal)
     activeStep = 0;
@@ -1036,13 +1036,54 @@ async function handlePreparePackage() {
   } catch (err) {
     if (activeStep >= 0) updateProgress(activeStep, 'error');
     packageStatus.className   = 'package-status package-error';
-    packageStatus.textContent = err.message || 'Package preparation failed.';
+    packageStatus.textContent = friendlyDriveError(err) || 'Package preparation failed.';
     packageStatus.style.display = 'block';
     console.error('[JobLink] Prepare package error:', err);
     console.error('[JobLink] Error stack:', err.stack);
   } finally {
     btnPreparePackage.disabled = false;
   }
+}
+
+/**
+ * Translate a raw Drive/OAuth error message into plain English for the user.
+ * Catches the most common failure modes — any unrecognised error passes through as-is.
+ *
+ * @param {Error|string} err
+ * @returns {string} User-facing message
+ */
+function friendlyDriveError(err) {
+  const msg = (err?.message || String(err)).toLowerCase();
+  if (msg.includes('no drive folder configured') || msg.includes('no folder configured')) {
+    return 'No save folder set. Open Settings and choose a Google Drive folder first.';
+  }
+  if (msg.includes('not signed in') || msg.includes('oauth') || msg.includes('invalid_grant') || msg.includes('unauthorized') || msg.includes('401')) {
+    return 'Google Drive sign-in expired. Open Settings and reconnect your account.';
+  }
+  if (msg.includes('403') || msg.includes('forbidden') || msg.includes('access denied') || msg.includes('insufficient permission')) {
+    return 'Google Drive access denied. Check your Drive permissions in Settings.';
+  }
+  if (msg.includes('quota') || msg.includes('storage') || msg.includes('limit')) {
+    return 'Google Drive storage full or quota exceeded. Free up space in Drive and try again.';
+  }
+  if (msg.includes('network') || msg.includes('failed to fetch') || msg.includes('load failed')) {
+    return 'Network error — check your internet connection and try again.';
+  }
+  if (msg.includes('timeout') || msg.includes('timed out')) {
+    return 'Request timed out. Check your connection and try again.';
+  }
+  if (msg.includes('no cv templates folder') || msg.includes('cv template')) {
+    return 'No CV Templates folder set. Open Settings and choose your CV Templates folder.';
+  }
+  if (msg.includes('no cv template documents')) {
+    return 'No CV template documents found. Add a Google Doc to your CV Templates folder in Drive.';
+  }
+  if (msg.includes('no readable profile')) {
+    return 'No readable profile files found in your My_Profile folder. Add Google Docs or text files there.';
+  }
+  // Return original message if no pattern matched, but capitalise the first letter
+  const original = err?.message || String(err);
+  return original.charAt(0).toUpperCase() + original.slice(1);
 }
 
 // ── Helpers ───────────────────────────────────────────────────
