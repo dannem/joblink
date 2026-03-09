@@ -2070,10 +2070,11 @@ Next steps: Manual end-to-end test on both layouts. If passing, merge to main.
   status bar to 'new' when the panel regains visibility (e.g. switching Windows desktops)
 
 ### Store screenshots
-- [ ] Screenshot 1 — Side panel + LinkedIn job page
-- [ ] Screenshot 2 — Post-save status bar
-- [ ] Screenshot 3 — Dashboard
-- [ ] Screenshot 4 — Prepare Package in progress
-- [ ] Screenshot 5 — Settings page
+- [x] Screenshot 1 — Side panel + LinkedIn job page
+- [x] Screenshot 2 — Post-save status bar
+- [x] Screenshot 3 — Dashboard
+- [x] Screenshot 4 — Prepare Package in progress
+- [x] Screenshot 5 — Settings page
+- Generated promo tile (440×280) and marquee banner (1400×560) saved to assets/promo/
 
 **Commit:** git add -A && git commit -m "Session 53: status bar fix + store assets"
