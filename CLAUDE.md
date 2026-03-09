@@ -133,3 +133,50 @@ Folder and file names must be sanitised to remove characters that Drive does not
 At the start of every Claude Code session, paste the following context block before your task:
 
 > "We are building a Chrome extension called JobLink using Manifest V3 and vanilla JavaScript. It scrapes job postings from LinkedIn and Indeed, shows them in a Chrome Side Panel for review, then saves a JSON and HTML file to a user-configured Google Drive folder. Code is strictly modular — scraping, Drive API, and UI logic are always in separate files. No frameworks, no build tools, no backend server. Here is what was completed in the last session: [paste your session notes]. Today's task: [your task]."
+
+---
+
+## Current Status — V1 Monetisation Build (as of Session 50)
+
+### Version strategy
+- **V1 (current):** "Bring Your Own Key" — AI features gated behind Pro status. Pro = at least one API key saved OR a valid licence key stored. Users pay $4.99/month via Lemon Squeezy for a licence key. No backend required.
+- **V2 (future):** Backend-hosted AI via Cloud Run. Users pay you; you pay AI providers. Credit-based tiers.
+
+### Free vs Pro features
+- **Free (no gate):** Scraping (LinkedIn, Indeed, generic), Save to Drive (JSON/HTML/PDF/Google Doc), Dashboard, duplicate detection, bulk actions, all folder management
+- **Pro (gated):** Evaluate Fit, Prepare Package (all modes), Academic Package, Auto-enrichment (enrichCompanyMetadata)
+
+### Pro gate implementation (Session 48)
+- `isProUser()` in `utils/helpers.js` — returns true if any API key OR `LICENCE_VALID` is set
+- `STORAGE_KEYS.LICENCE_KEY` and `STORAGE_KEYS.LICENCE_VALID` added to helpers.js
+- Upgrade banner in sidepanel — shown when free user clicks gated button
+- Pro/Free badge in sidepanel header
+- `handleEvaluate()`, `handlePreparePackage()`, `enrichCompanyMetadata()` all gated
+
+### Licence key in Settings (Session 49)
+- "JobLink Pro" section added to setup.html (above Default AI Model)
+- Shows Pro/Free badge and status description
+- Licence key input + Activate button (V1: accepts any key, stores LICENCE_VALID=true)
+- Revoke link to remove licence key
+- `refreshProSection()`, `handleActivateLicence()`, `handleRevokeLicence()` in setup.js
+- Lemon Squeezy checkout URL constant: `LEMON_SQUEEZY_CHECKOUT_URL` (placeholder, update when live)
+
+### Google OAuth verification (Session 50)
+- Repo made public, GitHub Pages enabled
+- Homepage: https://dannem.github.io/joblink/
+- Privacy policy: https://dannem.github.io/joblink/privacy.html
+- Google Search Console: domain ownership verified for dannem.github.io
+- Google Auth Platform: branding verified and published, all 6 scopes configured
+- Verification request submitted — PENDING GOOGLE REVIEW (2-4 weeks)
+
+### Remaining V1 sessions
+| Session | Goal |
+|---|---|
+| 51 | Manifest + permissions cleanup — remove console.log statements exposing job data, write permissions justification document |
+| 52 | README + store description — README.md, Chrome Web Store short/long description |
+| 53 | Store assets — screenshots (1280×800), promo tile (440×280), marquee banner (1400×560) |
+| 54 | Onboarding polish — first-run experience, free/Pro empty state messaging |
+| 55 | Error handling audit — plain-English errors, Drive error handling, clean profile test |
+| 56 | Final end-to-end test — free flow, Pro flow, upgrade prompt, licence key, clean profile |
+| 57 | Submit to Chrome Web Store — developer account ($5), zip package, fill listing, submit |
+| 58 | Production OAuth client — new client ID scoped to published extension store ID |
