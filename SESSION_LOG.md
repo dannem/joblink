@@ -2055,3 +2055,25 @@ Test results: Manual testing required.
   3. Also verify the /jobs/search/ split-panel layout still works correctly.
 Known issues: None.
 Next steps: Manual end-to-end test on both layouts. If passing, merge to main.
+
+---
+
+## Session 53 — Store Assets & UX Fix
+**Date:** 2026-03-09
+**Branch:** main
+
+### Bug fix — Status bar not updating after Save to Drive
+- Added `setStatusBar('prep')` in `handleSave()` immediately after `showSuccess()` (line 570)
+- Status bar now shows "📝 In Preparation" immediately and permanently after a successful save
+- Previously it only appeared briefly when navigating away and back
+- Added `currentJobSaved` boolean flag to prevent `showJob()` from resetting the
+  status bar to 'new' when the panel regains visibility (e.g. switching Windows desktops)
+
+### Store screenshots
+- [ ] Screenshot 1 — Side panel + LinkedIn job page
+- [ ] Screenshot 2 — Post-save status bar
+- [ ] Screenshot 3 — Dashboard
+- [ ] Screenshot 4 — Prepare Package in progress
+- [ ] Screenshot 5 — Settings page
+
+**Commit:** git add -A && git commit -m "Session 53: status bar fix + store assets"

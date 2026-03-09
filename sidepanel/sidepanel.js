@@ -64,6 +64,9 @@ const packageProgress    = document.getElementById('package-progress');
 /** The raw job object currently displayed (before user edits). */
 let currentJob = null;
 
+/** True once the current job has been successfully saved to Drive. */
+let currentJobSaved = false;
+
 /** Which documents to generate in Prepare Package: 'both' | 'cv' | 'cl' */
 let currentPackageMode = 'both';
 
@@ -195,6 +198,7 @@ document.addEventListener('click', (e) => {
  */
 function clearJobOnStartup() {
   currentJob = null;
+  currentJobSaved = false;
   lastDuplicateCheckId = null;
 
   fieldTitle.value        = '';
@@ -349,7 +353,7 @@ function showJob(job) {
   resetProgress(currentPackageMode, false);
 
   hideMessages();
-  setStatusBar('new');
+  if (!currentJobSaved) setStatusBar('new');
   stateEmpty.style.display = 'none';
   stateJob.style.display   = 'flex';
 
@@ -567,6 +571,8 @@ async function handleSave() {
 
     if (response && response.success) {
       showSuccess();
+      setStatusBar('prep');
+      currentJobSaved = true;
       if (response.folderUrl) showDriveLink(response.folderUrl);
     } else {
       showError(response?.error || 'Save failed — please try again.');
@@ -586,6 +592,7 @@ async function handleSave() {
  */
 async function handleClear() {
   currentJob = null;
+  currentJobSaved = false;
   chrome.storage.session.remove(SESSION_KEYS.CURRENT_JOB).catch(() => {});
   hideMessages();
   driveLinkContainer.style.display = 'none';
