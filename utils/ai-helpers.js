@@ -163,8 +163,6 @@ async function callGeminiAPI(apiKey, prompt, model = AI_MODELS.gemini) {
     `https://generativelanguage.googleapis.com/v1beta/models/` +
     `${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-  console.log('[JobLink] Gemini URL:', url);
-
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

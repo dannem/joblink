@@ -277,20 +277,13 @@ function sendJobData(jobData) {
  */
 function runScrape() {
   const jobData = scrapeGenericJob();
-  console.log('[JobLink] Generic scraper result:', {
-    jobTitle:    jobData.jobTitle,
-    company:     jobData.company,
-    location:    jobData.location,
-    descLength:  jobData.description.length,
-    url:         jobData.applicationUrl,
-  });
 
   if (!jobData.jobTitle) {
-    console.log('[JobLink] Generic scraper: no job title found — skipping send');
+    console.warn('[JobLink] Generic scraper: no job title found — skipping send');
     return;
   }
   if (jobData.description.length < MIN_DESC_LENGTH) {
-    console.log(`[JobLink] Generic scraper: description too short (${jobData.description.length} chars) — skipping send`);
+    console.warn(`[JobLink] Generic scraper: description too short (${jobData.description.length} chars) — skipping send`);
     return;
   }
 

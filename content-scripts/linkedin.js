@@ -1,6 +1,4 @@
 (() => {
-console.log('[JobLink] LinkedIn content script loaded', window.location.href);
-
 /**
  * LinkedIn job scraper for JobLink extension.
  *
@@ -227,7 +225,7 @@ function scrapeLinkedInJob() {
   // scrape anything. On list/feed pages no job ID exists, so any DOM reads
   // would return partial or irrelevant data from the feed layout.
   if (!getCurrentJobId()) {
-    console.log('[JobLink] scrapeLinkedInJob: no job ID in URL — skipping (list or feed page)');
+    console.warn('[JobLink] scrapeLinkedInJob: no job ID in URL — skipping (list or feed page)');
     return null;
   }
 
@@ -378,7 +376,6 @@ async function expandDescriptionIfTruncated() {
   );
   if (btn) {
     btn.click();
-    console.log('[JobLink] Clicked "see more" button — waiting 500 ms for description to expand');
     await new Promise(resolve => setTimeout(resolve, 500));
   }
 }
@@ -397,7 +394,7 @@ async function expandDescriptionIfTruncated() {
 async function runScrape() {
   const currentJobId = getCurrentJobId();
   if (currentJobId && currentJobId === lastScrapedJobId) {
-    console.log('[JobLink] Skipping duplicate scrape — job ID already scraped:', currentJobId);
+    console.warn('[JobLink] Skipping duplicate scrape — job ID already scraped:', currentJobId);
     return;
   }
 
@@ -410,13 +407,12 @@ async function runScrape() {
   await expandDescriptionIfTruncated();
 
   const jobData = scrapeLinkedInJob();
-  console.log('[JobLink] LinkedIn scraper result (attempt 1):', jobData);
 
   // null means we're on a list/feed page — nothing to scrape
   if (!jobData) return;
 
   if (isStaleRun()) {
-    console.log('[JobLink] runScrape aborted (stale attempt 1):', runId);
+    console.warn('[JobLink] runScrape aborted (stale attempt 1):', runId);
     return;
   }
 
@@ -431,7 +427,7 @@ async function runScrape() {
   };
 
   if (isDomStale(jobData)) {
-    console.log('[JobLink] DOM is stale — clearing description to force retry');
+    console.warn('[JobLink] DOM is stale — clearing description to force retry');
     jobData.description = '';
   }
 
@@ -444,24 +440,21 @@ async function runScrape() {
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     if (isStaleRun()) {
-      console.log('[JobLink] runScrape aborted (stale during retry loop):', runId);
+      console.warn('[JobLink] runScrape aborted (stale during retry loop):', runId);
       return;
     }
-    console.log(`[JobLink] Description empty — retry ${attempt}/${MAX_RETRIES} in ${RETRY_DELAY_MS} ms`);
     await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
     if (isStaleRun()) {
-      console.log('[JobLink] runScrape aborted (stale after retry wait):', runId);
+      console.warn('[JobLink] runScrape aborted (stale after retry wait):', runId);
       return;
     }
 
     const retryData = scrapeLinkedInJob();
     if (retryData) Object.assign(jobData, retryData);
     if (isDomStale(jobData)) {
-      console.log('[JobLink] DOM still stale after retry — clearing description');
+      console.warn('[JobLink] DOM still stale after retry — clearing description');
       jobData.description = '';
     }
-    console.log(`[JobLink] runScrape attempt ${attempt + 1} description length:`, jobData.description.length);
-    console.log(`[JobLink] Retry ${attempt} result:`, jobData.description ? 'got description' : 'still empty');
     if (jobData.description) {
       lastScrapedJobId = getCurrentJobId();
       lastScrapedSignature = jobData.jobTitle + '|' + jobData.company;
@@ -473,7 +466,7 @@ async function runScrape() {
   // All timed retries exhausted — fall back to a one-time MutationObserver
   // that fires runScrape() the moment .jobs-description appears in the DOM.
   // Disconnects itself after the first match or after 30 s to avoid leaking.
-  console.log('[JobLink] All retries exhausted — watching DOM for .jobs-description');
+  console.warn('[JobLink] All retries exhausted — watching DOM for .jobs-description');
   lastScrapedJobId = getCurrentJobId();
   lastScrapedSignature = jobData.jobTitle + '|' + jobData.company;
   sendJobData(jobData); // keep panel responsive even when description extraction lags
@@ -490,7 +483,6 @@ async function runScrape() {
     // Element appeared — debounce by 500 ms to let content finish rendering
     clearTimeout(domWatchTimer);
     domWatchTimer = setTimeout(() => {
-      console.log('[JobLink] .jobs-description appeared in DOM — re-scraping');
       domWatcher.disconnect();
       runScrape();
     }, 500);
@@ -501,7 +493,7 @@ async function runScrape() {
   // Safety disconnect after 30 s so the observer does not run indefinitely
   setTimeout(() => {
     domWatcher.disconnect();
-    console.log('[JobLink] DOM watcher timed out after 30 s');
+    console.warn('[JobLink] DOM watcher timed out after 30 s');
   }, 30000);
 }
 
@@ -547,20 +539,17 @@ function startNavigationWatcher() {
 
     lastSeenHref = currentHref;
     lastScrapedJobId = null; // reset so the upcoming runScrape() is not skipped by the dedup guard
-    console.log('[JobLink] URL changed, new jobId detected:', currentHref);
 
     // Debounce: cancel any pending scrape and restart the timer.
     // NAV_EXTRACTION_DELAY_MS (1500ms) gives LinkedIn's async content swap
     // enough time to begin rendering before the first scrape attempt.
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      console.log('[JobLink] Navigation detected — re-scraping:', currentHref);
       runScrape();
     }, NAV_EXTRACTION_DELAY_MS);
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
-  console.log('[JobLink] Navigation watcher started');
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -582,10 +571,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'REQUEST_SCRAPE') {
-    console.log('[JobLink] REQUEST_SCRAPE received — frame URL:', window.location.href);
-    console.log('[JobLink] REQUEST_SCRAPE — document.title:', document.title);
-    console.log('[JobLink] REQUEST_SCRAPE — .jobs-description preview:',
-      document.querySelector('.jobs-description')?.innerText?.substring(0, 100) ?? '(not found)');
     // Cancel any pending navigation-debounce or retry so the externally
     // requested scrape runs clean without a duplicate follow-up firing later.
     clearTimeout(debounceTimer);

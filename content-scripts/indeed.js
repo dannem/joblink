@@ -165,12 +165,11 @@ function sendJobData(jobData) {
 function runScrape() {
   const currentHref = window.location.href;
   if (currentHref === lastScrapedHref) {
-    console.log('[JobLink] Skipping duplicate scrape — URL unchanged:', currentHref);
+    console.warn('[JobLink] Skipping duplicate scrape — URL unchanged:', currentHref);
     return;
   }
   lastScrapedHref = currentHref;
   const jobData = scrapeIndeedJob();
-  console.log('[JobLink] Indeed scraper result:', jobData);
   sendJobData(jobData);
 }
 
@@ -214,13 +213,11 @@ function startNavigationWatcher() {
     // Debounce: cancel any pending scrape and restart the timer
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      console.log('[JobLink] Navigation detected — re-scraping:', currentHref);
       runScrape();
     }, EXTRACTION_DELAY_MS);
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
-  console.log('[JobLink] Navigation watcher started');
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────

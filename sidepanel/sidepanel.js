@@ -89,7 +89,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (savedPackage) {
       currentPackageMode = savedPackage;
       packageType.value  = savedPackage;
-      console.log('[JobLink] loaded packageMode from storage:', savedPackage);
     }
   } catch (_) { /* non-fatal — defaults to 'both' */ }
 
@@ -99,7 +98,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Trigger a fresh scrape from the active tab.
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    console.log('[JobLink] DOMContentLoaded tab.url:', tab?.url);
     if (tab?.id) {
       // In the empty state, show the refresh banner so the user knows to
       // reload if nothing populates — hide it once a good job arrives.
@@ -393,7 +391,7 @@ async function checkDuplicate(job) {
   // called multiple times per posting when both scrape paths return data.
   const jobId = (job.applicationUrl || '') + '|' + (job.company || '') + '|' + (job.jobTitle || '');
   if (jobId === lastDuplicateCheckId) {
-    console.log('[JobLink] checkDuplicate: skipping duplicate call for:', job.jobTitle);
+    console.warn('[JobLink] checkDuplicate: skipping duplicate call for:', job.jobTitle);
     return;
   }
   lastDuplicateCheckId = jobId;
@@ -409,7 +407,6 @@ async function checkDuplicate(job) {
       });
     });
     if (!token) return null;
-    console.log('[JobLink] Checking duplicate for:', job.company, '/', job.jobTitle);
     return await checkExistingApplication(token, job);
   };
 
@@ -420,7 +417,6 @@ async function checkDuplicate(job) {
   try {
     const match = await Promise.race([driveCheck(), timeout]);
     duplicateCheckHint.style.display = 'none';
-    console.log('[JobLink] Duplicate check result:', match);
 
     if (!match) {
       setStatusBar('new');
@@ -491,7 +487,6 @@ async function enrichCompanyMetadata(job) {
       currentJob.location = extracted.location;
       fieldLocation.value = extracted.location;
     }
-    console.log('[JobLink] Enriched company/location on load:', extracted);
   } catch (err) {
     console.warn('[JobLink] enrichCompanyMetadata failed:', err.message);
   }
@@ -504,7 +499,6 @@ async function enrichCompanyMetadata(job) {
  * The service worker handles the actual upload; this function manages UI state.
  */
 async function handleSave() {
-  console.log('[JobLink] handleSave called');
   if (!currentJob) return;
 
   // Merge user edits back into the job object
@@ -550,7 +544,6 @@ async function handleSave() {
         jobToSave.location  = extracted.location;
         fieldLocation.value = extracted.location;
       }
-      console.log('[JobLink] AI-corrected metadata:', extracted);
     } catch (metaErr) {
       console.warn('[JobLink] extractJobMetadata failed — saving with original values:', metaErr.message);
     }
@@ -566,13 +559,11 @@ async function handleSave() {
   }
 
   try {
-    console.log('[JobLink] sending SAVE_TO_DRIVE message');
     const response = await chrome.runtime.sendMessage({
       type:     'SAVE_TO_DRIVE',
       payload:  jobToSave,
       pdfBase64,
     });
-    console.log('[JobLink] save response:', JSON.stringify(response));
 
     if (response && response.success) {
       showSuccess();
@@ -789,9 +780,7 @@ async function handlePreparePackage() {
     showUpgradeBanner();
     return;
   }
-  console.log('[JobLink] packageMode:', currentPackageMode);
   if (!currentJob) return;
-  console.log('[JobLink] handlePreparePackage start — currentPackageMode:', currentPackageMode);
 
   // Merge any field edits into a jobToSave object used for both AI prompts and saving
   const jobToSave = {
@@ -806,7 +795,6 @@ async function handlePreparePackage() {
   // currentPackageMode is only used to set the initial dropdown value on startup.
   const rawMode = packageType.value || currentPackageMode;
   const packageMode = rawMode === 'cv_only' ? 'cv' : rawMode === 'cl_only' ? 'cl' : rawMode;
-  console.log('[JobLink] handlePreparePackage: packageType.value =', packageType.value, '→ packageMode =', packageMode);
 
   btnPreparePackage.disabled = true;
   resetProgress(packageMode); // shows container and hides irrelevant rows
@@ -873,7 +861,6 @@ async function handlePreparePackage() {
         const selectResult = parseAIResponse(selectRaw);
         const idx = (selectResult?.selected ?? 1) - 1;
         if (idx > 0 && idx < cvTemplates.length) selectedTemplate = cvTemplates[idx];
-        console.log('[JobLink] Template selected:', selectedTemplate.name, '—', selectResult?.reason);
       }
 
       try {
@@ -973,7 +960,6 @@ async function handlePreparePackage() {
         if (parsed && parsed.companyBlock && typeof parsed.companyBlock === 'object') {
           clCompanyBlock = parsed.companyBlock;
         }
-        console.log('[JobLink] CL body paragraphs:', clBodyParagraphs ? clBodyParagraphs.length + ' paras' : 'NULL');
       }
       updateProgress(4, 'done');
     }

@@ -263,7 +263,7 @@ async function ensureContentScriptForTab(tab) {
   // Always inject a fresh scraper on trigger. This avoids stale listener issues
   // after browser restart where an invalidated old script can still receive
   // messages but cannot send data back to the extension runtime.
-  console.log('[JobLink] Injecting scraper into active tab:', scriptFile);
+  console.warn('[JobLink] Injecting scraper into active tab:', scriptFile);
   await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     files: [scriptFile],
@@ -328,12 +328,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Normalise: LinkedIn uses `payload`, Indeed uses `data`
     const jobData = message.payload || message.data;
 
-    console.log('[JobLink] Job data received from content script:', jobData);
-    console.log('[JobLink] Source tab:', sender.tab ? sender.tab.url : 'unknown');
-
     if (jobData) {
       if (!isFreshLinkedInPayload(jobData, sender.tab)) {
-        console.log('[JobLink] Ignoring stale LinkedIn payload:', {
+        console.warn('[JobLink] Ignoring stale LinkedIn payload:', {
           tabUrl: sender.tab?.url,
           sourceJobId: jobData.sourceJobId,
           applicationUrl: jobData.applicationUrl,
@@ -346,7 +343,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         .then((result) => {
           const currentJob = result[SESSION_KEYS.CURRENT_JOB] || null;
           if (!shouldReplaceCurrentJob(currentJob, jobData)) {
-            console.log('[JobLink] Ignoring lower-quality duplicate payload for same posting.');
+            console.warn('[JobLink] Ignoring lower-quality duplicate payload for same posting.');
             return;
           }
 
@@ -368,7 +365,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'SAVE_TO_DRIVE') {
     const pdfBase64 = message.pdfBase64 || '';
-    console.log('[JobLink] SAVE_TO_DRIVE received:', message.payload, pdfBase64 ? '(PDF included)' : '(no PDF)');
     handleSaveToDrive(message.payload, pdfBase64)
       .then(result => sendResponse(result))
       .catch(error => sendResponse({ success: false, error: error.message }));
@@ -488,7 +484,7 @@ async function ensureStatusFolders(token, rootFolderId) {
     }
 
     // Stale — cached IDs belong to a different root; clear and recreate below
-    console.log('[JobLink] Cached subfolder IDs are stale (wrong parent) — clearing and recreating.');
+    console.warn('[JobLink] Cached subfolder IDs are stale (wrong parent) — clearing and recreating.');
     await chrome.storage.sync.remove([
       STORAGE_KEYS.PREPARATION_FOLDER_ID,
       STORAGE_KEYS.SUBMITTED_FOLDER_ID,
@@ -510,7 +506,6 @@ async function ensureStatusFolders(token, rootFolderId) {
     [STORAGE_KEYS.REJECTED_FOLDER_ID]:    rej.id,
   });
 
-  console.log('[JobLink] Status folders ready:', prep.name, sub.name, rej.name);
   return { preparationId: prep.id, submittedId: sub.id, rejectedId: rej.id };
 }
 
@@ -584,8 +579,6 @@ async function handleSaveToDrive(job, pdfBase64) {
     } catch (pdfErr) {
       console.warn('[JobLink] PDF upload failed:', pdfErr.message, pdfErr.stack);
     }
-  } else {
-    console.log('[JobLink] No PDF data provided — skipping PDF upload.');
   }
 
   // 9. Save a Google Doc version of the job listing — skip gracefully on failure.
@@ -595,7 +588,6 @@ async function handleSaveToDrive(job, pdfBase64) {
     console.warn('[JobLink] Google Doc save failed:', docErr.message);
   }
 
-  console.log(`[JobLink] Saved to Drive: Preparation/${folderName} (folder ID: ${folder.id})`);
   return {
     success: true,
     folderUrl: `https://drive.google.com/drive/folders/${folder.id}`,
