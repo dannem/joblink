@@ -284,6 +284,11 @@ function jobIdFromUrl(url) {
       if (m) return m[1];
       return null; // LinkedIn list/feed page — no job identity
     }
+    if (parsed.hostname === 'indeed.com' || parsed.hostname.endsWith('.indeed.com')) {
+      const jk = parsed.searchParams.get('jk');
+      if (jk) return 'indeed:' + jk;
+      return null; // Indeed search/home page — no job identity
+    }
     return parsed.origin + parsed.pathname + parsed.search;
   } catch (_) {
     return null;
