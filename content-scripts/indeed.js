@@ -52,9 +52,12 @@ function extractJobTitle() {
   ]);
   if (text) return text;
 
-  // Last resort: find the first h1 whose visible text is not the site logo.
-  const el = [...document.querySelectorAll('h1')]
-    .find(h => h.innerText.trim() !== 'Indeed');
+  // Last resort: find the first h1 that looks like a job title, not site chrome.
+  const EXCLUDE = ['indeed', 'welcome,', 'sign in', 'log in', 'create account'];
+  const el = [...document.querySelectorAll('h1')].find(h => {
+    const t = h.innerText.trim().toLowerCase();
+    return t.length > 0 && !EXCLUDE.some(x => t.startsWith(x));
+  });
   return el ? el.innerText.trim() : '';
 }
 
@@ -170,6 +173,16 @@ function runScrape() {
   }
   lastScrapedHref = currentHref;
   const jobData = scrapeIndeedJob();
+
+  // Quality guard — reject scrapes that look like non-job pages.
+  // A real job page must have a title AND at least one of company or description.
+  const hasTitle = jobData.jobTitle.length > 0;
+  const hasContent = jobData.company.length > 0 || jobData.description.length > 100;
+  if (!hasTitle || !hasContent) {
+    console.warn('[JobLink] Indeed scrape rejected — missing title or content:', jobData.jobTitle);
+    return;
+  }
+
   sendJobData(jobData);
 }
 
