@@ -121,6 +121,22 @@ function jobHashId(job) {
 }
 
 /**
+ * Build the base filename for all job posting files (without extension).
+ * Format: "Post - Job Title (Company)"
+ * Used for the Google Doc name, JSON, HTML, and PDF so all four match.
+ *
+ * @param {Object} job - { jobTitle?, company? }
+ * @returns {string} e.g. "Post - Senior Engineer (Acme Corp)"
+ */
+function jobPostingFileName(job) {
+  const illegal = /[\\/:*?"<>|]/g;
+  const safe = (str) => (str || '').replace(illegal, '').trim();
+  const title   = safe(job.jobTitle) || 'Job';
+  const company = safe(job.company)  || 'Company';
+  return `Post - ${title} (${company})`;
+}
+
+/**
  * Generate a PDF of a scraped job and return it as a base64 string.
  *
  * Must be called from a page/panel context where jsPDF is loaded via CDN.

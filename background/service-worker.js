@@ -549,7 +549,7 @@ async function handleSaveToDrive(job, pdfBase64) {
   // 6. Upload job_info.json — the raw structured job data
   await uploadFileToDrive(
     token,
-    'job_info.json',
+    jobPostingFileName(job) + '.json',
     JSON.stringify(job, null, 2),
     'application/json',
     folder.id
@@ -559,7 +559,7 @@ async function handleSaveToDrive(job, pdfBase64) {
   const htmlContent = generateJobSummaryHtml(job);
   await uploadFileToDrive(
     token,
-    'job_summary.html',
+    jobPostingFileName(job) + '.html',
     htmlContent,
     'text/html',
     folder.id
@@ -571,7 +571,7 @@ async function handleSaveToDrive(job, pdfBase64) {
     try {
       await uploadBase64FileToDrive(
         token,
-        'job_summary.pdf',
+        jobPostingFileName(job) + '.pdf',
         pdfBase64,
         'application/pdf',
         folder.id

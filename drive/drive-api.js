@@ -611,7 +611,7 @@ async function saveJobAsGoogleDoc(jobData, folderId, token) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      name: jobData.jobTitle || 'Job Listing',
+      name: jobPostingFileName(jobData),
       mimeType: 'application/vnd.google-apps.document',
       parents: [folderId],
     }),
