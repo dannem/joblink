@@ -156,6 +156,20 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
+// ── Storage change listener — keep Pro badge in sync ──────────
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'sync') return;
+  const watched = [
+    STORAGE_KEYS.LICENCE_VALID,
+    STORAGE_KEYS.ANTHROPIC_API_KEY,
+    STORAGE_KEYS.OPENAI_API_KEY,
+    STORAGE_KEYS.GEMINI_API_KEY,
+  ];
+  const relevant = watched.some(k => k in changes);
+  if (relevant) refreshProStatus();
+});
+
 // ── Button handlers ───────────────────────────────────────────
 
 btnSave.addEventListener('click', handleSave);
