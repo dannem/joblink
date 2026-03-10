@@ -46,10 +46,8 @@ const fitScoreNumber    = document.getElementById('fit-score-number');
 const aiCorrespondence  = document.getElementById('ai-correspondence');
 const aiDiscrepancies   = document.getElementById('ai-discrepancies');
 const aiRecommendation  = document.getElementById('ai-recommendation');
-const jobStatusBar        = document.getElementById('job-status-bar');
-const jobStatusText       = document.getElementById('job-status-text');
-const jobStatusIcon       = document.getElementById('job-status-icon');
-const duplicateCheckHint  = document.getElementById('duplicate-check-hint');
+const btnCheckStatus = document.getElementById('btn-check-status');
+const statusResult   = document.getElementById('status-result');
 const driveLinkContainer  = document.getElementById('drive-link-container');
 const driveLink           = document.getElementById('drive-link');
 const btnPreparePackage  = document.getElementById('btn-prepare-package');
@@ -69,11 +67,6 @@ let currentJobSaved = false;
 
 /** Which documents to generate in Prepare Package: 'both' | 'cv' | 'cl' */
 let currentPackageMode = 'both';
-
-/** Dedup guard for checkDuplicate — stores the identity of the last job checked.
- *  Prevents repeated Drive API calls when showJob() fires more than once for the
- *  same posting (dual scrape paths: direct sendMessage + SIDEPANEL_OPENED). */
-let lastDuplicateCheckId = null;
 
 // ── Initialisation ────────────────────────────────────────────
 
@@ -174,6 +167,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 btnSave.addEventListener('click', handleSave);
 btnClear.addEventListener('click', handleClear);
+btnCheckStatus.addEventListener('click', handleCheckStatus);
 document.getElementById('stale-warning-dismiss').addEventListener('click', () => {
   staleWarning.style.display = 'none';
 });
@@ -228,7 +222,6 @@ document.addEventListener('click', (e) => {
 function clearJobOnStartup() {
   currentJob = null;
   currentJobSaved = false;
-  lastDuplicateCheckId = null;
 
   fieldTitle.value        = '';
   fieldCompany.value      = '';
@@ -322,10 +315,10 @@ function requestScrapeIfJobChanged(tab) {
   // on same-job refreshes while still preventing stale data on navigation.
   if (currentJob && !sameJob) {
     currentJob = null;
-    lastDuplicateCheckId = null;
     stateJob.style.display      = 'none';
     stateEmpty.style.display    = 'flex';
     staleWarning.style.display  = isJobRelevantUrl(tab.url) ? 'flex' : 'none';
+    statusResult.style.display  = 'none';
     hideMessages();
   }
 
@@ -401,96 +394,12 @@ function showJob(job) {
   resetProgress(currentPackageMode, false);
 
   hideMessages();
-  if (!currentJobSaved) setStatusBar('new');
+  statusResult.style.display = 'none';
   stateEmpty.style.display = 'none';
   stateJob.style.display   = 'flex';
 
   // Fire background tasks — non-blocking
-  checkDuplicate(job);
   enrichCompanyMetadata(job);
-}
-
-/**
- * Update the always-visible status bar to reflect the application state.
- *
- * @param {'checking'|'new'|'prep'|'submitted'|'rejected'} status
- */
-function setStatusBar(status) {
-  const states = {
-    checking:  { cls: 'status-unknown',   icon: '⏳', text: 'Checking Drive...' },
-    new:       { cls: 'status-new',       icon: '🆕', text: 'Not yet saved' },
-    prep:      { cls: 'status-prep',      icon: '📝', text: 'In Preparation' },
-    submitted: { cls: 'status-submitted', icon: '📤', text: 'Submitted' },
-    rejected:  { cls: 'status-rejected',  icon: '❌', text: 'Previously rejected' },
-  };
-  const s = states[status] || states.checking;
-  jobStatusBar.className    = 'job-status-bar ' + s.cls;
-  jobStatusIcon.textContent = s.icon;
-  jobStatusText.textContent = s.text;
-}
-
-/**
- * Check whether a folder matching this job exists in any status subfolder and
- * update the status bar accordingly.
- *
- * Non-fatal — errors fall back to 'new' so the panel stays functional even
- * when Drive is unreachable or no status folders are configured.
- *
- * @param {Object} job - { company, jobTitle } from the current job
- */
-async function checkDuplicate(job) {
-  // Skip if we already ran this check for the same job — showJob() can be
-  // called multiple times per posting when both scrape paths return data.
-  const jobId = (job.applicationUrl || '') + '|' + (job.company || '') + '|' + (job.jobTitle || '');
-  if (jobId === lastDuplicateCheckId) {
-    console.warn('[JobLink] checkDuplicate: skipping duplicate call for:', job.jobTitle);
-    return;
-  }
-  lastDuplicateCheckId = jobId;
-
-  // Show a subtle hint below the status bar — never block the UI.
-  duplicateCheckHint.style.display = 'block';
-
-  const driveCheck = async () => {
-    const token = await new Promise((resolve, reject) => {
-      chrome.identity.getAuthToken({ interactive: false }, (t) => {
-        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-        else resolve(t);
-      });
-    });
-    if (!token) return null;
-    return await checkExistingApplication(token, job);
-  };
-
-  const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('timeout')), 5000)
-  );
-
-  try {
-    const match = await Promise.race([driveCheck(), timeout]);
-    duplicateCheckHint.style.display = 'none';
-
-    if (!match) {
-      setStatusBar('new');
-    } else {
-      if (match.status === 'submitted') {
-        setStatusBar('submitted');
-      } else if (match.status === 'rejected') {
-        setStatusBar('rejected');
-      } else {
-        setStatusBar('prep');
-      }
-      if (match.folder?.id) {
-        showDriveLink(`https://drive.google.com/drive/folders/${match.folder.id}`);
-      }
-    }
-  } catch (err) {
-    duplicateCheckHint.style.display = 'none';
-    if (err.message !== 'timeout') {
-      console.warn('[JobLink] Duplicate check failed:', err.message);
-    }
-    // On timeout or error the status bar already shows 'new' — leave it.
-  }
 }
 
 /**
@@ -619,7 +528,9 @@ async function handleSave() {
 
     if (response && response.success) {
       showSuccess();
-      setStatusBar('prep');
+      statusResult.className   = 'status-result status-result--prep';
+      statusResult.textContent = '📝 In Preparation';
+      statusResult.style.display = 'block';
       currentJobSaved = true;
       if (response.folderUrl) showDriveLink(response.folderUrl);
     } else {
@@ -652,6 +563,49 @@ async function handleClear() {
     staleWarning.style.display = isJobRelevantUrl(tab?.url) ? 'flex' : 'none';
   } catch (_) {
     staleWarning.style.display = 'none';
+  }
+}
+
+/**
+ * On demand: query Drive for this job's application status and show the result
+ * inline below the action buttons. Works for LinkedIn, Indeed, and any site.
+ */
+async function handleCheckStatus() {
+  if (!currentJob) return;
+
+  statusResult.className    = 'status-result status-result--checking';
+  statusResult.textContent  = '⏳ Checking Drive…';
+  statusResult.style.display = 'block';
+
+  try {
+    const token = await new Promise((resolve, reject) => {
+      chrome.identity.getAuthToken({ interactive: false }, (t) => {
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+        else resolve(t);
+      });
+    });
+
+    const match = await checkExistingApplication(token, currentJob);
+
+    if (!match) {
+      statusResult.className   = 'status-result status-result--new';
+      statusResult.textContent = '🆕 Not yet saved';
+    } else if (match.status === 'submitted') {
+      statusResult.className   = 'status-result status-result--submitted';
+      statusResult.textContent = '📤 Submitted';
+      if (match.folder?.id) showDriveLink(`https://drive.google.com/drive/folders/${match.folder.id}`);
+    } else if (match.status === 'rejected') {
+      statusResult.className   = 'status-result status-result--rejected';
+      statusResult.textContent = '❌ Previously rejected';
+      if (match.folder?.id) showDriveLink(`https://drive.google.com/drive/folders/${match.folder.id}`);
+    } else {
+      statusResult.className   = 'status-result status-result--prep';
+      statusResult.textContent = '📝 In Preparation';
+      if (match.folder?.id) showDriveLink(`https://drive.google.com/drive/folders/${match.folder.id}`);
+    }
+  } catch (err) {
+    statusResult.className   = 'status-result status-result--new';
+    statusResult.textContent = '⚠️ Could not check — ' + (err.message || 'Drive error');
   }
 }
 
@@ -1061,7 +1015,9 @@ async function handlePreparePackage() {
       }
     }
 
-    setStatusBar('submitted');
+    statusResult.className   = 'status-result status-result--submitted';
+    statusResult.textContent = '📤 Submitted';
+    statusResult.style.display = 'block';
     if (saveResult?.submittedFolderId) {
       showDriveLink(`https://drive.google.com/drive/folders/${saveResult.submittedFolderId}`);
     }

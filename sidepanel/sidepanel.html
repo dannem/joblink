@@ -55,14 +55,6 @@
       <span id="scraped-time" class="scraped-time"></span>
     </div>
 
-    <!-- Always-visible application status bar -->
-    <div id="job-status-bar" class="job-status-bar">
-      <span id="job-status-icon"></span>
-      <span id="job-status-text">Checking...</span>
-    </div>
-    <!-- Subtle Drive-check indicator — shown below the bar, never blocks UI -->
-    <p id="duplicate-check-hint" class="duplicate-check-hint" style="display:none;">Checking Drive…</p>
-
     <!-- Editable fields -->
     <div class="fields">
       <div class="field-group">
@@ -94,8 +86,10 @@
     <!-- Action buttons -->
     <div class="action-row">
       <button id="btn-save" class="btn btn-primary">Save to Drive</button>
+      <button id="btn-check-status" class="btn btn-secondary">Check Status</button>
       <button id="btn-clear" class="btn btn-secondary">Clear</button>
     </div>
+    <div id="status-result" style="display:none;" class="status-result"></div>
 
     <!-- Drive folder link — shown after a successful save -->
     <div id="drive-link-container" style="display: none;">
