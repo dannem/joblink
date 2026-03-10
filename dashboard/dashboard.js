@@ -135,12 +135,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('.bulk-btn--clear').forEach(btn => {
     btn.addEventListener('click', () => clearSelection(btn.dataset.status));
   });
+  document.querySelectorAll('.bulk-btn--delete').forEach(btn => {
+    btn.addEventListener('click', () => handleBulkDelete(btn.dataset.status));
+  });
 
   // Wire detail panel
   document.getElementById('detail-close').addEventListener('click', closeDetailPanel);
   document.getElementById('job-detail-overlay').addEventListener('click', closeDetailPanel);
   document.getElementById('detail-save-notes').addEventListener('click', saveDetailNotes);
   document.getElementById('detail-move-btn').addEventListener('click', handleDetailMove);
+  document.getElementById('detail-delete-btn').addEventListener('click', handleDetailDelete);
 
   await loadDashboard();
 });
@@ -456,6 +460,7 @@ function buildJobRow(job, currentStatus, otherStatuses) {
           ${moveOptions}
         </select>
         <button class="move-btn" data-folder-id="${job.folderId}" data-current-status="${currentStatus}">Move</button>
+        <button class="delete-btn" data-folder-id="${job.folderId}" data-job-title="${escHtml(job.jobTitle || 'this job')}">Delete</button>
       </div>
     </td>
   `;
@@ -466,6 +471,7 @@ function buildJobRow(job, currentStatus, otherStatuses) {
 
   // Wire Move button
   tr.querySelector('.move-btn').addEventListener('click', handleMove);
+  tr.querySelector('.delete-btn').addEventListener('click', handleDelete);
 
   // Wire row click to open detail panel (ignore Move cell and checkbox cell)
   tr.addEventListener('click', (e) => {
@@ -630,6 +636,29 @@ async function moveDriveFolder(folderId, removeParentId, addParentId) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error?.message || `Move failed: ${res.status}`);
+  }
+}
+
+/**
+ * Move a Drive folder to trash (recoverable from Drive trash).
+ *
+ * @param {string} folderId
+ */
+async function deleteDriveFolder(folderId) {
+  const res = await fetch(
+    `${DRIVE_API}/files/${encodeURIComponent(folderId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ trashed: true }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Delete failed: ${res.status}`);
   }
 }
 
@@ -977,6 +1006,31 @@ async function handleDetailMove() {
   }
 }
 
+/**
+ * Delete the currently open job (moves to Drive trash) and close the panel.
+ */
+async function handleDetailDelete() {
+  const job = findJobByFolderId(detailFolderId);
+  if (!job) return;
+
+  const title = job.jobTitle || 'this job';
+  if (!confirm(`Delete "${title}"?\n\nThe folder will be moved to your Google Drive trash and can be recovered from there.`)) return;
+
+  const btn = document.getElementById('detail-delete-btn');
+  btn.disabled    = true;
+  btn.textContent = '…';
+
+  try {
+    await deleteDriveFolder(detailFolderId);
+    closeDetailPanel();
+    await loadDashboard();
+  } catch (err) {
+    showError('Delete failed: ' + err.message);
+    btn.disabled    = false;
+    btn.textContent = 'Delete';
+  }
+}
+
 // ── Bulk actions ───────────────────────────────────────────────
 
 /**
@@ -1124,6 +1178,58 @@ async function handleBulkReject(status) {
   } catch (err) {
     showError('Bulk reject failed: ' + err.message);
     rejectBtns.forEach(b => { b.disabled = false; b.textContent = 'Reject'; });
+  }
+}
+
+/**
+ * Handle a Delete button click on an individual row.
+ * Moves the job folder to Drive trash after user confirmation.
+ *
+ * @param {Event} e
+ */
+async function handleDelete(e) {
+  const btn       = e.currentTarget;
+  const folderId  = btn.dataset.folderId;
+  const jobTitle  = btn.dataset.jobTitle || 'this job';
+
+  if (!confirm(`Delete "${jobTitle}"?\n\nThe folder will be moved to your Google Drive trash and can be recovered from there.`)) return;
+
+  btn.disabled    = true;
+  btn.textContent = '…';
+
+  try {
+    await deleteDriveFolder(folderId);
+    await loadDashboard();
+  } catch (err) {
+    showError('Delete failed: ' + err.message);
+    btn.disabled    = false;
+    btn.textContent = 'Delete';
+  }
+}
+
+/**
+ * Delete all selected jobs in a section (moves to Drive trash).
+ *
+ * @param {string} status
+ */
+async function handleBulkDelete(status) {
+  const ids = [...selections[status]];
+  if (ids.length === 0) return;
+
+  if (!confirm(`Delete ${ids.length} job${ids.length > 1 ? 's' : ''}?\n\nThe folders will be moved to your Google Drive trash and can be recovered from there.`)) return;
+
+  const deleteBtns = document.querySelectorAll(`.bulk-btn--delete[data-status="${status}"]`);
+  deleteBtns.forEach(b => { b.disabled = true; b.textContent = '…'; });
+
+  try {
+    for (const folderId of ids) {
+      await deleteDriveFolder(folderId);
+    }
+    clearSelection(status);
+    await loadDashboard();
+  } catch (err) {
+    showError('Bulk delete failed: ' + err.message);
+    deleteBtns.forEach(b => { b.disabled = false; b.textContent = 'Delete'; });
   }
 }
 

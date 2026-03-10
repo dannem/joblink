@@ -92,6 +92,7 @@
         </select>
         <button class="bulk-btn bulk-btn--move" data-status="preparation">Move</button>
         <button class="bulk-btn bulk-btn--reject" data-status="preparation">Reject</button>
+        <button class="bulk-btn bulk-btn--delete" data-status="preparation">Delete</button>
         <button class="bulk-btn bulk-btn--clear" data-status="preparation">Clear selection</button>
       </div>
     </div>
@@ -130,6 +131,7 @@
         </select>
         <button class="bulk-btn bulk-btn--move" data-status="submitted">Move</button>
         <button class="bulk-btn bulk-btn--reject" data-status="submitted">Reject</button>
+        <button class="bulk-btn bulk-btn--delete" data-status="submitted">Delete</button>
         <button class="bulk-btn bulk-btn--clear" data-status="submitted">Clear selection</button>
       </div>
     </div>
@@ -167,6 +169,7 @@
           <option value="submitted">Submitted</option>
         </select>
         <button class="bulk-btn bulk-btn--move" data-status="rejected">Move</button>
+        <button class="bulk-btn bulk-btn--delete" data-status="rejected">Delete</button>
         <button class="bulk-btn bulk-btn--clear" data-status="rejected">Clear selection</button>
       </div>
     </div>
@@ -184,6 +187,7 @@
         <div class="move-cell">
           <select id="detail-move-select" class="move-select"></select>
           <button id="detail-move-btn" class="move-btn">Move</button>
+          <button id="detail-delete-btn" class="delete-btn">Delete</button>
         </div>
       </div>
       <div class="job-detail-files">

@@ -282,6 +282,28 @@ body {
   cursor: not-allowed;
 }
 
+.delete-btn {
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  border-radius: 4px;
+  border: 1px solid #fca5a5;
+  background: #fff;
+  color: #dc2626;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.delete-btn:hover {
+  background: #fee2e2;
+}
+.bulk-btn--delete {
+  background: #fff;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+.bulk-btn--delete:hover {
+  background: #fee2e2;
+}
+
 /* ── Filter bar ─────────────────────────────────────────── */
 
 .filter-bar {
