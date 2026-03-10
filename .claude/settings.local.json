@@ -25,7 +25,8 @@
       "WebFetch(domain:www.scraperapi.com)",
       "Bash(rm:*)",
       "Bash(\"C:/Projects/joblink/setup/setup.css\":*)",
-      "Bash(\"C:/Projects/joblink/SESSION_LOG.md\":*)"
+      "Bash(\"C:/Projects/joblink/SESSION_LOG.md\":*)",
+      "Bash(sort:*)"
     ]
   }
 }
