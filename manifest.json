@@ -19,14 +19,13 @@
     "<all_urls>"
   ],
   "oauth2": {
-    "client_id": "750335831511-buksrfnh5406q0rg28bkh7epba11pipn.apps.googleusercontent.com",
+    "client_id": "406710056933-1rg7kmoso6klvftb43hkv6dab2s12u37.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/drive.file",
       "https://www.googleapis.com/auth/drive.metadata.readonly",
       "https://www.googleapis.com/auth/drive.readonly",
       "https://www.googleapis.com/auth/drive",
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/documents"
+      "https://www.googleapis.com/auth/userinfo.email"
     ]
   },
   "background": {
