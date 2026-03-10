@@ -65,6 +65,7 @@ function wireEventListeners() {
   document.getElementById('folder-picker-close').addEventListener('click', hideFolderPicker);
   document.getElementById('folder-nav-up').addEventListener('click', handleNavigateUp);
   document.getElementById('select-current-btn').addEventListener('click', handleSelectCurrentFolder);
+  document.getElementById('new-folder-btn').addEventListener('click', handleNewFolder);
 
   document.getElementById('btn-pick-cv-templates').addEventListener('click', () => {
     pickFolder('cv-templates-folder-name', 'cv-templates-status', (id) => {
@@ -716,6 +717,47 @@ function updateNavButtons() {
 function hideFolderPicker() {
   document.getElementById('folder-picker').style.display = 'none';
   pendingPickContext = null;
+}
+
+/**
+ * Handle creating a new subfolder inside the currently browsed folder.
+ */
+async function handleNewFolder() {
+  const name = prompt('Enter new folder name:');
+  if (!name || !name.trim()) return;
+
+  const folderList = document.getElementById('folder-list');
+  const btn = document.getElementById('new-folder-btn');
+  btn.disabled = true;
+  btn.textContent = 'Creating...';
+
+  try {
+    const res = await fetch('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: name.trim(),
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [currentFolderId],
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || 'Failed to create folder');
+    }
+
+    // Reload the current folder to show the new subfolder
+    await loadFolders(currentFolderId);
+  } catch (error) {
+    showError('Could not create folder: ' + error.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '+ New Folder';
+  }
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────────
