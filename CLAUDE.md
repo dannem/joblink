@@ -177,7 +177,7 @@ At the start of every Claude Code session, paste the following context block bef
 | 53 | Store assets — screenshots (1280×800), promo tile (440×280), marquee banner (1400×560) | ✅ Complete |
 | 54 | Onboarding polish — first-run experience, free/Pro empty state messaging | ✅ Complete |
 | 55 | Error handling audit — plain-English errors, Drive error handling, clean profile test | ✅ Complete |
-| 56 | Lemon Squeezy setup — create product, enable licence keys, replace placeholder checkout URL in setup.js and sidepanel.html | 🔜 Next |
-| 57 | Final end-to-end test — free flow, Pro flow, upgrade prompt, licence key, clean profile | ⬜ Pending |
+| 56 | Lemon Squeezy setup — create product, enable licence keys, replace placeholder checkout URL in setup.js and sidepanel.html | ✅ Complete |
+| 57 | Final end-to-end test — free flow, Pro flow, upgrade prompt, licence key, clean profile | 🔜 Next |
 | 58 | Submit to Chrome Web Store — developer account ($5), zip package, fill listing, submit | ⬜ Pending |
 | 59 | Production OAuth client — new client ID scoped to published extension store ID | ⬜ Pending |
