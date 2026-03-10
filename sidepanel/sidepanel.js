@@ -369,17 +369,17 @@ function showJob(job) {
   fieldUrl.href        = url;
   fieldUrl.textContent = url || '—';
 
-  // Stale data check — show yellow warning and disable action buttons when the
-  // captured data does not look like a real job posting.
   const title = job.jobTitle || '';
+
+  // Only apply feed/notification checks to LinkedIn URLs — these patterns
+  // could produce false positives on generic career pages.
+  const isLinkedIn = url.includes('linkedin.com');
   const looksStale =
     title.toLowerCase().includes('top job picks') ||
     title.toLowerCase().includes('picks for you') ||
-    title.toLowerCase().includes('notifications') ||
-    title.toLowerCase().includes('0 notifications') ||
-    url.includes('/feed') ||
-    url.includes('/feed/') ||
-    (!title && !url);
+    (isLinkedIn && title.toLowerCase().includes('notifications')) ||
+    (isLinkedIn && url.includes('/feed'));
+
   // If the data doesn't look like a real job, show the stale warning and
   // stay in (or return to) the empty state — don't populate any fields.
   if (looksStale) {
