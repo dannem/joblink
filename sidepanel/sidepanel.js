@@ -369,14 +369,21 @@ function showJob(job) {
   fieldUrl.href        = url;
   fieldUrl.textContent = url || '—';
 
-  // Stale data check — show yellow warning when the title looks like a LinkedIn
-  // feed/collection heading rather than an actual job title.
-  // Note: length-based checks are intentionally omitted — real job titles can
-  // exceed 80 characters and would cause false positives.
+  // Stale data check — show yellow warning and disable action buttons when the
+  // captured data does not look like a real job posting.
   const title = job.jobTitle || '';
-  const looksStale = title.toLowerCase().includes('top job picks') ||
-    title.toLowerCase().includes('picks for you');
-  staleWarning.style.display = looksStale ? 'flex' : 'none';
+  const looksStale =
+    title.toLowerCase().includes('top job picks') ||
+    title.toLowerCase().includes('picks for you') ||
+    title.toLowerCase().includes('notifications') ||
+    title.toLowerCase().includes('0 notifications') ||
+    url.includes('/feed') ||
+    url.includes('/feed/') ||
+    (!title && !url);
+  staleWarning.style.display    = looksStale ? 'flex' : 'none';
+  btnSave.disabled              = looksStale;
+  btnPreparePackage.disabled    = looksStale;
+  btnEvaluateFit.disabled       = looksStale;
 
   // Reset package progress so the previous job's steps don't persist
   resetProgress(currentPackageMode, false);
