@@ -380,10 +380,17 @@ function showJob(job) {
     url.includes('/feed') ||
     url.includes('/feed/') ||
     (!title && !url);
-  staleWarning.style.display    = looksStale ? 'flex' : 'none';
-  btnSave.disabled              = looksStale;
-  btnPreparePackage.disabled    = looksStale;
-  btnEvaluateFit.disabled       = looksStale;
+  // If the data doesn't look like a real job, show the stale warning and
+  // stay in (or return to) the empty state — don't populate any fields.
+  if (looksStale) {
+    staleWarning.style.display = 'flex';
+    stateJob.style.display     = 'none';
+    stateEmpty.style.display   = 'flex';
+    currentJob = null;
+    return;
+  }
+
+  staleWarning.style.display = 'none';
 
   // Reset package progress so the previous job's steps don't persist
   resetProgress(currentPackageMode, false);
