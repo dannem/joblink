@@ -450,9 +450,6 @@ async function handleSaveKeys() {
     await setStorageValue(STORAGE_KEYS.GEMINI_API_KEY,    gemini);
     showSaveConfirm('save-keys-confirm');
     // Tick off step 3 if any key was entered
-    const anthropic = document.getElementById('anthropic-key').value.trim();
-    const openai    = document.getElementById('openai-key').value.trim();
-    const gemini    = document.getElementById('gemini-key').value.trim();
     if (anthropic || openai || gemini) {
       const step3 = document.getElementById('setup-step-3');
       if (step3) step3.classList.add('done');
