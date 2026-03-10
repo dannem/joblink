@@ -541,7 +541,7 @@ async function handleSaveToDrive(job, pdfBase64) {
   const { preparationId } = await ensureStatusFolders(token, rootFolderId);
 
   // 4. Sanitise the job fields into a valid Drive folder name
-  const folderName = sanitiseFolderName(job.company, job.jobTitle);
+  const folderName = sanitiseFolderName(job.company, job.jobTitle, job);
 
   // 5. Create the job subfolder inside Preparation
   const folder = await createDriveFolder(token, folderName, preparationId);

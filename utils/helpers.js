@@ -102,10 +102,22 @@ async function initializeStorage() {
  * @param {string} jobTitle - Job title from the scraped job
  * @returns {string} Sanitised folder name in the format "[Company] - [Job Title]"
  */
-function sanitiseFolderName(company, jobTitle) {
+function sanitiseFolderName(company, jobTitle, job) {
   const illegal = /[\\/:*?"<>|]/g;
   const safe = (str) => (str || '').replace(illegal, '').trim();
-  return `${safe(company)} - ${safe(jobTitle)}`;
+  const base = `${safe(company)} - ${safe(jobTitle)}`;
+  if (!job) return base;
+  return `${base} [${jobHashId(job)}]`;
+}
+
+function jobHashId(job) {
+  const source = (job.applicationUrl || `${job.company || ''}|${job.jobTitle || ''}`).trim();
+  let hash = 5381;
+  for (let i = 0; i < source.length; i++) {
+    hash = ((hash << 5) + hash) ^ source.charCodeAt(i);
+    hash = hash >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0').slice(0, 6);
 }
 
 /**

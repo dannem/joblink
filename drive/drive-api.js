@@ -371,9 +371,10 @@ async function checkExistingApplication(accessToken, job) {
    */
   async function searchInFolder(parentId) {
     if (!parentId) return null;
-    const safeName = folderName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const hash = jobHashId(job);
+    const safeHash = `[${hash}]`.replace(/'/g, "\\'");
     const query = encodeURIComponent(
-      `'${parentId}' in parents and name = '${safeName}' ` +
+      `'${parentId}' in parents and name contains '${safeHash}' ` +
       `and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
     );
     const res = await fetch(
@@ -856,7 +857,7 @@ async function savePreparedPackage(accessToken, job, cvData, clData, selectedTem
   const subFolderId  = await getStorageValue(STORAGE_KEYS.SUBMITTED_FOLDER_ID);
   if (!subFolderId) throw new Error('Submitted folder ID not found in storage.');
 
-  const jobFolderName = sanitiseFolderName(job.company || '', job.jobTitle || 'Job');
+  const jobFolderName = sanitiseFolderName(job.company || '', job.jobTitle || 'Job', job);
 
   // ── 2. Create job subfolder in Submitted ─────────────────────────────────
   const { id: submittedJobFolderId } = await getOrCreateNamedFolder(accessToken, jobFolderName, subFolderId);
