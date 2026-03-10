@@ -8,7 +8,7 @@
 let accessToken = null;
 
 // Lemon Squeezy checkout URL — update when store is live
-const LEMON_SQUEEZY_CHECKOUT_URL = 'https://joblink.lemonsqueezy.com/buy/placeholder';
+const LEMON_SQUEEZY_CHECKOUT_URL = 'https://joblink.lemonsqueezy.com/checkout/buy/86e5c3a4-5697-46f8-a0a0-94ca692f1608';
 
 // Main save-location folder
 let selectedFolderId = null;

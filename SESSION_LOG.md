@@ -2106,3 +2106,20 @@ onInstalled already opened setup on first install (confirmed in service-worker.j
 ### Notes
 - ai-helpers.js error messages were already plain-English — no changes needed
 - drive-api.js raw API wrappers left as-is; translation happens at call sites in sidepanel.js
+
+## Session 56 — Lemon Squeezy Setup
+**Date:** 2026-03-09
+**Branch:** main
+
+### External setup (Lemon Squeezy)
+- Account created at lemonsqueezy.com
+- Store created: Joblink (joblink.lemonsqueezy.com)
+- Identity verification submitted — In Review
+- Product created: JobLink Pro, $4.99/month subscription
+- Licence keys enabled, activation limit set to 1 per order
+- Product published
+
+### Code changes
+- setup.js — LEMON_SQUEEZY_CHECKOUT_URL constant updated from placeholder to real URL
+- sidepanel.html — upgrade CTA button href updated to real checkout URL
+- setup.html — upgrade CTA link href updated to real checkout URL
