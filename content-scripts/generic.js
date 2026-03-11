@@ -97,11 +97,18 @@ function attrSelectors(keywords) {
  * @returns {string}
  */
 function extractJobTitle() {
-  // Try heading elements first
-  const headingText = queryText(['h1', 'h2']);
-  if (headingText) return headingText;
-
-  // Fall back to keyword-matched elements
+  // Find the first h1 with meaningful text (more than 4 words, not a nav label)
+  const NAV_WORDS = ['home', 'jobs', 'careers', 'search', 'back', 'menu', 'apply'];
+  for (const el of document.querySelectorAll('h1')) {
+    const text = (el.innerText || el.textContent || '').trim();
+    if (!text) continue;
+    if (text.split(/\s+/).length < 2) continue; // skip single words
+    if (NAV_WORDS.includes(text.toLowerCase())) continue; // skip nav labels
+    return text;
+  }
+  // Fall back to h2 and keyword-matched elements
+  const h2 = queryText(['h2']);
+  if (h2 && !NAV_WORDS.includes(h2.toLowerCase())) return h2;
   return queryText(attrSelectors(['job-title', 'jobtitle', 'position-title', 'position', 'role-title', 'role']));
 }
 
@@ -192,7 +199,11 @@ function extractCompany() {
  * @returns {string}
  */
 function extractLocation() {
-  return queryText(attrSelectors(['job-location', 'location', 'city', 'office', 'workplace']));
+  return queryText([
+    ...attrSelectors(['job-location', 'location', 'city', 'office', 'workplace']),
+    '[class*="salary"] + *',  // sometimes location follows salary
+    'meta[name="geo.placename"]',
+  ].concat(attrSelectors(['address', 'region', 'locale'])));
 }
 
 /**
