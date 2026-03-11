@@ -41,6 +41,37 @@ function queryText(selectors) {
 }
 
 /**
+ * Extract job data from JSON-LD structured data if present.
+ * Many job boards embed a <script type="application/ld+json"> block
+ * with @type "JobPosting" containing clean structured fields.
+ *
+ * @returns {{ title, company, location, description } | null}
+ */
+function extractFromJsonLd() {
+  const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+  for (const script of scripts) {
+    try {
+      const data = JSON.parse(script.textContent);
+      // Handle both a single object and an array of objects
+      const items = Array.isArray(data) ? data : [data];
+      for (const item of items) {
+        if (item['@type'] !== 'JobPosting') continue;
+        const title       = (item.title || '').trim();
+        const company     = (item.hiringOrganization?.name || '').trim();
+        const city        = item.jobLocation?.address?.addressLocality || '';
+        const region      = item.jobLocation?.address?.addressRegion   || '';
+        const location    = [city, region].filter(Boolean).join(', ');
+        // description may contain HTML — strip tags for plain text
+        const rawDesc     = item.description || '';
+        const description = rawDesc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (title) return { title, company, location, description };
+      }
+    } catch (_) { /* malformed JSON — skip */ }
+  }
+  return null;
+}
+
+/**
  * Build attribute selectors for common class/id name patterns.
  * Returns both [class*="…"] and [id*="…"] variants for each keyword.
  *
@@ -234,11 +265,16 @@ function extractDescription() {
  * @returns {Object} Job data object conforming to the JobLink scraper output format
  */
 function scrapeGenericJob() {
+  // Highest priority: structured JSON-LD data embedded by the page
+  const ld = extractFromJsonLd();
+
   return {
-    jobTitle:       extractJobTitle(),
-    company:        extractCompany(),
-    location:       extractLocation(),
-    description:    extractDescription(),
+    jobTitle:       ld?.title       || extractJobTitle(),
+    company:        ld?.company     || extractCompany(),
+    location:       ld?.location    || extractLocation(),
+    description:    (ld?.description?.length >= MIN_DESC_LENGTH)
+                      ? ld.description
+                      : extractDescription(),
     applicationUrl: window.location.href,
     source:         'generic',
     scrapedAt:      new Date().toISOString(),
