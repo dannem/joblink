@@ -2123,3 +2123,88 @@ onInstalled already opened setup on first install (confirmed in service-worker.j
 - setup.js — LEMON_SQUEEZY_CHECKOUT_URL constant updated from placeholder to real URL
 - sidepanel.html — upgrade CTA button href updated to real checkout URL
 - setup.html — upgrade CTA link href updated to real checkout URL
+
+---
+
+## Session 57 — OAuth Client Replacement + UX Fixes
+**Date:** 2026-03-10
+**Branch:** main
+
+### Context
+End-to-end testing session. Original OAuth client was deleted; replaced with a new one.
+Several UX issues found and fixed during testing.
+
+### OAuth client replacement
+- Original OAuth client deleted from Google Cloud Console
+- New Chrome Extension OAuth client created in project 406710056933
+- Drive API and Docs API enabled in new project
+- manifest.json oauth2.client_id updated to: 406710056933-1rg7kmoso6klvftb43hkv6dab2s12u37.apps.googleusercontent.com
+
+### New Folder button in folder picker
+- setup.html — added .folder-picker-actions div with "New Folder" and "Select this folder" buttons
+- setup.js — added handleNewFolder(): prompts for name, creates folder via Drive API, navigates picker into it
+- setup.css — .folder-picker-actions flex layout
+
+### Pro badge live update
+- sidepanel.js — chrome.storage.onChanged listener added; detects changes to API key storage keys and calls refreshProStatus() live without requiring panel reload
+
+### Stale scrape prevention
+- sidepanel.js — showJob() now checks if the incoming job's applicationUrl matches the current tab URL before displaying; LinkedIn-scoped only; prevents stale data from a previous tab appearing when switching tabs
+
+### Delete with confirmation
+- dashboard.html — Delete button added to job detail panel and all three bulk action bars
+- dashboard.js — deleteDriveFolder(): moves folder to Drive trash via PATCH trashed:true (recoverable); handleDelete(), handleBulkDelete(), handleDetailDelete() with confirmation dialogs
+- dashboard.css — .delete-btn, .bulk-btn--delete styles
+
+**Test results:** Tests 1–4 and 6 passed (first-run, free save flow, upgrade flow, licence activation, dashboard).
+
+---
+
+## Session 58 — End-to-End Test Fixes
+**Date:** 2026-03-10
+**Branch:** main
+
+### Fix: Indeed job identity for status persistence
+- sidepanel.js — jobIdFromUrl() now extracts the jk query parameter for Indeed URLs and returns 'indeed:' + jk as the stable job identity; previously used origin+pathname which changed on every navigation, breaking status persistence
+
+### Feature: Check Status button (replaces auto status bar)
+- Removed: #job-status-bar, #duplicate-check-hint, setStatusBar(), checkDuplicate(), lastDuplicateCheckId and all related DOM refs from sidepanel.js and sidepanel.html
+- sidepanel.html — added #btn-check-status button in action row; added #status-result div for inline result display
+- sidepanel.css — added five .status-result--* pill styles (new, prep, submitted, rejected, checking)
+- sidepanel.js — added handleCheckStatus(): on-demand Drive folder search, updates #status-result pill inline
+- sidepanel.js — handleSave() sets status result pill directly to "📝 In Preparation" on successful save
+- sidepanel.js — handlePreparePackage() sets status result pill directly to "📤 Submitted" on completion
+- sidepanel.js — storage.onChanged listener extended to also watch DEFAULT_AI_MODEL and DEFAULT_PACKAGE; live-syncs model and package dropdowns when settings change without requiring panel reload
+
+### Feature: Job hash ID in folder names
+- helpers.js — added jobHashId(job): derives a 6-character hex hash from applicationUrl (or company|jobTitle fallback) using djb2 algorithm
+- helpers.js — sanitiseFolderName(company, jobTitle, job?) updated: when job is passed as third argument, appends [xxxxxx] hash suffix to folder name
+- service-worker.js — handleSaveToDrive passes job as third arg to sanitiseFolderName
+- drive-api.js — checkExistingApplication searchInFolder now queries name contains '[hash]' instead of exact folder name match, making status checks robust against company name drift
+- drive-api.js — savePreparedPackage also passes job to sanitiseFolderName
+- Folder name format: "Acme Corp - Senior Engineer [a3f9b2]"
+
+### Feature: Consistent file naming for all job posting files
+- helpers.js — added jobPostingFileName(job): returns "Post - Job Title (Company)" with illegal chars stripped
+- service-worker.js — JSON, HTML, PDF filenames in handleSaveToDrive now use jobPostingFileName(job) + .json/.html/.pdf
+- drive-api.js — Google Doc name in saveJobAsGoogleDoc now uses jobPostingFileName(jobData)
+- All four job posting files in a folder now share a consistent base name: "Post - Senior Engineer (Acme Corp)"
+
+### Bug fix: Indeed scraper — greeting h1 and quality guard
+- content-scripts/indeed.js — extractJobTitle() last-resort h1 search now excludes headings starting with 'indeed', 'welcome,', 'sign in', 'log in', 'create account' (previously only excluded the literal word "Indeed")
+- content-scripts/indeed.js — runScrape() now validates scraped data before sending: requires non-empty title plus either a non-empty company name or description >100 chars; silently drops scrapes that don't qualify
+- Root cause: mangled Indeed URL (passedCtk param containing vjk=) caused scraper to fire on a non-job page and pick up "Welcome, Dan" greeting as the job title
+
+### Test checklist status
+- Test 1 — First-run / onboarding: PASSED
+- Test 2 — Free user flow (save to Drive): PASSED
+- Test 3 — Upgrade flow (Lemon Squeezy checkout): PASSED
+- Test 4 — Licence key activation + badge live update: PASSED
+- Test 5 — Pro user flow (Evaluate Fit + Prepare Package): SKIPPED (no real API key available during test)
+- Test 6 — Dashboard (open, status changes, delete): PASSED
+- Test 7 — Indeed scraping + Check Status: PASSED (after hash fix and scraper fix)
+- Test 8 — Generic scraper: Pending
+- Test 9 — Duplicate detection: Pending
+- Test 10 — Error handling (bad folder/token): Pending
+
+**Next steps:** Complete remaining tests (8–10), then Session 59 — Chrome Web Store submission.
