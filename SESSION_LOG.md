@@ -2208,3 +2208,27 @@ Several UX issues found and fixed during testing.
 - Test 10 — Error handling (bad folder/token): Pending
 
 **Next steps:** Complete remaining tests (8–10), then Session 59 — Chrome Web Store submission.
+
+
+---
+
+## Session 58 addendum - Generic scraper fixes during Test 8
+Date: 2026-03-10
+
+Two additional fixes applied to content-scripts/generic.js during end-to-end testing:
+
+Fix 1 - extractJobTitle() nav label filter:
+- h1 iteration now skips single-word headings and known nav labels (home, jobs, careers, search, back, menu, apply)
+- Previously the first h1 found was returned unconditionally, causing nav elements like Home to be picked up on some career sites
+- Falls back to h2 then attribute selectors as before
+
+Fix 2 - extractLocation() broader selectors:
+- Added address, region, locale attribute selectors
+- Added meta[name=geo.placename] fallback
+- Added salary-sibling selector
+
+Test 8 result: PASSED on academic.careers.columbia.edu - title, company, description all correct.
+Note: ZipRecruiter and other job aggregators with split-panel layouts are a known limitation of the generic scraper (same architectural problem as Indeed search pages). These would require dedicated content scripts. Deferred post-launch.
+
+All 9 tests now complete (Test 5 skipped - no API key available during testing).
+Extension ready for Chrome Web Store submission (Session 59).
