@@ -5,14 +5,16 @@
 ## Short Description
 *(132 characters max — currently 129)*
 
-Capture job postings from LinkedIn, Indeed & any career page. Save to Google Drive. AI-tailored CVs & cover letters. Free & Pro.
+Targeted job applications, not bulk ones. Capture postings, tailor your CV & cover letter with AI, review and save to Drive. Free & Pro.
 
 ---
 
 ## Long Description
 *(Plain text, no markdown — Chrome Web Store renders this as-is)*
 
-JobLink is a Chrome Side Panel extension for serious job seekers. Capture job postings from any website with one click, review and edit them without leaving the page, and save everything to your own Google Drive — organised, searchable, and always yours.
+JobLink helps you apply smarter, not faster. Capture job postings from LinkedIn, Indeed, and other career pages, review them in a clean side panel, and use AI to generate a tailored CV and cover letter — one application at a time. Every AI-generated document is yours to review, edit, and approve before you use it. JobLink never submits applications on your behalf.
+
+JobLink is a Chrome Side Panel extension for serious job seekers. Save everything to your own Google Drive — organised, searchable, and always yours.
 
 ──────────────────────────────
 FREE FEATURES

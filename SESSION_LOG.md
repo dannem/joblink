@@ -5,6 +5,30 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+## Session 59 — Quality Philosophy Copy Update
+**Status:** Complete
+**Date:** 2026-03-13
+**Branch:** feature-quality-philosophy-copy
+
+### Summary
+Copy-only update — no functional code changes, no logic changes, no UI changes.
+
+Introduced the "targeted, quality-first" application philosophy across five files:
+
+- **manifest.json** — Updated extension description to emphasise quality applications, one at a time
+- **index.html** — Added philosophy paragraph below the existing tagline
+- **privacy.html** — Added "What JobLink Is Designed For" section before the summary box
+- **STORE_LISTING.md** — Updated Short Description and opening Long Description paragraph to lead with "apply smarter, not faster" positioning
+- **CLAUDE.md** — Added "Quality over volume" constraint to the Key Constraints section
+
+### Test results
+No functional testing required — text-only changes.
+
+### Known issues / next steps
+Session 60: Chrome Web Store submission — developer account ($5), zip package, fill listing, submit.
+
+---
+
 Session 51 — Complete
 Date: 2026-03-09
 Branch: main

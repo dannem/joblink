@@ -125,6 +125,7 @@ Folder and file names must be sanitised to remove characters that Drive does not
 
 ## Key Constraints
 - **No automatic form submission**: The tool prepares and organises data only. It never submits applications on the user's behalf.
+- **Quality over volume**: JobLink is designed for individual, targeted applications — not bulk submission. Features should support the user's decision-making process, not bypass it. The AI package generator always produces output for the user to review and edit; it never sends or submits anything automatically.
 - **No scraping navigation**: The content scripts only read the currently active, already-loaded page. They never navigate, click, or paginate.
 - **Minimal Drive permissions**: Use the `drive.file` scope only. The extension must never request access to the user's entire Drive.
 - **Setup runs once**: The setup page opens automatically on first install only. It is accessible afterward via a settings icon in the side panel.

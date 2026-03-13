@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "JobLink",
   "version": "1.0.0",
-  "description": "Scrape job postings from LinkedIn and Indeed, review them in a side panel, and save to Google Drive.",
+  "description": "Capture job postings, review and tailor your application with AI, and save quality applications to Google Drive. One job at a time.",
   "permissions": [
     "storage",
     "identity",
