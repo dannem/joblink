@@ -57,6 +57,66 @@ const packageModel       = document.getElementById('package-model');
 const packageStatus      = document.getElementById('package-status');
 const packageProgress    = document.getElementById('package-progress');
 
+const DEFAULT_CV_TEMPLATE = {
+  id: 'default-cv',
+  name: 'Default CV Template',
+  text: `
+    [Your Name]
+    [Your Contact Information]
+
+    PROFESSIONAL SUMMARY
+    [Your Professional Summary]
+
+    WORK EXPERIENCE
+    [Your Most Recent Role]
+    * [Bullet point 1]
+    * [Bullet point 2]
+    * [Bullet point 3]
+  `
+};
+
+const DEFAULT_CL_TEMPLATE = {
+    id: 'default-cl',
+    name: 'Default Cover Letter Template',
+    text: `
+      [Your Name]
+      [Your Contact Information]
+
+      [Date]
+
+      [Hiring Manager Name] (If known, otherwise use title)
+      [Hiring Manager Title]
+      [Company Name]
+      [Company Address]
+
+      Dear [Mr./Ms./Mx. Last Name],
+
+      [Body Paragraph 1: Introduction]
+      [Body Paragraph 2: Elaborate on your skills and experience]
+      [Body Paragraph 3: Closing]
+
+      Sincerely,
+      [Your Name]
+    `
+};
+
+/**
+ * Maps package-model dropdown values to AI_MODELS constants.
+ * Used by enrichCompanyMetadata, handleSave, handleEvaluate, and handlePreparePackage.
+ */
+const MODEL_MAP = {
+  sonnet:           'claude-sonnet-4-6',
+  haiku:            'claude-haiku-4-5-20251001',
+  'gpt-4o':         'gpt-4o',
+  'gpt-4o-mini':    'gpt-4o-mini',
+  'gpt-4-turbo':    'gpt-4-turbo',
+  o1:               'o1',
+  'o1-mini':        'o1-mini',
+  'o3-mini':        'o3-mini',
+  geminiFlash25:    'gemini-2.5-flash',
+  'gemini-2.5-pro': 'gemini-2.5-pro',
+};
+
 // ── Module state ──────────────────────────────────────────────
 
 /** The raw job object currently displayed (before user edits). */
@@ -85,10 +145,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } catch (_) { /* non-fatal — defaults to configured state */ }
 
-  // Load saved default AI model and package mode.
+  // Load saved default AI model and populate the dropdown
   try {
-    const savedModel = await getStorageValue(STORAGE_KEYS.DEFAULT_AI_MODEL);
-    if (savedModel) packageModel.value = savedModel;
+    await refreshModelDropdown();
+
   } catch (_) { /* non-fatal — dropdown stays at HTML default */ }
 
   try {
@@ -149,19 +209,97 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
-// ── Storage change listener — keep Pro badge in sync ──────────
+// ── Storage change listener — keep Pro badge and model dropdown in sync ───────
 
-chrome.storage.onChanged.addListener((changes, area) => {
+chrome.storage.onChanged.addListener(async (changes, area) => {
   if (area !== 'sync') return;
-  const watched = [
+
+  const proKeys = [
     STORAGE_KEYS.LICENCE_VALID,
     STORAGE_KEYS.ANTHROPIC_API_KEY,
     STORAGE_KEYS.OPENAI_API_KEY,
     STORAGE_KEYS.GEMINI_API_KEY,
   ];
-  const relevant = watched.some(k => k in changes);
-  if (relevant) refreshProStatus();
+  if (proKeys.some(k => k in changes)) {
+    await refreshProStatus();
+    // Re-run the dropdown filter with updated keys
+    await refreshModelDropdown();
+  }
+
+  if (STORAGE_KEYS.DEFAULT_AI_MODEL in changes) {
+    await refreshModelDropdown();
+  }
+  if (STORAGE_KEYS.DEFAULT_PACKAGE in changes) {
+    const newVal = changes[STORAGE_KEYS.DEFAULT_PACKAGE].newValue;
+    if (newVal) {
+      currentPackageMode = newVal;
+      packageType.value  = newVal;
+    }
+  }
 });
+
+/**
+ * Re-read the saved API keys and re-apply the disabled/enabled state and
+ * best-available selection to the package-model dropdown.
+ * Called on DOMContentLoaded and whenever API keys change in storage.
+ */
+async function refreshModelDropdown() {
+  try {
+    const [savedModel, anthropic, openai, gemini] = await Promise.all([
+      getStorageValue(STORAGE_KEYS.DEFAULT_AI_MODEL),
+      getStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY),
+      getStorageValue(STORAGE_KEYS.OPENAI_API_KEY),
+      getStorageValue(STORAGE_KEYS.GEMINI_API_KEY),
+    ]);
+
+    const allModels = [
+      { value: 'sonnet', text: 'Claude 3.5 Sonnet (Best)', provider: 'anthropic' },
+      { value: 'haiku', text: 'Claude 3 Haiku (Fastest)', provider: 'anthropic' },
+      { value: 'o1', text: 'OpenAI GPT-4o', provider: 'openai' },
+      { value: 'o1-mini', text: 'OpenAI GPT-4o mini', provider: 'openai' },
+      { value: 'gpt-4-turbo', text: 'OpenAI GPT-4 Turbo', provider: 'openai' },
+      { value: 'geminiFlash25', text: 'Google Gemini 1.5 Flash (Recommended)', provider: 'gemini' },
+      { value: 'geminiPro15', text: 'Google Gemini 1.5 Pro', provider: 'gemini' }
+    ];
+
+    packageModel.innerHTML = '';
+
+    const availableModels = allModels.filter(model => {
+      if (model.provider === 'anthropic') return !!anthropic;
+      if (model.provider === 'openai') return !!openai;
+      if (model.provider === 'gemini') return !!gemini;
+      return false;
+    });
+
+    if (availableModels.length > 0) {
+      availableModels.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model.value;
+        option.textContent = model.text;
+        packageModel.appendChild(option);
+      });
+    } else {
+      const option = document.createElement('option');
+      option.value = 'no-keys';
+      option.textContent = 'No API keys set in Settings';
+      option.disabled = true;
+      packageModel.appendChild(option);
+    }
+
+    const PROVIDER_PRIORITY = ['sonnet', 'geminiFlash25', 'o1', 'haiku'];
+    if (savedModel && availableModels.some(m => m.value === savedModel)) {
+      packageModel.value = savedModel;
+    } else if (availableModels.length > 0) {
+      const fallback = PROVIDER_PRIORITY.find(v => availableModels.some(m => m.value === v));
+      if (fallback) {
+        packageModel.value = fallback;
+      } else {
+        packageModel.value = availableModels[0].value;
+      }
+    }
+
+  } catch (_) { /* non-fatal */ }
+}
 
 // ── Button handlers ───────────────────────────────────────────
 
@@ -423,19 +561,7 @@ async function enrichCompanyMetadata(job) {
   if (!needsEnrichment || !job.description) return;
 
   try {
-    const modelMap = {
-      sonnet:           AI_MODELS.claude,
-      haiku:            AI_MODELS.claudeHaiku,
-      'gpt-4o':         AI_MODELS.gpt4o,
-      'gpt-4o-mini':    AI_MODELS.gpt4oMini,
-      'gpt-4-turbo':    AI_MODELS.gpt4Turbo,
-      o1:               AI_MODELS.o1,
-      'o1-mini':        AI_MODELS.o1Mini,
-      'o3-mini':        AI_MODELS.o3Mini,
-      geminiFlash25:    AI_MODELS.geminiFlash25,
-      'gemini-2.5-pro': AI_MODELS.geminiPro,
-    };
-    const selectedModel = modelMap[packageModel.value] || AI_MODELS.claude;
+    const selectedModel = MODEL_MAP[packageModel.value] || AI_MODELS.claude;
     const extracted = await extractJobMetadata(job.description, null, selectedModel);
 
     if (currentJob !== job) return; // User has moved to a different job — discard
@@ -483,19 +609,7 @@ async function handleSave() {
 
   if (companyLooksWrong && jobToSave.description) {
     try {
-      const modelMap = {
-        sonnet:           AI_MODELS.claude,
-        haiku:            AI_MODELS.claudeHaiku,
-        'gpt-4o':         AI_MODELS.gpt4o,
-        'gpt-4o-mini':    AI_MODELS.gpt4oMini,
-        'gpt-4-turbo':    AI_MODELS.gpt4Turbo,
-        'o1':             AI_MODELS.o1,
-        'o1-mini':        AI_MODELS.o1Mini,
-        'o3-mini':        AI_MODELS.o3Mini,
-        geminiFlash25:    AI_MODELS.geminiFlash25,
-        'gemini-2.5-pro': AI_MODELS.geminiPro,
-      };
-      const selectedModel = modelMap[packageModel.value] || AI_MODELS.claude;
+      const selectedModel = MODEL_MAP[packageModel.value] || AI_MODELS.claude;
       const extracted = await extractJobMetadata(jobToSave.description, null, selectedModel);
       if (extracted.company) {
         jobToSave.company  = extracted.company;
@@ -658,19 +772,7 @@ async function handleEvaluate() {
   aiResults.style.display = 'none';
 
   try {
-    const modelMap = {
-      sonnet:           AI_MODELS.claude,
-      haiku:            AI_MODELS.claudeHaiku,
-      'gpt-4o':         AI_MODELS.gpt4o,
-      'gpt-4o-mini':    AI_MODELS.gpt4oMini,
-      'gpt-4-turbo':    AI_MODELS.gpt4Turbo,
-      o1:               AI_MODELS.o1,
-      'o1-mini':        AI_MODELS.o1Mini,
-      'o3-mini':        AI_MODELS.o3Mini,
-      geminiFlash25:    AI_MODELS.geminiFlash25,
-      'gemini-2.5-pro': AI_MODELS.geminiPro,
-    };
-    const selectedModel = modelMap[packageModel.value] || AI_MODELS.claude;
+    const selectedModel = MODEL_MAP[packageModel.value] || AI_MODELS.claude;
 
     // Attempt to load the candidate profile from Drive before building the prompt.
     // Failure is non-fatal — evaluation proceeds with a no-profile notice in the prompt.
@@ -823,33 +925,25 @@ async function handlePreparePackage() {
     const rootFolderId = await getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID);
     if (!rootFolderId) throw new Error('No save folder set. Open Settings and choose a Google Drive folder first.');
 
-    // Step 0 — Read candidate profile from My_Profile (always; non-fatal)
+    // Step 0 — Read candidate profile from the configured folder (now mandatory)
     activeStep = 0;
     updateProgress(0, 'active');
     let profileText = '';
-    try {
-      const profileFolderId = await findFolderByName(token, rootFolderId, 'My_Profile');
-      if (profileFolderId) {
-        const profileDocs = await readDocsFromFolder(token, profileFolderId);
-        profileText = profileDocs.map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
-      }
-    } catch (_) { /* non-fatal — proceed without profile */ }
+    const profileFolderId = await getStorageValue(STORAGE_KEYS.PROFILE_FOLDER_ID);
+
+    if (!profileFolderId) {
+      throw new Error('Profile folder not set. Please select your profile folder in the Settings page.');
+    }
+
+    const profileDocs = await readDocsFromFolder(token, profileFolderId);
+    if (profileDocs.length === 0) {
+      throw new Error('Your selected profile folder is empty. Add one or more Google Docs or .txt files with your professional background.');
+    }
+    profileText = profileDocs.map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
     updateProgress(0, 'done');
 
     // Resolve selected AI model from the dropdown (used by CV and CL tailoring)
-    const modelMap = {
-      sonnet:           AI_MODELS.claude,
-      haiku:            AI_MODELS.claudeHaiku,
-      'gpt-4o':         AI_MODELS.gpt4o,
-      'gpt-4o-mini':    AI_MODELS.gpt4oMini,
-      'gpt-4-turbo':    AI_MODELS.gpt4Turbo,
-      o1:               AI_MODELS.o1,
-      'o1-mini':        AI_MODELS.o1Mini,
-      'o3-mini':        AI_MODELS.o3Mini,
-      geminiFlash25:    AI_MODELS.geminiFlash25,
-      'gemini-2.5-pro': AI_MODELS.geminiPro,
-    };
-    const selectedModel = modelMap[packageModel.value] || AI_MODELS.claude;
+    const selectedModel = MODEL_MAP[packageModel.value] || AI_MODELS.claude;
 
     // Step 1 — Read CV template (skip when mode is 'cl')
     let selectedTemplate = null;
@@ -859,9 +953,17 @@ async function handlePreparePackage() {
       activeStep = 1;
       updateProgress(1, 'active');
       const cvFolderId = await getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID);
-      if (!cvFolderId) throw new Error('No CV Templates folder configured. Open Settings to add it.');
-      const cvTemplates = await readDocsFromFolder(token, cvFolderId);
-      if (cvTemplates.length < 1) throw new Error('No CV template documents found in the CV Templates folder.');
+      let cvTemplates = [DEFAULT_CV_TEMPLATE]; // Default fallback
+      if (cvFolderId) {
+        try {
+          const userCvTemplates = await readDocsFromFolder(token, cvFolderId);
+          if (userCvTemplates.length > 0) {
+            cvTemplates = userCvTemplates;
+          }
+        } catch (err) {
+          console.warn('[JobLink] Could not read CV templates, using default:', err.message);
+        }
+      }
 
       selectedTemplate = cvTemplates[0];
       if (cvTemplates.length >= 2) {
@@ -872,42 +974,51 @@ async function handlePreparePackage() {
         if (idx > 0 && idx < cvTemplates.length) selectedTemplate = cvTemplates[idx];
       }
 
-      try {
-        const docRes = await fetch(
-          `https://docs.googleapis.com/v1/documents/${selectedTemplate.id}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (docRes.ok) {
-          const doc = await docRes.json();
-          const body = doc.body.content;
+      // Skip Google Docs API call for the default template
+      if (selectedTemplate.id !== 'default-cv') {
+        try {
+          const docRes = await fetch(
+            `https://docs.googleapis.com/v1/documents/${selectedTemplate.id}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (docRes.ok) {
+            const doc = await docRes.json();
+            const body = doc.body.content;
 
-          function getParagraphText(paragraph) {
-            return (paragraph.elements || [])
-              .map(e => e.textRun?.content || '')
-              .join('')
-              .replace(/\n$/, '');
-          }
-
-          let foundSummaryHeading = false;
-          let foundDirectorRole = false;
-          let bulletCount = 0;
-
-          for (const block of body) {
-            if (!block.paragraph) continue;
-            const text = getParagraphText(block.paragraph);
-            if (text.includes('PROFESSIONAL SUMMARY')) { foundSummaryHeading = true; continue; }
-            if (foundSummaryHeading && !currentSummary && text.trim().length > 20) {
-              currentSummary = text;
+            function getParagraphText(paragraph) {
+              return (paragraph.elements || [])
+                .map(e => e.textRun?.content || '')
+                .join('')
+                .replace(/\n$/, '');
             }
-            if (text.includes('Director of Bioimaging')) { foundDirectorRole = true; continue; }
-            if (foundDirectorRole && block.paragraph.bullet && text.trim().length > 0 && bulletCount < 4) {
-              currentBullets.push(text);
-              bulletCount++;
+
+            let foundSummaryHeading = false;
+            let foundDirectorRole = false;
+            let bulletCount = 0;
+
+            for (const block of body) {
+              if (!block.paragraph) continue;
+              const text = getParagraphText(block.paragraph);
+              if (text.includes('PROFESSIONAL SUMMARY')) { foundSummaryHeading = true; continue; }
+              if (foundSummaryHeading && !currentSummary && text.trim().length > 20) {
+                currentSummary = text;
+              }
+              if (text.includes('Director of Bioimaging')) { foundDirectorRole = true; continue; }
+              if (foundDirectorRole && block.paragraph.bullet && text.trim().length > 0 && bulletCount < 4) {
+                currentBullets.push(text);
+                bulletCount++;
+              }
             }
           }
+        } catch (err) {
+          console.warn('[JobLink] Could not read template structure:', err.message);
         }
-      } catch (err) {
-        console.warn('[JobLink] Could not read template structure:', err.message);
+      } else {
+          // For the default template, we can extract a dummy summary and bullets
+          currentSummary = 'A highly motivated and skilled professional seeking a challenging role.';
+          currentBullets.push('Key achievement 1.');
+          currentBullets.push('Key achievement 2.');
+          currentBullets.push('Key achievement 3.');
       }
       updateProgress(1, 'done');
     } else {
@@ -920,14 +1031,18 @@ async function handlePreparePackage() {
       activeStep = 2;
       updateProgress(2, 'active');
       const clFolderId = await getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID);
+      let clTemplate = DEFAULT_CL_TEMPLATE; // Default fallback
       if (clFolderId) {
         try {
-          const clDocs = await readDocsFromFolder(token, clFolderId, 3);
-          if (clDocs.length > 0) clTemplateDocId = clDocs[0].id;
+          const userClTemplates = await readDocsFromFolder(token, clFolderId, 3);
+          if (userClTemplates.length > 0) {
+            clTemplate = userClTemplates[0];
+          }
         } catch (err) {
-          console.warn('[JobLink] Could not read CL template folder:', err.message);
+          console.warn('[JobLink] Could not read CL template folder, using default:', err.message);
         }
       }
+      clTemplateDocId = clTemplate.id;
       updateProgress(2, 'done');
     }
 
@@ -937,7 +1052,10 @@ async function handlePreparePackage() {
     if (packageMode !== 'cl') {
       activeStep = 3;
       updateProgress(3, 'active');
-      if (currentSummary) {
+      // Only tailor when using a real user template — skip AI tailoring for the
+      // default fallback template to avoid generating fabricated content.
+      const usingRealTemplate = selectedTemplate && selectedTemplate.id !== 'default-cv';
+      if (usingRealTemplate && currentSummary) {
         try {
           const structuredPrompt = buildTailorCVStructuredPrompt(jobToSave, profileText, currentSummary, currentBullets);
           const rawJson = await callAI('claude', structuredPrompt, selectedModel);
@@ -982,14 +1100,23 @@ async function handlePreparePackage() {
     const htmlContent = generateJobSummaryHtml(jobToSave);
     const jsonContent = JSON.stringify(jobToSave, null, 2);
 
+    // Use null for default template IDs so savePreparedPackage knows not to
+    // make a Docs API call against a non-Google-Doc ID.
+    const cvTemplateDocId = (selectedTemplate && selectedTemplate.id !== 'default-cv')
+      ? selectedTemplate.id
+      : null;
+    const resolvedClTemplateDocId = (clTemplateDocId && clTemplateDocId !== 'default-cl')
+      ? clTemplateDocId
+      : null;
+
     const clData = {
-      templateDocId:  clTemplateDocId,
+      templateDocId:  resolvedClTemplateDocId,
       companyBlock:   clCompanyBlock,
       bodyParagraphs: clBodyParagraphs,
     };
     const saveResult = await savePreparedPackage(
       token, jobToSave,
-      { templateDocId: selectedTemplate?.id ?? null, newSummary, newBullets },
+      { templateDocId: cvTemplateDocId, newSummary, newBullets },
       clData,
       selectedTemplate?.name ?? '',
       { pdfBase64, htmlContent, jsonContent }

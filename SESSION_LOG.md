@@ -5,6 +5,43 @@ All architecture decisions, feature planning, and session prompts are recorded t
 
 ---
 
+## Session 60 — Gemini integration bug fixes and refactor
+**Status:** Complete
+**Date:** 2026-03-13
+**Branch:** feature-gemini-bugfixes
+
+### Summary
+Four targeted bug fixes in `sidepanel/sidepanel.js`. No functional changes to any other files.
+
+**Bug 1 — Stale arguments in DOMContentLoaded refreshModelDropdown() call**
+- `refreshModelDropdown()` reads from storage internally and takes no arguments
+- DOMContentLoaded was calling it with `(savedModel, anthropic, openai, gemini)` — all silently ignored
+- Fixed by removing the now-redundant `Promise.all` block and calling `await refreshModelDropdown()` directly
+
+**Bug 2 — Duplicated modelMap in four functions**
+- The same 10-entry `modelMap` object was copy-pasted into `enrichCompanyMetadata`, `handleSave`, `handleEvaluate`, and `handlePreparePackage`
+- Extracted as a module-level `MODEL_MAP` constant (after `DEFAULT_CL_TEMPLATE`, before `// ── Module state`)
+- Removed all four local `modelMap` declarations; each function now references `MODEL_MAP` directly
+
+**Bug 3 — AI CV tailoring called with default fallback template**
+- When no CV template folder is configured, `selectedTemplate` falls back to `{ id: 'default-cv', ... }`
+- AI tailoring was still being called in that case, potentially generating fabricated bullet points
+- Fix: added `usingRealTemplate` guard (`selectedTemplate && selectedTemplate.id !== 'default-cv'`) so tailoring is skipped for the default template
+
+**Bug 4 — Default template IDs passed to savePreparedPackage**
+- `savePreparedPackage` uses `templateDocId` to make a Google Docs API call; passing `'default-cv'` or `'default-cl'` caused Drive API errors
+- Fix: `cvTemplateDocId` and `resolvedClTemplateDocId` are now normalised to `null` when the value is a default sentinel ID, before being passed to `savePreparedPackage`
+
+### Test results
+Manual verification required in Chrome:
+- Extension loads with no console errors
+- Model dropdown shows "No API keys set" when no keys configured
+
+### Known issues / next steps
+Session 61: Chrome Web Store submission.
+
+---
+
 ## Session 59 — Quality Philosophy Copy Update
 **Status:** Complete
 **Date:** 2026-03-13
