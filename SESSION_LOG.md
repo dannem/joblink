@@ -2293,3 +2293,37 @@ Note: ZipRecruiter and other job aggregators with split-panel layouts are a know
 
 All 9 tests now complete (Test 5 skipped - no API key available during testing).
 Extension ready for Chrome Web Store submission (Session 59).
+
+---
+
+## Session 59 — Quality Philosophy Copy Update
+Date: 2026-03-13
+Branch: feature-quality-philosophy-copy
+
+What was built:
+- Copy-only changes across 5 files — no functional code was touched
+- manifest.json: description updated to "Capture job postings, review and tailor your application with AI, and save quality applications to Google Drive. One job at a time."
+- index.html: philosophy paragraph added below the existing tagline ("targeted, better applications")
+- privacy.html: "What JobLink Is Designed For" section inserted before the summary highlight box
+- STORE_LISTING.md: short description and long description opening paragraph both updated to lead with quality-first framing
+- CLAUDE.md: "Quality over volume" constraint added to Key Constraints section
+
+Test results: No functional changes — no testing required. All files load correctly.
+Known issues: None.
+Next steps: Session 60 — bug fixes from Gemini integration review.
+
+---
+
+## Session 60 — Gemini Integration Bug Fixes and Refactor
+Date: 2026-03-13
+Branch: feature-gemini-bugfixes
+
+What was built:
+- Bug fix 1: Removed stale arguments from refreshModelDropdown() call in DOMContentLoaded — the function reads from storage internally; arguments were silently ignored
+- Bug fix 2: Extracted shared MODEL_MAP constant at module level in sidepanel.js — removed 4 duplicate const modelMap = {...} declarations from enrichCompanyMetadata(), handleSave(), handleEvaluate(), and handlePreparePackage()
+- Bug fix 3: Default CV template ('default-cv') no longer passed to AI tailoring step — added usingRealTemplate guard to prevent fabricated content being generated from placeholder text
+- Bug fix 4: Default template sentinel IDs ('default-cv', 'default-cl') normalised to null before being passed to savePreparedPackage() — prevents Drive API call with a non-Google-Doc ID
+
+Test results: Extension loads in Chrome with no console errors. Model dropdown correctly shows only providers with saved API keys.
+Known issues: None.
+Next steps: Paddle application and checkout URL update, then Chrome Web Store submission.
