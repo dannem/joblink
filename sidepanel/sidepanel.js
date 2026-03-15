@@ -796,9 +796,9 @@ async function validateAIPrerequisites() {
   }
 
   if (!hasAnyApiKey) {
-    result.aiWarning = 'No AI API keys configured. Add at least one API key in Settings → AI Provider Keys to use AI features.';
+    result.aiWarning = 'No AI API keys set. Add at least one API key in Settings → AI Provider Keys.';
   } else if (packageModel.value === 'no-keys') {
-    result.aiWarning = 'No AI model available for the selected provider. Check your API keys in Settings → AI Provider Keys.';
+    result.aiWarning = 'No AI model available. Check your API keys in Settings → AI Provider Keys.';
   }
 
   // ── OAuth token ──────────────────────────────────────────────
