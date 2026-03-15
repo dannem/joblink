@@ -350,7 +350,7 @@ async function getOAuthToken(interactive = true) {
     const clientId = '406710056933-s0p707igu50ij1h6ia8ev542odvad00s.apps.googleusercontent.com';
     const scopes = [
       'https://www.googleapis.com/auth/drive.file',
-      'https://www.googleapis.com/auth/drive.metadata.readonly',
+      'https://www.googleapis.com/auth/drive.readonly',
       'https://www.googleapis.com/auth/userinfo.email'
     ].join(' ');
 
@@ -361,7 +361,8 @@ async function getOAuthToken(interactive = true) {
       '?client_id=' + encodeURIComponent(clientId) +
       '&response_type=token' +
       '&redirect_uri=' + encodeURIComponent(redirectUrl) +
-      '&scope=' + encodeURIComponent(scopes);
+      '&scope=' + encodeURIComponent(scopes) +
+      (interactive ? '&prompt=consent' : '');
 
     const responseUrl = await new Promise((resolve, reject) => {
       chrome.identity.launchWebAuthFlow(
@@ -399,7 +400,7 @@ async function getOAuthToken(interactive = true) {
  */
 async function clearCachedOAuthToken() {
   try {
-    await chrome.storage.session.remove('OAUTH_ACCESS_TOKEN');
+    await chrome.storage.session.clear();
   } catch (_) {}
 
   // Also clear from Chrome's internal cache if available

@@ -66,6 +66,7 @@ function wireEventListeners() {
   document.getElementById('save-keys-btn').addEventListener('click', handleSaveKeys);
   document.getElementById('save-all-btn').addEventListener('click', handleSaveAll);
   document.getElementById('close-tab-btn').addEventListener('click', () => window.close());
+  document.getElementById('reconnect-drive-btn').addEventListener('click', handleReconnectDrive);
   document.getElementById('error-dismiss').addEventListener('click', hideError);
   document.getElementById('folder-picker-close').addEventListener('click', hideFolderPicker);
   document.getElementById('folder-refresh-btn').addEventListener('click', handleRefreshFolders);
@@ -269,6 +270,38 @@ async function tryRestoreDriveConnection() {
     }
   } catch (_) {
     // Silent failure — don't show anything to the user
+  }
+}
+
+/**
+ * Force a fresh OAuth token and update the connected email display.
+ * Used when the user wants to re-authenticate or switch accounts.
+ */
+async function handleReconnectDrive() {
+  const btn = document.getElementById('reconnect-drive-btn');
+  setButtonLoading(btn, true);
+  hideError();
+
+  try {
+    // Clear all cached tokens first
+    await clearCachedOAuthToken();
+
+    // Force interactive re-auth
+    const token = await getOAuthToken(true);
+    accessToken = token;
+
+    // Update stored email
+    const userInfo = await getUserInfo(token);
+    await setStorageValue(STORAGE_KEYS.CONNECTED_EMAIL, userInfo.email);
+
+    // Update UI
+    document.getElementById('connected-email').textContent = userInfo.email;
+
+  } catch (error) {
+    console.error('[JobLink] Reconnect failed:', error);
+    showError(`Failed to reconnect: ${error.message}`);
+  } finally {
+    setButtonLoading(btn, false);
   }
 }
 

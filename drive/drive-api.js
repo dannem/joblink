@@ -32,8 +32,10 @@ async function getUserInfo(accessToken) {
 }
 
 /**
- * List folders in the user's Google Drive.
- * Only returns folders, not files.
+ * List folders in the user's Google Drive under a given parent.
+ * Falls back to a name-based search if the parent has a legacy folder ID
+ * (0B... format) that cannot be listed directly via the Files API.
+ *
  * @param {string} accessToken - OAuth access token
  * @param {string} [parentId='root'] - Parent folder ID to list from
  * @returns {Promise<Array<{id: string, name: string}>>} Array of folder objects
@@ -47,10 +49,30 @@ async function listDriveFolders(accessToken, parentId = 'root') {
   const url = `${DRIVE_API_BASE}/files?q=${query}&fields=files(id,name)&orderBy=name&pageSize=100`;
 
   const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
-    }
+    headers: { 'Authorization': `Bearer ${accessToken}` }
   });
+
+  // If the parent folder has a legacy ID (0B... format), the API returns 404.
+  // Fall back to searching Drive-wide for folders with this parent.
+  if (response.status === 404) {
+    const fallbackQuery = encodeURIComponent(
+      `'${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+    );
+    const fallbackUrl = `${DRIVE_API_BASE}/files?q=${fallbackQuery}&fields=files(id,name)&orderBy=name&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives`;
+
+    const fallbackResponse = await fetch(fallbackUrl, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+
+    if (!fallbackResponse.ok) {
+      // Both attempts failed — return empty list so picker shows graceful message
+      console.warn('[JobLink] Could not list folders for parent:', parentId);
+      return [];
+    }
+
+    const fallbackData = await fallbackResponse.json();
+    return fallbackData.files || [];
+  }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));

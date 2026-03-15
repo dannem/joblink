@@ -22,7 +22,6 @@
     "client_id": "406710056933-1rg7kmoso6klvftb43hkv6dab2s12u37.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/drive.file",
-      "https://www.googleapis.com/auth/drive.metadata.readonly",
       "https://www.googleapis.com/auth/drive.readonly",
       "https://www.googleapis.com/auth/drive",
       "https://www.googleapis.com/auth/userinfo.email"
