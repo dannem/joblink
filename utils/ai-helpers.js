@@ -145,7 +145,7 @@ async function callOpenAIAPI(apiKey, prompt, model = AI_MODELS.gpt4o) {
  */
 async function callOpenAI(prompt, model = AI_MODELS.gpt4o) {
   const apiKey = await getStorageValue(STORAGE_KEYS.OPENAI_API_KEY);
-  if (!apiKey) throw new Error('No OpenAI API key set. Open Settings to add your key.');
+  if (!apiKey) throw new Error('No AI API key set. Open Settings → AI Provider Keys to add your key.');
   return callOpenAIAPI(apiKey, prompt, model);
 }
 
@@ -237,7 +237,7 @@ async function callAI(provider, prompt, model = null) {
   // Detect them by model ID prefix and re-route before the normal key lookup.
   if (model && model.startsWith('gemini-')) {
     const geminiKey = await getStorageValue(STORAGE_KEYS.GEMINI_API_KEY);
-    if (!geminiKey) throw new Error('No Google Gemini API key set. Open Settings to add your key.');
+    if (!geminiKey) throw new Error('No AI API key set. Open Settings → AI Provider Keys to add your key.');
     return callGeminiAPI(geminiKey, prompt, model);
   }
 
@@ -252,8 +252,7 @@ async function callAI(provider, prompt, model = null) {
 
   const apiKey = await getStorageValue(storageKey);
   if (!apiKey) {
-    const names = { claude: 'Anthropic', openai: 'OpenAI', gemini: 'Google Gemini' };
-    throw new Error(`No ${names[provider]} API key set. Open Settings to add your key.`);
+    throw new Error('No AI API key set. Open Settings → AI Provider Keys to add your key.');
   }
 
   switch (provider) {
