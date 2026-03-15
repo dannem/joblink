@@ -16,8 +16,11 @@ let selectedFolderName = null;
 
 // Application materials folders (in-memory until "Save Templates" is clicked)
 let selectedCvFolderId = null;
+let selectedCvFolderName = null;
 let selectedClFolderId = null;
+let selectedClFolderName = null;
 let selectedProfileFolderId = null;
+let selectedProfileFolderName = null;
 
 // Folder picker shared state
 // When set, the next selectFolderAndClose call targets this secondary picker
@@ -48,6 +51,7 @@ async function initSetupPage() {
 
   wireEventListeners();
   await prefillAllFields();
+  await tryRestoreDriveConnection();
 }
 
 // ── Event wiring ──────────────────────────────────────────────────────────────
@@ -60,21 +64,25 @@ function wireEventListeners() {
   document.getElementById('save-package-btn').addEventListener('click', handleSavePackage);
   document.getElementById('save-templates-btn').addEventListener('click', handleSaveTemplates);
   document.getElementById('save-keys-btn').addEventListener('click', handleSaveKeys);
+  document.getElementById('save-all-btn').addEventListener('click', handleSaveAll);
   document.getElementById('close-tab-btn').addEventListener('click', () => window.close());
   document.getElementById('error-dismiss').addEventListener('click', hideError);
   document.getElementById('folder-picker-close').addEventListener('click', hideFolderPicker);
+  document.getElementById('folder-refresh-btn').addEventListener('click', handleRefreshFolders);
   document.getElementById('folder-nav-up').addEventListener('click', handleNavigateUp);
   document.getElementById('select-current-btn').addEventListener('click', handleSelectCurrentFolder);
   document.getElementById('new-folder-btn').addEventListener('click', handleNewFolder);
 
   document.getElementById('btn-pick-cv-templates').addEventListener('click', () => {
     pickFolder('cv-templates-folder-name', 'cv-templates-status', (id) => {
-      selectedCvFolderId = id;
+      selectedCvFolderId   = id;
+      selectedCvFolderName = document.getElementById('cv-templates-folder-name').value;
     });
   });
   document.getElementById('btn-pick-cl-templates').addEventListener('click', () => {
     pickFolder('cl-templates-folder-name', 'cl-templates-status', (id) => {
-      selectedClFolderId = id;
+      selectedClFolderId   = id;
+      selectedClFolderName = document.getElementById('cl-templates-folder-name').value;
     });
   });
   document.getElementById('activate-licence-btn').addEventListener('click', handleActivateLicence);
@@ -82,7 +90,8 @@ function wireEventListeners() {
 
   document.getElementById('btn-pick-profile').addEventListener('click', () => {
     pickFolder('profile-folder-name', 'profile-status', (id) => {
-      selectedProfileFolderId = id;
+      selectedProfileFolderId   = id;
+      selectedProfileFolderName = document.getElementById('profile-folder-name').value;
     });
   });
 }
@@ -105,8 +114,11 @@ async function prefillAllFields() {
       defaultModel,
       defaultPackage,
       cvFolderId,
+      cvFolderName,
       clFolderId,
+      clFolderName,
       profileFolderId,
+      profileFolderName,
       // eslint-disable-next-line no-unused-vars
       _licenceKey,
       // eslint-disable-next-line no-unused-vars
@@ -120,18 +132,37 @@ async function prefillAllFields() {
       getStorageValue(STORAGE_KEYS.DEFAULT_AI_MODEL),
       getStorageValue(STORAGE_KEYS.DEFAULT_PACKAGE),
       getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID),
+      getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_NAME),
       getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID),
+      getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_NAME),
       getStorageValue(STORAGE_KEYS.PROFILE_FOLDER_ID),
+      getStorageValue(STORAGE_KEYS.PROFILE_FOLDER_NAME),
       getStorageValue(STORAGE_KEYS.LICENCE_KEY),
       getStorageValue(STORAGE_KEYS.LICENCE_VALID),
     ]);
 
     // Dropdowns and text inputs
-    if (anthropic)      document.getElementById('anthropic-key').value       = anthropic;
-    if (openai)         document.getElementById('openai-key').value          = openai;
-    if (gemini)         document.getElementById('gemini-key').value          = gemini;
-    if (defaultModel)   document.getElementById('default-ai-model').value    = defaultModel;
-    if (defaultPackage) document.getElementById('default-package').value     = defaultPackage;
+    if (anthropic) document.getElementById('anthropic-key').value = anthropic;
+    if (openai)    document.getElementById('openai-key').value    = openai;
+    if (gemini)    document.getElementById('gemini-key').value    = gemini;
+
+    // Default AI model
+    const modelSelect = document.getElementById('default-ai-model');
+    await refreshModelDropdownSetup(anthropic, openai, gemini);
+    
+    // Apply saved model, or fall back to best available if it's disabled / not set
+    const PROVIDER_PRIORITY = ['sonnet', 'geminiFlash25', 'gpt-4o', 'haiku'];
+    if (defaultModel) modelSelect.value = defaultModel;
+    const chosen = modelSelect.options[modelSelect.selectedIndex];
+    if (!defaultModel || chosen?.disabled || chosen?.value === 'no-keys') {
+      const fallback = PROVIDER_PRIORITY.find(v => {
+        const opt = [...modelSelect.options].find(o => o.value === v);
+        return opt && !opt.disabled;
+      });
+      if (fallback) modelSelect.value = fallback;
+    }
+
+    if (defaultPackage) document.getElementById('default-package').value = defaultPackage;
 
     // Root Drive folder
     if (rootFolderId) {
@@ -149,12 +180,20 @@ async function prefillAllFields() {
       if (step2) step2.classList.add('done');
     }
 
-    // Template and profile folder in-memory state — names resolved via Drive API below
-    if (cvFolderId)      selectedCvFolderId      = cvFolderId;
-    if (clFolderId)      selectedClFolderId      = clFolderId;
-    if (profileFolderId) selectedProfileFolderId = profileFolderId;
+    // Template and profile folder in-memory state — restored from storage
+    if (cvFolderId)      selectedCvFolderId        = cvFolderId;
+    if (cvFolderName)    selectedCvFolderName       = cvFolderName;
+    if (clFolderId)      selectedClFolderId         = clFolderId;
+    if (clFolderName)    selectedClFolderName       = clFolderName;
+    if (profileFolderId) selectedProfileFolderId    = profileFolderId;
+    if (profileFolderName) selectedProfileFolderName = profileFolderName;
 
-    // Try a silent auth token to show connected state and resolve folder names
+    // Populate folder name inputs from storage
+    if (cvFolderName)      document.getElementById('cv-templates-folder-name').value = cvFolderName;
+    if (clFolderName)      document.getElementById('cl-templates-folder-name').value = clFolderName;
+    if (profileFolderName) document.getElementById('profile-folder-name').value      = profileFolderName;
+
+    // Try a silent auth token to show connected state
     const token = await getSilentAuthToken();
     if (token) {
       accessToken = token;
@@ -165,16 +204,6 @@ async function prefillAllFields() {
 
       // Enable folder selection now that we have a token
       document.getElementById('select-folder-btn').disabled = false;
-
-      // Resolve stored folder names via Drive API
-      const names = await Promise.all([
-        cvFolderId      ? getFolderName(token, cvFolderId)      : Promise.resolve(null),
-        clFolderId      ? getFolderName(token, clFolderId)      : Promise.resolve(null),
-        profileFolderId ? getFolderName(token, profileFolderId) : Promise.resolve(null),
-      ]);
-      if (names[0]) document.getElementById('cv-templates-folder-name').value  = names[0];
-      if (names[1]) document.getElementById('cl-templates-folder-name').value  = names[1];
-      if (names[2]) document.getElementById('profile-folder-name').value       = names[2];
     }
 
     // Pro section
@@ -214,6 +243,36 @@ async function showDriveConnected(token) {
 }
 
 /**
+ * Attempt to silently restore the Drive connection on page load.
+ * Uses the stored email to show "Connected as" state without re-prompting.
+ * Then attempts a silent non-interactive OAuth token refresh in the background.
+ * Never shows an error to the user — if it fails, the Connect button remains.
+ */
+async function tryRestoreDriveConnection() {
+  try {
+    const storedEmail = await getStorageValue(STORAGE_KEYS.CONNECTED_EMAIL);
+    if (!storedEmail) return;
+
+    // Show connected state immediately using stored email
+    document.getElementById('drive-not-connected').style.display = 'none';
+    document.getElementById('drive-connected').style.display = 'flex';
+    document.getElementById('connected-email').textContent = storedEmail;
+    document.getElementById('select-folder-btn').disabled = false;
+
+    // Attempt silent token refresh in background — don't block UI or show errors
+    try {
+      const token = await getOAuthToken(false);
+      accessToken = token;
+    } catch (_) {
+      // Silent failure — token will be requested interactively if user
+      // tries to open folder picker or save
+    }
+  } catch (_) {
+    // Silent failure — don't show anything to the user
+  }
+}
+
+/**
  * Handle the "Connect Google Drive" button click.
  */
 async function handleConnectDrive() {
@@ -222,27 +281,27 @@ async function handleConnectDrive() {
   hideError();
 
   try {
-    // Clear cached token to ensure fresh scopes
-    await new Promise((resolve) => {
-      chrome.identity.getAuthToken({ interactive: false }, (oldToken) => {
-        if (oldToken) chrome.identity.removeCachedAuthToken({ token: oldToken }, resolve);
-        else resolve();
-      });
-    });
+    // Clear any cached token so we always get a fresh one on Connect
+    await clearCachedOAuthToken();
 
-    // Interactive OAuth
-    const token = await new Promise((resolve, reject) => {
-      chrome.identity.getAuthToken({ interactive: true }, (token) => {
-        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-        else resolve(token);
-      });
-    });
-
+    const token = await getOAuthToken(true);
     accessToken = token;
-    await showDriveConnected(token);
+
+    // Get user info to display email
+    const userInfo = await getUserInfo(token);
+
+    // Update UI to show connected state
+    document.getElementById('drive-not-connected').style.display = 'none';
+    document.getElementById('drive-connected').style.display = 'flex';
+    document.getElementById('connected-email').textContent = userInfo.email;
+
+    // Persist email so connection state survives browser restart
+    await setStorageValue(STORAGE_KEYS.CONNECTED_EMAIL, userInfo.email);
+
+    // Enable folder selection
     document.getElementById('select-folder-btn').disabled = false;
   } catch (error) {
-    console.error('OAuth failed:', error);
+    console.error('[JobLink] OAuth failed:', error);
     showError(`Failed to connect to Google Drive: ${error.message}`);
     setButtonLoading(connectBtn, false);
   }
@@ -427,6 +486,9 @@ async function handleSaveTemplates() {
     if (selectedCvFolderId)      await setStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID, selectedCvFolderId);
     if (selectedClFolderId)      await setStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID, selectedClFolderId);
     if (selectedProfileFolderId) await setStorageValue(STORAGE_KEYS.PROFILE_FOLDER_ID,      selectedProfileFolderId);
+    await setStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_NAME,  selectedCvFolderName      || '');
+    await setStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_NAME,  selectedClFolderName      || '');
+    await setStorageValue(STORAGE_KEYS.PROFILE_FOLDER_NAME,       selectedProfileFolderName || '');
     showSaveConfirm('save-templates-confirm');
   } catch (error) {
     showError('Failed to save templates: ' + error.message);
@@ -438,6 +500,7 @@ async function handleSaveTemplates() {
 /**
  * Save API keys. Always writes all three values, allowing the user to clear
  * a key by leaving its field blank.
+ * Also re-applies the model dropdown filter after keys change.
  */
 async function handleSaveKeys() {
   const btn = document.getElementById('save-keys-btn');
@@ -455,10 +518,118 @@ async function handleSaveKeys() {
       const step3 = document.getElementById('setup-step-3');
       if (step3) step3.classList.add('done');
     }
+    // Re-filter model dropdown now that keys have changed
+    await refreshModelDropdownSetup(anthropic, openai, gemini);
+    await refreshProSection();
   } catch (error) {
     showError('Failed to save keys: ' + error.message);
   } finally {
     setButtonLoading(btn, false);
+  }
+}
+
+/**
+ * Save all settings sections in one operation.
+ * Calls the individual save handlers and shows a single success message.
+ */
+async function handleSaveAll() {
+  const btn = document.getElementById('save-all-btn');
+  setButtonLoading(btn, true);
+
+  try {
+    // Save Drive root folder if one is selected
+    if (selectedFolderId) {
+      try {
+        await setStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID,   selectedFolderId);
+        await setStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_NAME, selectedFolderName || '');
+      } catch (_) {}
+    }
+
+    // Save templates folders
+    try {
+      await handleSaveTemplates();
+    } catch (_) {}
+
+    // Save AI model preference
+    try {
+      await handleSaveModel();
+    } catch (_) {}
+
+    // Save default package type
+    try {
+      await handleSavePackage();
+    } catch (_) {}
+
+    // Show success
+    const successEl = document.getElementById('save-all-success');
+    successEl.style.display = 'block';
+    setTimeout(() => { successEl.style.display = 'none'; }, 3000);
+
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+/**
+ * Re-apply the disabled/enabled state on the Settings Default AI Model dropdown
+ * after API keys are saved.
+ *
+ * @param {string} anthropic
+ * @param {string} openai
+ * @param {string} gemini
+ */
+async function refreshModelDropdownSetup(anthropic, openai, gemini) {
+  const modelSelect = document.getElementById('default-ai-model');
+  const currentValue = modelSelect.value;
+  
+  // Define all possible models and their providers
+  const allModels = [
+    { value: 'sonnet', text: 'Claude 3.5 Sonnet (Best)', provider: 'anthropic' },
+    { value: 'haiku', text: 'Claude 3 Haiku (Fastest)', provider: 'anthropic' },
+    { value: 'o1', text: 'OpenAI GPT-4o', provider: 'openai' },
+    { value: 'o1-mini', text: 'OpenAI GPT-4o mini', provider: 'openai' },
+    { value: 'gpt-4-turbo', text: 'OpenAI GPT-4 Turbo', provider: 'openai' },
+    { value: 'geminiFlash25', text: 'Google Gemini 1.5 Flash (Recommended)', provider: 'gemini' },
+    { value: 'geminiPro15', text: 'Google Gemini 1.5 Pro', provider: 'gemini' }
+  ];
+
+  // Clear existing options
+  modelSelect.innerHTML = '';
+
+  // Filter models based on available keys
+  const availableModels = allModels.filter(model => {
+    if (model.provider === 'anthropic') return !!anthropic;
+    if (model.provider === 'openai') return !!openai;
+    if (model.provider === 'gemini') return !!gemini;
+    return false;
+  });
+
+  // Populate dropdown with available models
+  if (availableModels.length > 0) {
+    availableModels.forEach(model => {
+      const option = document.createElement('option');
+      option.value = model.value;
+      option.textContent = model.text;
+      modelSelect.appendChild(option);
+    });
+  } else {
+    // Show a warning if no keys are set
+    const option = document.createElement('option');
+    option.value = 'no-keys';
+    option.textContent = 'No API keys set - add a key below';
+    option.disabled = true;
+    modelSelect.appendChild(option);
+  }
+
+  // Keep current selection if still valid, else fall back to best available
+  const currentSelectionStillAvailable = availableModels.some(model => model.value === currentValue);
+  if (currentSelectionStillAvailable) {
+    modelSelect.value = currentValue;
+  } else if (availableModels.length > 0) {
+    const PROVIDER_PRIORITY = ['sonnet', 'geminiFlash25', 'o1', 'haiku'];
+    const fallback = PROVIDER_PRIORITY.find(v => availableModels.some(m => m.value === v));
+    if (fallback) modelSelect.value = fallback;
+    else modelSelect.value = availableModels[0].value; // fallback to the first available
   }
 }
 
@@ -505,6 +676,15 @@ function pickFolder(inputId, statusId, varSetter) {
  * Resets navigation to root and loads top-level folders.
  */
 async function handleOpenFolderPicker() {
+  if (!accessToken) {
+    try {
+      accessToken = await getOAuthToken(true);
+    } catch (err) {
+      showError('Please reconnect Google Drive to select a folder.');
+      return;
+    }
+  }
+
   hideError();
   folderPath = [];
   currentFolderId = 'root';
@@ -709,6 +889,23 @@ function updateBreadcrumbs() {
  */
 function updateNavButtons() {
   document.getElementById('folder-nav-up').style.display = folderPath.length > 0 ? 'flex' : 'none';
+}
+
+/**
+ * Refresh the folder list for the current folder in the picker.
+ * Useful when the user has just created a new folder in Drive.
+ */
+async function handleRefreshFolders() {
+  const refreshBtn = document.getElementById('folder-refresh-btn');
+  refreshBtn.style.opacity = '0.4';
+  refreshBtn.disabled = true;
+
+  try {
+    await loadFolders(currentFolderId);
+  } finally {
+    refreshBtn.style.opacity = '1';
+    refreshBtn.disabled = false;
+  }
 }
 
 /**

@@ -275,6 +275,27 @@ body {
   font-weight: 500;
 }
 
+.folder-picker-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.folder-refresh-btn {
+  background: none;
+  border: none;
+  font-size: 1.15rem;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: opacity 0.15s;
+}
+
+.folder-refresh-btn:hover {
+  color: #2563eb;
+}
+
 .folder-picker-close {
   background: none;
   border: none;

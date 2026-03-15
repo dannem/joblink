@@ -2327,3 +2327,41 @@ What was built:
 Test results: Extension loads in Chrome with no console errors. Model dropdown correctly shows only providers with saved API keys.
 Known issues: None.
 Next steps: Paddle application and checkout URL update, then Chrome Web Store submission.
+
+---
+
+## Session 61 — Edge OAuth Fix, Folder Persistence, Save All Button, Folder Picker Refresh
+**Status:** Complete
+**Date:** 2026-03-14
+**Branch:** main (hotfixes applied directly)
+
+### What was built
+- Close button (✕) added to side panel header next to gear icon; calls window.close()
+- Edge OAuth fix: replaced chrome.identity.getAuthToken() with cross-browser
+  getOAuthToken() helper in utils/helpers.js that detects Chrome vs Edge and routes
+  to getAuthToken (Chrome) or launchWebAuthFlow (Edge)
+- Registered chromiumapp.org redirect URI in Google Cloud Console Web application
+  OAuth client for Edge compatibility
+- clearCachedOAuthToken() and getGoogleClientId() helpers added to utils/helpers.js
+- Application Materials folder persistence fixed: added CV_TEMPLATES_FOLDER_NAME,
+  CL_TEMPLATES_FOLDER_NAME, PROFILE_FOLDER_NAME to STORAGE_KEYS and DEFAULT_STORAGE;
+  folder names now saved at save time and restored from storage on page load without
+  live Drive API calls
+- Drive connection now persists across browser restarts: connected email saved to
+  CONNECTED_EMAIL storage key; tryRestoreDriveConnection() silently restores UI on
+  page load; handleOpenFolderPicker() re-auths silently if token expired
+- Save All Settings button added at bottom of settings page; calls handleSaveTemplates(),
+  handleSaveModel(), handleSavePackage() and direct folder ID/name saves in one operation
+- Refresh button (↻) added to folder picker header to force re-fetch from Drive API
+  after creating new folders
+
+### Test results
+Edge OAuth flow completes. Folders persist across sessions. Drive connection restored
+after browser restart. Save All button saves all sections. Folder picker refresh works.
+
+### Known issues
+Google Drive API has ~30-60s propagation delay for newly created folders — the Refresh
+button is the workaround.
+
+### Next steps
+Session 62 — README and store description.

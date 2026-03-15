@@ -251,6 +251,16 @@
         </div>
       </section>
 
+      <!-- ── Save All Settings ──────────────────────────────────── -->
+      <section class="setup-section">
+        <button id="save-all-btn" class="btn btn-primary btn-large">
+          Save All Settings
+        </button>
+        <div id="save-all-success" class="msg msg--success" style="display: none;">
+          All settings saved &#10003;
+        </div>
+      </section>
+
       <!-- ── Close button ───────────────────────────────────────── -->
       <div class="close-footer">
         <button id="close-tab-btn" class="btn btn-secondary">Close</button>
@@ -267,7 +277,10 @@
   <div id="folder-picker" class="folder-picker" style="display: none;">
     <div class="folder-picker-header">
       <span>Select a folder:</span>
-      <button id="folder-picker-close" class="folder-picker-close">&times;</button>
+      <div class="folder-picker-header-actions">
+        <button id="folder-refresh-btn" class="folder-refresh-btn" title="Refresh folder list">&#8635;</button>
+        <button id="folder-picker-close" class="folder-picker-close">&times;</button>
+      </div>
     </div>
     <div class="folder-picker-nav">
       <button id="folder-nav-up" class="nav-btn" title="Go up" style="display: none;">
