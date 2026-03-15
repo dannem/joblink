@@ -1236,20 +1236,12 @@ async function handleBulkDelete(status) {
 // ── Auth ───────────────────────────────────────────────────────
 
 /**
- * Get a cached OAuth token (non-interactive).
- *
+ * Get a valid OAuth access token using the cross-browser helper.
+ * Works in both Chrome and Edge.
  * @returns {Promise<string>}
  */
 function getAuthToken() {
-  return new Promise((resolve, reject) => {
-    chrome.identity.getAuthToken({ interactive: false }, (token) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve(token);
-      }
-    });
-  });
+  return getOAuthToken(false);
 }
 
 // ── Drive fetch helper ─────────────────────────────────────────
