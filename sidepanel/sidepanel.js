@@ -758,6 +758,92 @@ function hideUpgradeBanner() {
 }
 
 /**
+ * Validate all prerequisites before running an AI operation.
+ * Returns an object with:
+ *   - aiError: string|null — fatal AI access error (no keys at all)
+ *   - aiWarning: string|null — non-fatal AI warning (Pro key but no API key for selected model)
+ *   - profileError: string|null — fatal profile error (not set, or empty)
+ *   - profileWarning: string|null — non-fatal profile warning (content too short)
+ *   - profileText: string — the loaded profile text (empty string if unavailable)
+ *   - token: string|null — the OAuth token (null if unavailable)
+ *
+ * @returns {Promise<{aiError, aiWarning, profileError, profileWarning, profileText, token}>}
+ */
+async function validateAIPrerequisites() {
+  const result = {
+    aiError: null,
+    aiWarning: null,
+    profileError: null,
+    profileWarning: null,
+    profileText: '',
+    token: null,
+  };
+
+  // ── AI access check ──────────────────────────────────────────
+  const [anthropic, openai, gemini, licenceValid] = await Promise.all([
+    getStorageValue(STORAGE_KEYS.ANTHROPIC_API_KEY),
+    getStorageValue(STORAGE_KEYS.OPENAI_API_KEY),
+    getStorageValue(STORAGE_KEYS.GEMINI_API_KEY),
+    getStorageValue(STORAGE_KEYS.LICENCE_VALID),
+  ]);
+
+  const hasAnyApiKey = !!(anthropic || openai || gemini);
+  const hasPro = !!licenceValid;
+
+  if (!hasAnyApiKey && !hasPro) {
+    result.aiError = 'JobLink Pro is required for AI features. Upgrade at the Settings page, or enter your own API keys under AI Provider Keys.';
+    return result; // No point checking further
+  }
+
+  if (!hasAnyApiKey) {
+    result.aiWarning = 'No AI API keys configured. Add at least one API key in Settings → AI Provider Keys to use AI features.';
+  } else if (packageModel.value === 'no-keys') {
+    result.aiWarning = 'No AI model available for the selected provider. Check your API keys in Settings → AI Provider Keys.';
+  }
+
+  // ── OAuth token ──────────────────────────────────────────────
+  try {
+    result.token = await getOAuthToken(false);
+  } catch (_) {
+    // Non-fatal for profile loading — token failure handled later
+  }
+
+  // ── Profile folder checks ────────────────────────────────────
+  const profileFolderId = await getStorageValue(STORAGE_KEYS.PROFILE_FOLDER_ID);
+
+  if (!profileFolderId) {
+    result.profileError = 'No profile folder set. Go to Settings → Application Materials and select the folder containing your CV and background documents.';
+    return result;
+  }
+
+  if (!result.token) {
+    // Can't check folder contents without a token — treat as warning not error
+    result.profileWarning = 'Could not verify your profile folder — Google Drive not connected. Reconnect in Settings.';
+    return result;
+  }
+
+  try {
+    const profileDocs = await readDocsFromFolder(result.token, profileFolderId);
+
+    if (profileDocs.length === 0) {
+      result.profileError = 'Your profile folder is empty. Add your CV or professional background as Google Docs to the selected folder in Drive.';
+      return result;
+    }
+
+    result.profileText = profileDocs.map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
+
+    if (result.profileText.length < 200) {
+      result.profileWarning = 'Your profile folder doesn\'t appear to contain useful background information. Make sure it contains Google Docs with your professional history, not empty or non-text files.';
+    }
+  } catch (err) {
+    result.profileWarning = 'Could not read your profile folder from Drive. Check your Google Drive connection in Settings.';
+    console.warn('[JobLink] Profile folder read failed:', err.message);
+  }
+
+  return result;
+}
+
+/**
  * Run an AI fit evaluation for the currently displayed job.
  * Reads the API key from storage, calls the selected provider via ai-helpers.js,
  * and renders the score and collapsible result sections.
@@ -775,29 +861,32 @@ async function handleEvaluate() {
   aiResults.style.display = 'none';
 
   try {
-    const selectedModel = MODEL_MAP[packageModel.value] || AI_MODELS.claude;
+    const prereqs = await validateAIPrerequisites();
 
-    // Attempt to load the candidate profile from Drive before building the prompt.
-    // Failure is non-fatal — evaluation proceeds with a no-profile notice in the prompt.
-    let profileText = '';
-    try {
-      const token = await new Promise((resolve, reject) => {
-        chrome.identity.getAuthToken({ interactive: false }, (t) => {
-          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-          else resolve(t);
-        });
-      });
-      const rootFolderId = await getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID);
-      if (token && rootFolderId) {
-        const profileFolderId = await findFolderByName(token, rootFolderId, 'My_Profile');
-        if (profileFolderId) {
-          const profileDocs = await readDocsFromFolder(token, profileFolderId);
-          profileText = profileDocs.map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
-        }
-      }
-    } catch (profileErr) {
-      console.warn('[JobLink] Could not load profile — evaluating without it:', profileErr.message);
+    // Fatal AI access error — stop entirely
+    if (prereqs.aiError) {
+      aiError.textContent   = prereqs.aiError;
+      aiError.style.display = 'block';
+      aiSpinner.style.display = 'none';
+      return;
     }
+
+    // Fatal profile error — stop entirely
+    if (prereqs.profileError) {
+      aiError.textContent   = prereqs.profileError;
+      aiError.style.display = 'block';
+      aiSpinner.style.display = 'none';
+      return;
+    }
+
+    // Non-fatal warnings — show but continue
+    if (prereqs.aiWarning || prereqs.profileWarning) {
+      aiError.textContent   = [prereqs.aiWarning, prereqs.profileWarning].filter(Boolean).join(' ');
+      aiError.style.display = 'block';
+    }
+
+    const profileText   = prereqs.profileText;
+    const selectedModel = MODEL_MAP[packageModel.value] || AI_MODELS.claude;
 
     const prompt = buildEvaluatePrompt({
       jobTitle:    fieldTitle.value.trim(),
@@ -910,28 +999,6 @@ async function handlePreparePackage() {
   const rawMode = packageType.value || currentPackageMode;
   const packageMode = rawMode === 'cv_only' ? 'cv' : rawMode === 'cl_only' ? 'cl' : rawMode;
 
-  // Pre-flight: warn about missing optional folders but don't block
-  const warnings = [];
-  const preflightProfile = await getStorageValue(STORAGE_KEYS.PROFILE_FOLDER_ID);
-  const preflightCv      = await getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID);
-  const preflightCl      = await getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID);
-
-  if (!preflightProfile) {
-    warnings.push('⚠️ No profile folder set — AI will generate without your background.');
-  }
-  if (packageMode !== 'cl' && !preflightCv) {
-    warnings.push('⚠️ No CV templates folder set — a default template will be used.');
-  }
-  if (packageMode !== 'cv' && !preflightCl) {
-    warnings.push('⚠️ No cover letter templates folder set — a default template will be used.');
-  }
-
-  if (warnings.length > 0) {
-    packageStatus.className     = 'package-status package-warning';
-    packageStatus.textContent   = warnings.join(' ');
-    packageStatus.style.display = 'block';
-  }
-
   btnPreparePackage.disabled = true;
   resetProgress(packageMode); // shows container and hides irrelevant rows
 
@@ -939,40 +1006,38 @@ async function handlePreparePackage() {
   let activeStep = -1;
 
   try {
-    // Infrastructure — get OAuth token (no progress step)
-    const token = await new Promise((resolve, reject) => {
-      chrome.identity.getAuthToken({ interactive: false }, (t) => {
-        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-        else resolve(t);
-      });
-    });
+    // Pre-flight validation — check AI access and profile before starting UI
+    const prereqs = await validateAIPrerequisites();
+
+    if (prereqs.aiError) {
+      packageStatus.className     = 'package-status package-error';
+      packageStatus.textContent   = prereqs.aiError;
+      packageStatus.style.display = 'block';
+      return;
+    }
+
+    if (prereqs.profileError) {
+      packageStatus.className     = 'package-status package-error';
+      packageStatus.textContent   = prereqs.profileError;
+      packageStatus.style.display = 'block';
+      return;
+    }
+
+    if (prereqs.aiWarning || prereqs.profileWarning) {
+      packageStatus.className     = 'package-status package-warning';
+      packageStatus.textContent   = [prereqs.aiWarning, prereqs.profileWarning].filter(Boolean).join(' ');
+      packageStatus.style.display = 'block';
+    }
+
+    const profileText = prereqs.profileText;
+    const token       = prereqs.token;
+
+    // Step 0 — Profile loaded (mark done — actual loading was done in validateAIPrerequisites)
+    activeStep = 0;
+    updateProgress(0, profileText ? 'done' : 'skipped');
 
     const rootFolderId = await getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID);
     if (!rootFolderId) throw new Error('No save folder set. Open Settings and choose a Google Drive folder first.');
-
-    // Step 0 — Read candidate profile from the configured folder (now mandatory)
-    activeStep = 0;
-    updateProgress(0, 'active');
-    let profileText = '';
-    const profileFolderId = await getStorageValue(STORAGE_KEYS.PROFILE_FOLDER_ID);
-
-    if (!profileFolderId) {
-      console.warn('[JobLink] No profile folder set — proceeding without profile.');
-      updateProgress(0, 'done');
-    } else {
-      const profileDocs = await readDocsFromFolder(token, profileFolderId);
-      if (profileDocs.length === 0) {
-        console.warn('[JobLink] Profile folder is empty — proceeding without profile.');
-      } else {
-        profileText = profileDocs.map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
-        if (profileText.length < 200) {
-          packageStatus.className     = 'package-status package-warning';
-          packageStatus.textContent   = '⚠️ Profile content seems very short. Make sure your profile folder contains your CV or background documents.';
-          packageStatus.style.display = 'block';
-        }
-      }
-      updateProgress(0, 'done');
-    }
 
     // Resolve selected AI model from the dropdown (used by CV and CL tailoring)
     const selectedModel = MODEL_MAP[packageModel.value] || AI_MODELS.claude;
