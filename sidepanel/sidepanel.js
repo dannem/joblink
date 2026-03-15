@@ -255,6 +255,10 @@ async function refreshModelDropdown() {
       getStorageValue(STORAGE_KEYS.GEMINI_API_KEY),
     ]);
 
+    // If savedModel references a retired Gemini 1.5 model, clear it
+    const retiredModels = ['geminiFlash25', 'geminiPro15'];
+    const effectiveSavedModel = retiredModels.includes(savedModel) ? null : savedModel;
+
     const allModels = [
       { value: 'sonnet', text: 'Claude 3.5 Sonnet (Best)', provider: 'anthropic' },
       { value: 'haiku', text: 'Claude 3 Haiku (Fastest)', provider: 'anthropic' },
@@ -292,8 +296,8 @@ async function refreshModelDropdown() {
     }
 
     const PROVIDER_PRIORITY = ['sonnet', 'geminiFlash3', 'o1', 'haiku'];
-    if (savedModel && availableModels.some(m => m.value === savedModel)) {
-      packageModel.value = savedModel;
+    if (effectiveSavedModel && availableModels.some(m => m.value === effectiveSavedModel)) {
+      packageModel.value = effectiveSavedModel;
     } else if (availableModels.length > 0) {
       const fallback = PROVIDER_PRIORITY.find(v => availableModels.some(m => m.value === v));
       if (fallback) {

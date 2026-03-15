@@ -156,7 +156,7 @@ async function prefillAllFields() {
     await refreshModelDropdownSetup(anthropic, openai, gemini);
     
     // Apply saved model, or fall back to best available if it's disabled / not set
-    const PROVIDER_PRIORITY = ['sonnet', 'geminiFlash25', 'gpt-4o', 'haiku'];
+    const PROVIDER_PRIORITY = ['sonnet', 'geminiFlash3', 'gpt-4o', 'haiku'];
     if (defaultModel) modelSelect.value = defaultModel;
     const chosen = modelSelect.options[modelSelect.selectedIndex];
     if (!defaultModel || chosen?.disabled || chosen?.value === 'no-keys') {
@@ -652,8 +652,10 @@ async function refreshModelDropdownSetup(anthropic, openai, gemini) {
     { value: 'o1', text: 'OpenAI GPT-4o', provider: 'openai' },
     { value: 'o1-mini', text: 'OpenAI GPT-4o mini', provider: 'openai' },
     { value: 'gpt-4-turbo', text: 'OpenAI GPT-4 Turbo', provider: 'openai' },
-    { value: 'geminiFlash25', text: 'Google Gemini 1.5 Flash (Recommended)', provider: 'gemini' },
-    { value: 'geminiPro15', text: 'Google Gemini 1.5 Pro', provider: 'gemini' }
+    { value: 'geminiFlash3',    text: 'Gemini 3 Flash — best quality',   provider: 'gemini' },
+    { value: 'geminiPro31',     text: 'Gemini 3.1 Pro — most capable',   provider: 'gemini' },
+    { value: 'geminiFlashLite', text: 'Gemini 3.1 Flash-Lite — fastest', provider: 'gemini' },
+    { value: 'gemini25Flash',   text: 'Gemini 2.5 Flash — stable',       provider: 'gemini' },
   ];
 
   // Clear existing options
@@ -689,7 +691,7 @@ async function refreshModelDropdownSetup(anthropic, openai, gemini) {
   if (currentSelectionStillAvailable) {
     modelSelect.value = currentValue;
   } else if (availableModels.length > 0) {
-    const PROVIDER_PRIORITY = ['sonnet', 'geminiFlash25', 'o1', 'haiku'];
+    const PROVIDER_PRIORITY = ['sonnet', 'geminiFlash3', 'o1', 'haiku'];
     const fallback = PROVIDER_PRIORITY.find(v => availableModels.some(m => m.value === v));
     if (fallback) modelSelect.value = fallback;
     else modelSelect.value = availableModels[0].value; // fallback to the first available
