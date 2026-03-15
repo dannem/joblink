@@ -23,8 +23,10 @@ const AI_MODELS = {
   o1Mini:       'o1-mini',
   o3Mini:       'o3-mini',
   // Google
-  geminiFlash25: 'gemini-2.5-flash',
-  geminiPro:     'gemini-2.5-pro',
+  geminiFlash3:    'gemini-3-flash-preview',
+  geminiPro31:     'gemini-3.1-pro-preview',
+  geminiFlashLite: 'gemini-3.1-flash-lite-preview',
+  gemini25Flash:   'gemini-2.5-flash',
 };
 
 // ── Prompt builder ─────────────────────────────────────────────────────────

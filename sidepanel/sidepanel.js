@@ -114,8 +114,10 @@ const MODEL_MAP = {
   o1:               'o1',
   'o1-mini':        'o1-mini',
   'o3-mini':        'o3-mini',
-  geminiFlash25:    'gemini-2.5-flash',
-  'gemini-2.5-pro': 'gemini-2.5-pro',
+  geminiFlash3:    'gemini-3-flash-preview',
+  geminiPro31:     'gemini-3.1-pro-preview',
+  geminiFlashLite: 'gemini-3.1-flash-lite-preview',
+  gemini25Flash:   'gemini-2.5-flash',
 };
 
 // ── Module state ──────────────────────────────────────────────
@@ -259,8 +261,10 @@ async function refreshModelDropdown() {
       { value: 'o1', text: 'OpenAI GPT-4o', provider: 'openai' },
       { value: 'o1-mini', text: 'OpenAI GPT-4o mini', provider: 'openai' },
       { value: 'gpt-4-turbo', text: 'OpenAI GPT-4 Turbo', provider: 'openai' },
-      { value: 'geminiFlash25', text: 'Google Gemini 1.5 Flash (Recommended)', provider: 'gemini' },
-      { value: 'geminiPro15', text: 'Google Gemini 1.5 Pro', provider: 'gemini' }
+      { value: 'geminiFlash3',    text: 'Gemini 3 Flash — best quality',   provider: 'gemini' },
+      { value: 'geminiPro31',     text: 'Gemini 3.1 Pro — most capable',   provider: 'gemini' },
+      { value: 'geminiFlashLite', text: 'Gemini 3.1 Flash-Lite — fastest', provider: 'gemini' },
+      { value: 'gemini25Flash',   text: 'Gemini 2.5 Flash — stable',       provider: 'gemini' },
     ];
 
     packageModel.innerHTML = '';
@@ -287,7 +291,7 @@ async function refreshModelDropdown() {
       packageModel.appendChild(option);
     }
 
-    const PROVIDER_PRIORITY = ['sonnet', 'geminiFlash25', 'o1', 'haiku'];
+    const PROVIDER_PRIORITY = ['sonnet', 'geminiFlash3', 'o1', 'haiku'];
     if (savedModel && availableModels.some(m => m.value === savedModel)) {
       packageModel.value = savedModel;
     } else if (availableModels.length > 0) {
