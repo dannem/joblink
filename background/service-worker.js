@@ -520,15 +520,7 @@ async function ensureStatusFolders(token, rootFolderId) {
  */
 async function handleSaveToDrive(job, pdfBase64) {
   // 1. Get a fresh OAuth token (non-interactive — user must already be signed in)
-  const token = await new Promise((resolve, reject) => {
-    chrome.identity.getAuthToken({ interactive: false }, (accessToken) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve(accessToken);
-      }
-    });
-  });
+  const token = await getOAuthToken(false);
 
   // 2. Get the user's configured root Drive folder from storage
   const rootFolderId = await getStorageValue(STORAGE_KEYS.DRIVE_ROOT_FOLDER_ID);

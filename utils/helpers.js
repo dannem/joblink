@@ -7,16 +7,19 @@
 const STORAGE_KEYS = {
   DRIVE_ROOT_FOLDER_ID: 'DRIVE_ROOT_FOLDER_ID',
   DRIVE_ROOT_FOLDER_NAME: 'DRIVE_ROOT_FOLDER_NAME',
-  // Phase 2 status subfolders — created automatically on first save
   PREPARATION_FOLDER_ID: 'PREPARATION_FOLDER_ID',
   SUBMITTED_FOLDER_ID: 'SUBMITTED_FOLDER_ID',
   REJECTED_FOLDER_ID: 'REJECTED_FOLDER_ID',
   DRIVE_CV_FOLDER_ID: 'DRIVE_CV_FOLDER_ID',
   DRIVE_TEMPLATES_FOLDER_ID: 'DRIVE_TEMPLATES_FOLDER_ID',
   CV_TEMPLATES_FOLDER_ID: 'cvTemplatesFolderId',
+  CV_TEMPLATES_FOLDER_NAME: 'cvTemplatesFolderName',
   CL_TEMPLATES_FOLDER_ID: 'clTemplatesFolderId',
+  CL_TEMPLATES_FOLDER_NAME: 'clTemplatesFolderName',
   PROFILE_FOLDER_ID: 'profileFolderId',
+  PROFILE_FOLDER_NAME: 'profileFolderName',
   SETUP_COMPLETE: 'SETUP_COMPLETE',
+  CONNECTED_EMAIL: 'CONNECTED_EMAIL',
   // AI provider API keys — stored locally, never transmitted except to the chosen provider
   ANTHROPIC_API_KEY: 'ANTHROPIC_API_KEY',
   OPENAI_API_KEY: 'OPENAI_API_KEY',
@@ -44,9 +47,13 @@ const DEFAULT_STORAGE = {
   [STORAGE_KEYS.DRIVE_CV_FOLDER_ID]: '',
   [STORAGE_KEYS.DRIVE_TEMPLATES_FOLDER_ID]: '',
   [STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID]: '',
+  [STORAGE_KEYS.CV_TEMPLATES_FOLDER_NAME]: '',
   [STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID]: '',
+  [STORAGE_KEYS.CL_TEMPLATES_FOLDER_NAME]: '',
   [STORAGE_KEYS.PROFILE_FOLDER_ID]: '',
+  [STORAGE_KEYS.PROFILE_FOLDER_NAME]: '',
   [STORAGE_KEYS.SETUP_COMPLETE]: false,
+  [STORAGE_KEYS.CONNECTED_EMAIL]: '',
   [STORAGE_KEYS.ANTHROPIC_API_KEY]: '',
   [STORAGE_KEYS.OPENAI_API_KEY]: '',
   [STORAGE_KEYS.GEMINI_API_KEY]: '',
@@ -296,4 +303,128 @@ async function isProUser() {
     getStorageValue(STORAGE_KEYS.LICENCE_VALID),
   ]);
   return !!(anthropic || openai || gemini || licenceValid);
+}
+
+/**
+ * Get a Google OAuth access token. Works in both Chrome and Edge.
+ *
+ * Strategy:
+ *   1. If a cached token exists in session storage, return it immediately.
+ *   2. Otherwise, detect the browser:
+ *      - Chrome: use chrome.identity.getAuthToken() (silent cached flow)
+ *      - Edge / other: use chrome.identity.launchWebAuthFlow()
+ *   3. Store the resulting token in chrome.storage.session for reuse.
+ *
+ * @param {boolean} interactive - If true, show the consent screen if needed.
+ * @returns {Promise<string>} OAuth access token
+ * @throws {Error} If authentication fails or user cancels
+ */
+async function getOAuthToken(interactive = true) {
+  // 1. Return cached token if available
+  try {
+    const cached = await chrome.storage.session.get('OAUTH_ACCESS_TOKEN');
+    if (cached && cached.OAUTH_ACCESS_TOKEN) {
+      return cached.OAUTH_ACCESS_TOKEN;
+    }
+  } catch (_) {}
+
+  // 2. Detect browser
+  const isChrome = navigator.userAgent.includes('Chrome') &&
+                   !navigator.userAgent.includes('Edg');
+
+  let token;
+
+  if (isChrome) {
+    // Chrome: use built-in cached OAuth flow
+    token = await new Promise((resolve, reject) => {
+      chrome.identity.getAuthToken({ interactive }, (result) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(result);
+        }
+      });
+    });
+  } else {
+    // Edge / other: use launchWebAuthFlow
+    const clientId = '406710056933-s0p707igu50ij1h6ia8ev542odvad00s.apps.googleusercontent.com';
+    const scopes = [
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive.readonly',
+      'https://www.googleapis.com/auth/userinfo.email'
+    ].join(' ');
+
+    const redirectUrl = chrome.identity.getRedirectURL();
+    console.log('[JobLink] OAuth redirect URL:', redirectUrl);
+    const authUrl =
+      'https://accounts.google.com/o/oauth2/auth' +
+      '?client_id=' + encodeURIComponent(clientId) +
+      '&response_type=token' +
+      '&redirect_uri=' + encodeURIComponent(redirectUrl) +
+      '&scope=' + encodeURIComponent(scopes);
+
+    const responseUrl = await new Promise((resolve, reject) => {
+      chrome.identity.launchWebAuthFlow(
+        { url: authUrl, interactive },
+        (result) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(result);
+          }
+        }
+      );
+    });
+
+    // Extract access_token from the redirect URL hash
+    const hash = new URL(responseUrl).hash.substring(1);
+    const params = new URLSearchParams(hash);
+    token = params.get('access_token');
+    if (!token) {
+      throw new Error('No access token returned from OAuth flow');
+    }
+  }
+
+  // 3. Cache token in session storage
+  try {
+    await chrome.storage.session.set({ OAUTH_ACCESS_TOKEN: token });
+  } catch (_) {}
+
+  return token;
+}
+
+/**
+ * Clear the cached OAuth token (call this on sign-out or auth errors).
+ * @returns {Promise<void>}
+ */
+async function clearCachedOAuthToken() {
+  try {
+    await chrome.storage.session.remove('OAUTH_ACCESS_TOKEN');
+  } catch (_) {}
+
+  // Also clear from Chrome's internal cache if available
+  try {
+    await new Promise((resolve) => {
+      chrome.identity.getAuthToken({ interactive: false }, (token) => {
+        if (token) {
+          chrome.identity.removeCachedAuthToken({ token }, resolve);
+        } else {
+          resolve();
+        }
+      });
+    });
+  } catch (_) {}
+}
+
+/**
+ * Get the Google OAuth client ID from the extension's manifest.
+ * @returns {string} The OAuth client ID
+ */
+function getGoogleClientId() {
+  const manifest = chrome.runtime.getManifest();
+  const clientId = manifest.oauth2 && manifest.oauth2.client_id;
+  if (!clientId) {
+    throw new Error('No OAuth client ID found in manifest.json');
+  }
+  return clientId;
 }

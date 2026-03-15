@@ -36,6 +36,7 @@ const msgSuccess     = document.getElementById('msg-success');
 const msgError       = document.getElementById('msg-error');
 const staleWarning   = document.getElementById('stale-warning');
 const settingsBtn    = document.getElementById('settings-btn');
+const closeBtn       = document.getElementById('close-btn');
 
 // AI evaluation elements
 const btnDashboard      = document.getElementById('btn-dashboard');
@@ -324,6 +325,8 @@ document.getElementById('btn-open-setup').addEventListener('click', () => {
 settingsBtn.addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('setup/setup.html') });
 });
+
+closeBtn.addEventListener('click', () => window.close());
 
 document.querySelectorAll('.collapsible-toggle').forEach(btn => {
   btn.addEventListener('click', () => {
