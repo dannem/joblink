@@ -910,6 +910,28 @@ async function handlePreparePackage() {
   const rawMode = packageType.value || currentPackageMode;
   const packageMode = rawMode === 'cv_only' ? 'cv' : rawMode === 'cl_only' ? 'cl' : rawMode;
 
+  // Pre-flight: warn about missing optional folders but don't block
+  const warnings = [];
+  const preflightProfile = await getStorageValue(STORAGE_KEYS.PROFILE_FOLDER_ID);
+  const preflightCv      = await getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID);
+  const preflightCl      = await getStorageValue(STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID);
+
+  if (!preflightProfile) {
+    warnings.push('⚠️ No profile folder set — AI will generate without your background.');
+  }
+  if (packageMode !== 'cl' && !preflightCv) {
+    warnings.push('⚠️ No CV templates folder set — a default template will be used.');
+  }
+  if (packageMode !== 'cv' && !preflightCl) {
+    warnings.push('⚠️ No cover letter templates folder set — a default template will be used.');
+  }
+
+  if (warnings.length > 0) {
+    packageStatus.className     = 'package-status package-warning';
+    packageStatus.textContent   = warnings.join(' ');
+    packageStatus.style.display = 'block';
+  }
+
   btnPreparePackage.disabled = true;
   resetProgress(packageMode); // shows container and hides irrelevant rows
 
@@ -935,15 +957,17 @@ async function handlePreparePackage() {
     const profileFolderId = await getStorageValue(STORAGE_KEYS.PROFILE_FOLDER_ID);
 
     if (!profileFolderId) {
-      throw new Error('Profile folder not set. Please select your profile folder in the Settings page.');
+      console.warn('[JobLink] No profile folder set — proceeding without profile.');
+      updateProgress(0, 'done');
+    } else {
+      const profileDocs = await readDocsFromFolder(token, profileFolderId);
+      if (profileDocs.length === 0) {
+        console.warn('[JobLink] Profile folder is empty — proceeding without profile.');
+      } else {
+        profileText = profileDocs.map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
+      }
+      updateProgress(0, 'done');
     }
-
-    const profileDocs = await readDocsFromFolder(token, profileFolderId);
-    if (profileDocs.length === 0) {
-      throw new Error('Your selected profile folder is empty. Add one or more Google Docs or .txt files with your professional background.');
-    }
-    profileText = profileDocs.map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
-    updateProgress(0, 'done');
 
     // Resolve selected AI model from the dropdown (used by CV and CL tailoring)
     const selectedModel = MODEL_MAP[packageModel.value] || AI_MODELS.claude;
