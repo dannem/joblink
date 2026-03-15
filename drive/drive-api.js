@@ -898,7 +898,7 @@ async function savePreparedPackage(accessToken, job, cvData, clData, selectedTem
   const cvTitle = `CV - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;
   if (cvData.templateDocId || cvData.html) {
     let cvDocId;
-    if (cvData.templateDocId) {
+    if (cvData.templateDocId && cvData.templateDocId !== 'default-cv') {
       cvDocId = await tailorCVWithDocsAPI(
         accessToken,
         cvData.templateDocId,
@@ -908,29 +908,36 @@ async function savePreparedPackage(accessToken, job, cvData, clData, selectedTem
         cvData.newBullets
       );
     } else {
-      cvDocId = await createGoogleDoc(accessToken, submittedJobFolderId, cvTitle, wrapHtmlDocument(cvTitle, cvData.html));
+      const cvHtml = cvData.html || `<p>${cvData.newSummary}</p><ul><li>${cvData.newBullets.join('</li><li>')}</li></ul>`;
+      cvDocId = await createGoogleDoc(accessToken, submittedJobFolderId, cvTitle, wrapHtmlDocument(cvTitle, cvHtml));
     }
     await exportDocAsPDF(accessToken, cvDocId, submittedJobFolderId, cvTitle);
   }
 
   // ── 6. Save cover letter as Google Doc (Docs API in-place tailoring) + PDF ─
   const clTitle = `Cover Letter - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;
-  let clDocId;
-  if (clData.templateDocId) {
-    clDocId = await tailorCLWithDocsAPI(
-      accessToken,
-      clData.templateDocId,
-      submittedJobFolderId,
-      clTitle,
-      clData.companyBlock || {},
-      clData.bodyParagraphs || []
-    );
-  } else if (clData.html) {
-    clDocId = await createGoogleDoc(accessToken, submittedJobFolderId, clTitle, wrapHtmlDocument(clTitle, clData.html));
-  } else {
-    return { submittedFolderId: submittedJobFolderId };
+  if (clData.templateDocId || clData.html) {
+    let clDocId;
+    if (clData.templateDocId && clData.templateDocId !== 'default-cl') {
+        clDocId = await tailorCLWithDocsAPI(
+        accessToken,
+        clData.templateDocId,
+        submittedJobFolderId,
+        clTitle,
+        clData.companyBlock || {},
+        clData.bodyParagraphs || []
+      );
+    } else if (clData.html) {
+      clDocId = await createGoogleDoc(accessToken, submittedJobFolderId, clTitle, wrapHtmlDocument(clTitle, clData.html));
+    } else {
+      // Fallback for default CL with no HTML
+      const fallbackHtml = (clData.bodyParagraphs || []).map(p => `<p>${p}</p>`).join('');
+      clDocId = await createGoogleDoc(accessToken, submittedJobFolderId, clTitle, wrapHtmlDocument(clTitle, fallbackHtml));
+    }
+    if (clDocId) {
+        await exportDocAsPDF(accessToken, clDocId, submittedJobFolderId, clTitle);
+    }
   }
-  await exportDocAsPDF(accessToken, clDocId, submittedJobFolderId, clTitle);
 
   return { submittedFolderId: submittedJobFolderId };
 }

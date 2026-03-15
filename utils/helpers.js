@@ -350,7 +350,7 @@ async function getOAuthToken(interactive = true) {
     const clientId = '406710056933-s0p707igu50ij1h6ia8ev542odvad00s.apps.googleusercontent.com';
     const scopes = [
       'https://www.googleapis.com/auth/drive.file',
-      'https://www.googleapis.com/auth/drive.readonly',
+      'https://www.googleapis.com/auth/drive.metadata.readonly',
       'https://www.googleapis.com/auth/userinfo.email'
     ].join(' ');
 
