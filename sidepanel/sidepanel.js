@@ -965,6 +965,11 @@ async function handlePreparePackage() {
         console.warn('[JobLink] Profile folder is empty — proceeding without profile.');
       } else {
         profileText = profileDocs.map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
+        if (profileText.length < 200) {
+          packageStatus.className     = 'package-status package-warning';
+          packageStatus.textContent   = '⚠️ Profile content seems very short. Make sure your profile folder contains your CV or background documents.';
+          packageStatus.style.display = 'block';
+        }
       }
       updateProgress(0, 'done');
     }

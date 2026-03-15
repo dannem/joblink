@@ -55,6 +55,9 @@
             <span class="status-label">Connected as</span>
             <span id="connected-email" class="status-value"></span>
           </div>
+          <button id="reconnect-drive-btn" class="btn btn-secondary btn-small">
+            Reconnect
+          </button>
         </div>
       </section>
 
@@ -194,6 +197,7 @@
           <div class="folder-picker-row">
             <input type="text" id="cv-templates-folder-name" class="field-input" readonly placeholder="No folder selected">
             <button id="btn-pick-cv-templates" class="btn btn-secondary btn-small">Choose</button>
+            <button id="cv-folder-clear-btn" class="btn btn-secondary btn-small" title="Clear selection">&#10005;</button>
           </div>
           <p id="cv-templates-status" class="field-status"></p>
         </div>
@@ -203,6 +207,7 @@
           <div class="folder-picker-row">
             <input type="text" id="cl-templates-folder-name" class="field-input" readonly placeholder="No folder selected">
             <button id="btn-pick-cl-templates" class="btn btn-secondary btn-small">Choose</button>
+            <button id="cl-folder-clear-btn" class="btn btn-secondary btn-small" title="Clear selection">&#10005;</button>
           </div>
           <p id="cl-templates-status" class="field-status"></p>
         </div>
@@ -212,6 +217,7 @@
           <div class="folder-picker-row">
             <input type="text" id="profile-folder-name" class="field-input" readonly placeholder="No folder selected">
             <button id="btn-pick-profile" class="btn btn-secondary btn-small">Choose</button>
+            <button id="profile-folder-clear-btn" class="btn btn-secondary btn-small" title="Clear selection">&#10005;</button>
           </div>
           <p id="profile-status" class="field-status"></p>
         </div>

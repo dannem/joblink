@@ -95,6 +95,10 @@ function wireEventListeners() {
       selectedProfileFolderName = document.getElementById('profile-folder-name').value;
     });
   });
+
+  document.getElementById('cv-folder-clear-btn').addEventListener('click', () => clearTemplateFolder('cv'));
+  document.getElementById('cl-folder-clear-btn').addEventListener('click', () => clearTemplateFolder('cl'));
+  document.getElementById('profile-folder-clear-btn').addEventListener('click', () => clearTemplateFolder('profile'));
 }
 
 // ── Pre-fill all fields from storage ─────────────────────────────────────────
@@ -528,6 +532,32 @@ async function handleSaveTemplates() {
   } finally {
     setButtonLoading(btn, false);
   }
+}
+
+/**
+ * Clear a template folder selection and remove it from storage.
+ * @param {'cv'|'cl'|'profile'} type
+ */
+async function clearTemplateFolder(type) {
+  const map = {
+    cv:      { idKey: STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID,  nameKey: STORAGE_KEYS.CV_TEMPLATES_FOLDER_NAME,  inputId: 'cv-templates-folder-name',  varSetId: () => { selectedCvFolderId = null; selectedCvFolderName = null; } },
+    cl:      { idKey: STORAGE_KEYS.CL_TEMPLATES_FOLDER_ID,  nameKey: STORAGE_KEYS.CL_TEMPLATES_FOLDER_NAME,  inputId: 'cl-templates-folder-name',  varSetId: () => { selectedClFolderId = null; selectedClFolderName = null; } },
+    profile: { idKey: STORAGE_KEYS.PROFILE_FOLDER_ID,        nameKey: STORAGE_KEYS.PROFILE_FOLDER_NAME,        inputId: 'profile-folder-name',       varSetId: () => { selectedProfileFolderId = null; selectedProfileFolderName = null; } },
+  };
+
+  const entry = map[type];
+  if (!entry) return;
+
+  // Clear storage
+  await setStorageValue(entry.idKey, '');
+  await setStorageValue(entry.nameKey, '');
+
+  // Clear in-memory state
+  entry.varSetId();
+
+  // Clear UI
+  const input = document.getElementById(entry.inputId);
+  if (input) input.value = '';
 }
 
 /**
