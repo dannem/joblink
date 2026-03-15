@@ -2365,3 +2365,18 @@ button is the workaround.
 
 ### Next steps
 Session 62 — README and store description.
+
+---
+
+Session 51d — Complete
+Date: 2026-03-15
+Branch: main
+What was built:
+- Generalised all provider-specific API key error messages in utils/ai-helpers.js
+  (was "No Anthropic API key set", now "No AI API key set. Open Settings → AI
+  Provider Keys to add your key.") — affects callAI(), callOpenAI(), and the
+  Gemini re-route path
+- Removed the names lookup object that was used to build provider-specific messages
+Test results: Error messages now generic and consistent across all AI providers.
+Known issues: None.
+Next steps: Session 52 — README and store description.
