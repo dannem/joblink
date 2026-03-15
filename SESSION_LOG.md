@@ -2380,3 +2380,21 @@ What was built:
 Test results: Error messages now generic and consistent across all AI providers.
 Known issues: None.
 Next steps: Session 52 — README and store description.
+
+---
+
+Session 51e — Complete
+Date: 2026-03-15
+Branch: main
+What was built:
+- Updated Gemini models throughout codebase to current March 2026 lineup:
+  geminiFlash3 (gemini-3-flash-preview), geminiPro31 (gemini-3.1-pro-preview),
+  geminiFlashLite (gemini-3.1-flash-lite-preview), gemini25Flash (gemini-2.5-flash)
+- Updated in: utils/ai-helpers.js (AI_MODELS), sidepanel/sidepanel.js (MODEL_MAP,
+  refreshModelDropdown, PROVIDER_PRIORITY), sidepanel/sidepanel.html (optgroup),
+  setup/setup.js (refreshModelDropdownSetup, both PROVIDER_PRIORITY arrays)
+- Added retired model guard in sidepanel.js — clears stale geminiFlash25/geminiPro15
+  defaults automatically on load
+Test results: Model dropdowns now show current Gemini 3 series models.
+Known issues: None.
+Next steps: Session 52 — README and store description.
