@@ -813,31 +813,26 @@ async function validateAIPrerequisites() {
 
   if (!profileFolderId) {
     result.profileError = 'No profile folder set. Go to Settings → Application Materials and select the folder containing your CV and background documents.';
-    return result;
-  }
-
-  if (!result.token) {
+  } else if (!result.token) {
     // Can't check folder contents without a token — treat as warning not error
     result.profileWarning = 'Could not verify your profile folder — Google Drive not connected. Reconnect in Settings.';
-    return result;
-  }
+  } else {
+    try {
+      const profileDocs = await readDocsFromFolder(result.token, profileFolderId);
 
-  try {
-    const profileDocs = await readDocsFromFolder(result.token, profileFolderId);
+      if (profileDocs.length === 0) {
+        result.profileError = 'Your profile folder is empty. Add your CV or professional background as Google Docs to the selected folder in Drive.';
+      } else {
+        result.profileText = profileDocs.map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
 
-    if (profileDocs.length === 0) {
-      result.profileError = 'Your profile folder is empty. Add your CV or professional background as Google Docs to the selected folder in Drive.';
-      return result;
+        if (result.profileText.length < 200) {
+          result.profileWarning = 'Your profile folder doesn\'t appear to contain useful background information. Make sure it contains Google Docs with your professional history, not empty or non-text files.';
+        }
+      }
+    } catch (err) {
+      result.profileWarning = 'Could not read your profile folder from Drive. Check your Google Drive connection in Settings.';
+      console.warn('[JobLink] Profile folder read failed:', err.message);
     }
-
-    result.profileText = profileDocs.map(d => `=== ${d.name} ===\n${d.text}`).join('\n\n');
-
-    if (result.profileText.length < 200) {
-      result.profileWarning = 'Your profile folder doesn\'t appear to contain useful background information. Make sure it contains Google Docs with your professional history, not empty or non-text files.';
-    }
-  } catch (err) {
-    result.profileWarning = 'Could not read your profile folder from Drive. Check your Google Drive connection in Settings.';
-    console.warn('[JobLink] Profile folder read failed:', err.message);
   }
 
   return result;
@@ -863,26 +858,20 @@ async function handleEvaluate() {
   try {
     const prereqs = await validateAIPrerequisites();
 
-    // Fatal AI access error — stop entirely
-    if (prereqs.aiError) {
-      aiError.textContent   = prereqs.aiError;
+    // Collect all error and warning messages
+    const errorMessages   = [prereqs.aiError,   prereqs.profileError ].filter(Boolean);
+    const warningMessages = [prereqs.aiWarning,  prereqs.profileWarning].filter(Boolean);
+    const allMessages     = [...errorMessages, ...warningMessages];
+
+    if (allMessages.length > 0) {
+      aiError.textContent   = allMessages.join(' ');
       aiError.style.display = 'block';
-      aiSpinner.style.display = 'none';
-      return;
     }
 
-    // Fatal profile error — stop entirely
-    if (prereqs.profileError) {
-      aiError.textContent   = prereqs.profileError;
-      aiError.style.display = 'block';
+    // Stop if there are any fatal errors
+    if (errorMessages.length > 0) {
       aiSpinner.style.display = 'none';
       return;
-    }
-
-    // Non-fatal warnings — show but continue
-    if (prereqs.aiWarning || prereqs.profileWarning) {
-      aiError.textContent   = [prereqs.aiWarning, prereqs.profileWarning].filter(Boolean).join(' ');
-      aiError.style.display = 'block';
     }
 
     const profileText   = prereqs.profileText;
@@ -1009,24 +998,23 @@ async function handlePreparePackage() {
     // Pre-flight validation — check AI access and profile before starting UI
     const prereqs = await validateAIPrerequisites();
 
-    if (prereqs.aiError) {
-      packageStatus.className     = 'package-status package-error';
-      packageStatus.textContent   = prereqs.aiError;
+    // Collect all error and warning messages
+    const errorMessages   = [prereqs.aiError,   prereqs.profileError ].filter(Boolean);
+    const warningMessages = [prereqs.aiWarning,  prereqs.profileWarning].filter(Boolean);
+    const allMessages     = [...errorMessages, ...warningMessages];
+
+    if (allMessages.length > 0) {
+      packageStatus.className     = errorMessages.length > 0
+        ? 'package-status package-error'
+        : 'package-status package-warning';
+      packageStatus.textContent   = allMessages.join(' ');
       packageStatus.style.display = 'block';
-      return;
     }
 
-    if (prereqs.profileError) {
-      packageStatus.className     = 'package-status package-error';
-      packageStatus.textContent   = prereqs.profileError;
-      packageStatus.style.display = 'block';
+    // Stop if there are any fatal errors
+    if (errorMessages.length > 0) {
+      btnPreparePackage.disabled = false;
       return;
-    }
-
-    if (prereqs.aiWarning || prereqs.profileWarning) {
-      packageStatus.className     = 'package-status package-warning';
-      packageStatus.textContent   = [prereqs.aiWarning, prereqs.profileWarning].filter(Boolean).join(' ');
-      packageStatus.style.display = 'block';
     }
 
     const profileText = prereqs.profileText;
