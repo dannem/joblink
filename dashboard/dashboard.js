@@ -1235,63 +1235,16 @@ async function handleBulkDelete(status) {
 
 // ── Auth ───────────────────────────────────────────────────────
 
-/**
- * Get a valid OAuth access token.
- * Uses chrome.identity.getAuthToken() on Chrome (reliable, manifest-scoped).
- * Uses launchWebAuthFlow on Edge (getAuthToken not supported).
- * Does NOT use session storage cache — always gets a fresh token from
- * the browser's identity system to avoid stale token issues.
- * @returns {Promise<string>}
- */
-async function getAuthToken() {
-  const isChrome = navigator.userAgent.includes('Chrome') &&
-                   !navigator.userAgent.includes('Edg');
-
-  if (isChrome) {
-    return new Promise((resolve, reject) => {
-      chrome.identity.getAuthToken({ interactive: true }, (token) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve(token);
-        }
-      });
-    });
-  }
-
-  // Edge: use launchWebAuthFlow
-  const clientId = '406710056933-s0p707igu50ij1h6ia8ev542odvad00s.apps.googleusercontent.com';
-  const scopes = [
-    'https://www.googleapis.com/auth/drive.file',
-    'https://www.googleapis.com/auth/drive.readonly',
-    'https://www.googleapis.com/auth/userinfo.email'
-  ].join(' ');
-  const redirectUrl = chrome.identity.getRedirectURL();
-  const authUrl =
-    'https://accounts.google.com/o/oauth2/auth' +
-    '?client_id=' + encodeURIComponent(clientId) +
-    '&response_type=token' +
-    '&redirect_uri=' + encodeURIComponent(redirectUrl) +
-    '&scope=' + encodeURIComponent(scopes);
-
-  const responseUrl = await new Promise((resolve, reject) => {
-    chrome.identity.launchWebAuthFlow(
-      { url: authUrl, interactive: true },
-      (result) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve(result);
-        }
+function getAuthToken() {
+  return new Promise((resolve, reject) => {
+    chrome.identity.getAuthToken({ interactive: false }, (token) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve(token);
       }
-    );
+    });
   });
-
-  const hash = new URL(responseUrl).hash.substring(1);
-  const params = new URLSearchParams(hash);
-  const token = params.get('access_token');
-  if (!token) throw new Error('No access token returned from OAuth flow');
-  return token;
 }
 
 // ── Drive fetch helper ─────────────────────────────────────────
