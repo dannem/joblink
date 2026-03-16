@@ -2383,6 +2383,23 @@ Next steps: Session 52 — README and store description.
 
 ---
 
+Session 51f — Complete
+Date: 2026-03-16
+Branch: main
+What was built:
+- Fixed dashboard empty in Chrome: service-worker.js was saving files as
+  "Post - JobTitle.json" but dashboard.js looks for "job_info.json" exactly.
+  Restored hardcoded filenames job_info.json, job_summary.html, job_summary.pdf.
+- Fixed dashboard broken in Edge: added Chrome vs Edge detection in
+  dashboard.js getAuthToken() — Edge uses getOAuthToken(true) from helpers.js,
+  Chrome keeps chrome.identity.getAuthToken() path unchanged.
+- Created BUG_LOG.md — permanent record of resolved bugs and prevention rules.
+Test results: Dashboard shows jobs correctly in both Chrome and Edge.
+Known issues: None.
+Next steps: Session 52 — README and store description.
+
+---
+
 Session 51e — Complete
 Date: 2026-03-15
 Branch: main
