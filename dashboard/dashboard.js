@@ -1235,7 +1235,17 @@ async function handleBulkDelete(status) {
 
 // ── Auth ───────────────────────────────────────────────────────
 
+/**
+ * Get a valid OAuth access token.
+ * Chrome: uses chrome.identity.getAuthToken() — reliable, manifest-scoped.
+ * Edge: uses getOAuthToken() from helpers.js via launchWebAuthFlow.
+ * @returns {Promise<string>}
+ */
 function getAuthToken() {
+  const isEdge = navigator.userAgent.includes('Edg/');
+  if (isEdge) {
+    return getOAuthToken(true);
+  }
   return new Promise((resolve, reject) => {
     chrome.identity.getAuthToken({ interactive: false }, (token) => {
       if (chrome.runtime.lastError) {
