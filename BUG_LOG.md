@@ -83,3 +83,20 @@ Use this to avoid re-introducing known issues in future sessions.
 **Fix needed:** Replace with real Lemon Squeezy API validation before Chrome Web Store submission.
 **File:** setup/setup.js → handleActivateLicence()
 **Rule:** Do not ship without real licence validation.
+
+---
+
+## BUG-008 — Drive connection lost after browser restart
+**Status:** Resolved
+**Date:** 2026-03-15
+**Symptom:** Settings showed "Connect Google Drive" button instead of connected
+email after restarting the browser
+**Root cause:** OAuth token was stored only in chrome.storage.session which is
+cleared when the browser closes. The connected email was never persisted.
+**Fix:** Added CONNECTED_EMAIL storage key to chrome.storage.sync. On page load,
+tryRestoreDriveConnection() reads the stored email and shows the connected state
+immediately, then attempts a silent background token refresh. handleOpenFolderPicker()
+re-auths silently if token has expired.
+**Files:** utils/helpers.js, setup/setup.js
+**Rule:** Always persist user-visible connection state (like email) to
+chrome.storage.sync, not session. Session storage is cleared on browser restart.
