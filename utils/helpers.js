@@ -335,9 +335,11 @@ async function getOAuthToken(interactive = true) {
   let token;
 
   if (isChrome) {
-    // Chrome: use built-in cached OAuth flow
-    token = await new Promise((resolve, reject) => {
-      chrome.identity.getAuthToken({ interactive }, (result) => {
+    // Chrome: try silent refresh first; if it fails, retry interactively.
+    // This handles expired tokens after idle periods without forcing the user
+    // to manually reconnect — as long as they are still signed in to Google.
+    const getToken = (isInteractive) => new Promise((resolve, reject) => {
+      chrome.identity.getAuthToken({ interactive: isInteractive }, (result) => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
         } else {
@@ -345,6 +347,23 @@ async function getOAuthToken(interactive = true) {
         }
       });
     });
+
+    try {
+      token = await getToken(false);
+    } catch (_) {
+      token = null;
+    }
+
+    if (!token) {
+      // Silent fetch failed — clear any stale session cache then try interactively
+      try { await chrome.storage.session.remove('OAUTH_ACCESS_TOKEN'); } catch (_) {}
+      try {
+        token = await getToken(true);
+      } catch (err) {
+        try { await chrome.storage.session.remove('OAUTH_ACCESS_TOKEN'); } catch (_) {}
+        throw err;
+      }
+    }
   } else {
     // Edge / other: use launchWebAuthFlow
     const clientId = '406710056933-s0p707igu50ij1h6ia8ev542odvad00s.apps.googleusercontent.com';
