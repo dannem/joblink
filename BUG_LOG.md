@@ -162,3 +162,18 @@ chrome.storage.sync, not session. Session storage is cleared on browser restart.
 **Files:** utils/ai-helpers.js, sidepanel/sidepanel.js, drive/drive-api.js
 **Commits:** 74306ab, 88528e2
 **Rule:** Default template path must generate a complete CV document, not just a summary fragment.
+
+## BUG-014 — OAuth token expiry shows "sign-in expired" after idle period
+**Status:** Resolved
+**Date:** 2026-03-17
+**File:** utils/helpers.js
+**Function:** getOAuthToken()
+**Symptom:** After an idle period (typically 1+ hours), clicking Save to Drive or Prepare Package showed "Google Drive sign-in expired. Open Settings and reconnect your account." — even though the user was still signed in to their Google account and had never revoked access.
+**Root cause:** Chrome's internal OAuth token cache expires after ~1 hour. The previous implementation made a single call to chrome.identity.getAuthToken({ interactive: false }). When the cache was stale, this threw an error immediately with no retry, which bubbled up as the "sign-in expired" message.
+**Fix:** Replaced the single-call approach with a three-stage flow for the Chrome path:
+1. Try getAuthToken({ interactive: false }) — uses Chrome's cache, no UI shown
+2. If that fails or returns nothing → clear the stale session cache entry, then retry with getAuthToken({ interactive: true }) — Chrome silently re-authenticates if the user is still signed in (no visible UI prompt)
+3. If the interactive retry also fails → clear session cache and propagate the error — this only happens if the user has genuinely revoked access or signed out of Google
+**Files:** utils/helpers.js
+**Commits:** 877baaa
+**Rule:** When calling getAuthToken non-interactively, always have a fallback to interactive: true. Never assume a non-interactive failure means the user is actually signed out.
