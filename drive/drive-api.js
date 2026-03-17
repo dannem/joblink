@@ -421,6 +421,49 @@ async function checkExistingApplication(accessToken, job) {
   return null;
 }
 
+/**
+ * Search the user's entire Drive for a Google Doc that looks like a CV or resume.
+ * Searches for docs with "CV", "Resume", or "Curriculum Vitae" in the name.
+ * Returns the first match found, or null if none exists.
+ *
+ * @param {string} accessToken - OAuth access token
+ * @returns {Promise<{id: string, name: string, text: string}|null>}
+ */
+async function findCVDocInDrive(accessToken) {
+  const queries = [
+    "name contains 'CV' and mimeType = 'application/vnd.google-apps.document' and trashed = false",
+    "name contains 'Resume' and mimeType = 'application/vnd.google-apps.document' and trashed = false",
+    "name contains 'Curriculum Vitae' and mimeType = 'application/vnd.google-apps.document' and trashed = false",
+  ];
+
+  for (const q of queries) {
+    try {
+      const url = `${DRIVE_API_BASE}/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5&orderBy=modifiedTime desc`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.files && data.files.length > 0) {
+        const file = data.files[0];
+        // Read the doc content as plain text
+        const textRes = await fetch(
+          `${DRIVE_API_BASE}/files/${file.id}/export?mimeType=text/plain`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (!textRes.ok) continue;
+        const text = await textRes.text();
+        if (text && text.trim().length > 100) {
+          return { id: file.id, name: file.name, text: text.trim() };
+        }
+      }
+    } catch (_) {
+      continue;
+    }
+  }
+  return null;
+}
+
 // ── Package save helpers ────────────────────────────────────────────────────
 
 /**

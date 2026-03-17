@@ -1041,7 +1041,7 @@ async function handlePreparePackage() {
       activeStep = 1;
       updateProgress(1, 'active');
       const cvFolderId = await getStorageValue(STORAGE_KEYS.CV_TEMPLATES_FOLDER_ID);
-      let cvTemplates = [DEFAULT_CV_TEMPLATE]; // Default fallback
+      let cvTemplates = null; // Will be set below
       if (cvFolderId) {
         try {
           const userCvTemplates = await readDocsFromFolder(token, cvFolderId);
@@ -1049,8 +1049,26 @@ async function handlePreparePackage() {
             cvTemplates = userCvTemplates;
           }
         } catch (err) {
-          console.warn('[JobLink] Could not read CV templates, using default:', err.message);
+          console.warn('[JobLink] Could not read CV templates folder:', err.message);
         }
+      }
+
+      // No CV folder set or empty — search Drive for any CV/Resume doc
+      if (!cvTemplates) {
+        try {
+          const foundCV = await findCVDocInDrive(token);
+          if (foundCV) {
+            console.log('[JobLink] Found CV doc in Drive:', foundCV.name);
+            cvTemplates = [foundCV];
+          }
+        } catch (err) {
+          console.warn('[JobLink] Could not search Drive for CV:', err.message);
+        }
+      }
+
+      // Final fallback — use default template
+      if (!cvTemplates) {
+        cvTemplates = [DEFAULT_CV_TEMPLATE];
       }
 
       selectedTemplate = cvTemplates[0];
