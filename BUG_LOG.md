@@ -115,12 +115,14 @@ chrome.storage.sync, not session. Session storage is cleared on browser restart.
 
 ---
 
-## BUG-010 — Cover letter not saved when using default CL template
+## BUG-010 — CV and Cover Letter not saved when using default templates
 **Status:** Resolved
 **Date:** 2026-03-17
-**Symptom:** Prepare Package completes all steps successfully but no cover letter document appears in Drive when no CL template folder is configured in Settings.
-**Root cause:** savePreparedPackage() in drive-api.js only entered the cover letter save block when clData.templateDocId or clData.html was set. When using the default template, both are null, so the block was skipped entirely even though AI-generated bodyParagraphs existed.
-**Fix:** Added a third condition to the if statement: also enter the block when clData.bodyParagraphs is a non-empty array.
+**Symptom:** Prepare Package completes all steps but no CV or cover letter appears in Drive when no template folders are configured in Settings.
+**Root cause:** savePreparedPackage() in drive-api.js only entered the CV and CL save blocks when templateDocId or html was set. When using default templates both are null, so blocks were skipped even though AI-generated content existed.
+**Fix:**
+- CV block: also enters when newSummary is set or newBullets is non-empty
+- CL block: also enters when bodyParagraphs is a non-empty array
 **File:** drive/drive-api.js
-**Commit:** 47ce7f9
-**Rule:** When saving a prepared package, always check for bodyParagraphs independently of templateDocId — AI-generated content must be saved even when no user template is configured.
+**Commits:** 47ce7f9 (CL fix), 22094ff (CV fix)
+**Rule:** Always check for AI-generated content independently of templateDocId. Never assume content is absent just because no template doc ID is set.
