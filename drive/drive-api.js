@@ -938,7 +938,7 @@ async function savePreparedPackage(accessToken, job, cvData, clData, selectedTem
 
   // ── 6. Save cover letter as Google Doc (Docs API in-place tailoring) + PDF ─
   const clTitle = `Cover Letter - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;
-  if (clData.templateDocId || clData.html) {
+  if (clData.templateDocId || clData.html || (clData.bodyParagraphs && clData.bodyParagraphs.length > 0)) {
     let clDocId;
     if (clData.templateDocId && clData.templateDocId !== 'default-cl') {
         clDocId = await tailorCLWithDocsAPI(
