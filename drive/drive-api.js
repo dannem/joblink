@@ -918,7 +918,7 @@ async function savePreparedPackage(accessToken, job, cvData, clData, selectedTem
 
   // ── 5. Save tailored CV as Google Doc (Docs API in-place tailoring) + PDF ─
   const cvTitle = `CV - ${job.jobTitle || 'Application'} (${job.company || 'Company'})`;
-  if (cvData.templateDocId || cvData.html) {
+  if (cvData.templateDocId || cvData.html || (cvData.newSummary || (cvData.newBullets && cvData.newBullets.length > 0))) {
     let cvDocId;
     if (cvData.templateDocId && cvData.templateDocId !== 'default-cv') {
       cvDocId = await tailorCVWithDocsAPI(
