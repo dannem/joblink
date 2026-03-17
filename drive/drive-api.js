@@ -973,7 +973,40 @@ async function savePreparedPackage(accessToken, job, cvData, clData, selectedTem
         cvData.newBullets
       );
     } else {
-      const cvHtml = cvData.html || `<p>${cvData.newSummary}</p><ul><li>${cvData.newBullets.join('</li><li>')}</li></ul>`;
+      let cvHtml;
+      if (cvData.parsedCV) {
+        const cv = cvData.parsedCV;
+        const expHtml = (cv.experience || []).map(exp => `
+          <div style="margin-bottom:16px;">
+            <h3 style="margin:0 0 2px;font-size:11pt;color:#1a1a1a;">${exp.title || ''} — ${exp.company || ''}</h3>
+            <p style="margin:0 0 6px;color:#666;font-size:10pt;font-style:italic;">${exp.dates || ''}</p>
+            <ul style="margin:0;padding-left:20px;">
+              ${(exp.bullets || []).map(b => `<li style="margin-bottom:3px;font-size:10.5pt;">${b}</li>`).join('')}
+            </ul>
+          </div>`).join('');
+        const eduHtml = (cv.education || []).map(edu =>
+          `<p style="margin:0 0 6px;font-size:10.5pt;"><strong>${edu.degree || ''}</strong> — ${edu.institution || ''} <span style="color:#666;">(${edu.dates || ''})</span></p>`
+        ).join('');
+        const skillsHtml = (cv.skills || []).join(' · ');
+        const contactParts = [cv.email, cv.phone, cv.location, cv.linkedin].filter(Boolean);
+        cvHtml = `
+          <div style="font-family:Arial,sans-serif;max-width:750px;margin:0 auto;padding:40px 32px;color:#1a1a1a;font-size:10.5pt;line-height:1.5;">
+            <div style="border-bottom:2px solid #2563eb;padding-bottom:14px;margin-bottom:22px;">
+              <h1 style="margin:0 0 4px;font-size:20pt;color:#1a1a1a;letter-spacing:-0.5px;">${cv.name || ''}</h1>
+              <p style="margin:0;color:#555;font-size:9.5pt;">${contactParts.join(' &nbsp;|&nbsp; ')}</p>
+            </div>
+            <h2 style="font-size:9pt;text-transform:uppercase;letter-spacing:1.5px;color:#2563eb;margin:0 0 8px;padding-bottom:4px;border-bottom:1px solid #e5e7eb;">Professional Summary</h2>
+            <p style="margin:0 0 20px;line-height:1.65;">${cv.summary || ''}</p>
+            <h2 style="font-size:9pt;text-transform:uppercase;letter-spacing:1.5px;color:#2563eb;margin:0 0 12px;padding-bottom:4px;border-bottom:1px solid #e5e7eb;">Experience</h2>
+            ${expHtml}
+            <h2 style="font-size:9pt;text-transform:uppercase;letter-spacing:1.5px;color:#2563eb;margin:16px 0 10px;padding-bottom:4px;border-bottom:1px solid #e5e7eb;">Education</h2>
+            ${eduHtml}
+            <h2 style="font-size:9pt;text-transform:uppercase;letter-spacing:1.5px;color:#2563eb;margin:16px 0 10px;padding-bottom:4px;border-bottom:1px solid #e5e7eb;">Skills</h2>
+            <p style="margin:0;font-size:10.5pt;">${skillsHtml}</p>
+          </div>`;
+      } else {
+        cvHtml = cvData.html || `<p>${cvData.newSummary}</p><ul><li>${cvData.newBullets.join('</li><li>')}</li></ul>`;
+      }
       cvDocId = await createGoogleDoc(accessToken, submittedJobFolderId, cvTitle, wrapHtmlDocument(cvTitle, cvHtml));
     }
     await exportDocAsPDF(accessToken, cvDocId, submittedJobFolderId, cvTitle);

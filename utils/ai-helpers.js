@@ -433,7 +433,13 @@ ${cvText}`;
  * @returns {string} Prompt string
  */
 function buildTailorCVStructuredPrompt(job, profileText, currentSummary, currentBullets) {
-  return `You are tailoring a CV for a specific job application. Return ONLY a JSON object — no explanation, no markdown, no code fences.
+  const hasRealContent = currentSummary &&
+    !currentSummary.includes('highly motivated and skilled professional') &&
+    !currentSummary.includes('Key achievement') &&
+    currentSummary.trim().length > 50;
+
+  return `You are creating tailored CV content for a job application.
+Return ONLY a valid JSON object — no markdown, no code fences, no explanation.
 
 JOB:
 Title: ${job.jobTitle || 'N/A'}
@@ -441,35 +447,52 @@ Company: ${job.company || 'N/A'}
 Description: ${job.description || 'N/A'}
 
 CANDIDATE PROFILE:
-${profileText}
+${profileText || '(No profile provided)'}
 
-CURRENT PROFESSIONAL SUMMARY:
-${currentSummary}
-
-CURRENT DIRECTOR ROLE BULLETS:
-${currentBullets.map((b, i) => `${i + 1}. ${b}`).join('\n')}
+${hasRealContent ? `EXISTING CV CONTENT TO TAILOR:
+Summary: ${currentSummary}
+Bullets: ${currentBullets.map((b, i) => `${i + 1}. ${b}`).join('\n')}` : ''}
 
 TASK:
-1. Write a Professional Summary (2-3 sentences, plain text, no bullet points)
-   tailored to the job. If a CURRENT PROFESSIONAL SUMMARY is provided, rewrite
-   it to better match the job. If it is empty or generic, write a fresh one
-   based entirely on the CANDIDATE PROFILE.
-2. Write 4 achievement bullet points (plain text, no bullet symbols, no
-   markdown) that highlight the most relevant aspects of the candidate's
-   background for this specific job. If CURRENT BULLETS are provided and
-   meaningful, rewrite them. If they are placeholder text like "Key achievement"
-   or generic, generate fresh bullets from the CANDIDATE PROFILE instead.
+Generate a complete, tailored CV for this specific job.
+Use the CANDIDATE PROFILE as the primary source of truth for all content.
+Tailor everything to match the job requirements.
 
 Return this exact JSON structure:
 {
-  "summary": "written summary text here",
-  "bullets": [
-    "achievement bullet 1",
-    "achievement bullet 2",
-    "achievement bullet 3",
-    "achievement bullet 4"
-  ]
-}`;
+  "name": "Full Name (extract from profile or use placeholder)",
+  "email": "email@example.com",
+  "phone": "Phone Number",
+  "location": "City, Country",
+  "linkedin": "linkedin.com/in/username (or empty string if unknown)",
+  "summary": "2-3 sentence professional summary tailored to the job",
+  "experience": [
+    {
+      "title": "Job Title",
+      "company": "Company Name",
+      "dates": "Month Year - Month Year",
+      "bullets": [
+        "Achievement or responsibility tailored to job",
+        "Achievement or responsibility tailored to job",
+        "Achievement or responsibility tailored to job"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "degree": "Degree Name",
+      "institution": "Institution Name",
+      "dates": "Year - Year"
+    }
+  ],
+  "skills": ["Skill 1", "Skill 2", "Skill 3", "Skill 4", "Skill 5"]
+}
+
+Rules:
+- Extract real details from the CANDIDATE PROFILE — never fabricate facts
+- Tailor the summary and bullets to the job description
+- Include all relevant experience from the profile
+- Keep bullets concise and achievement-focused`;
 }
 
 /**

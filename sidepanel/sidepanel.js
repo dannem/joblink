@@ -991,6 +991,7 @@ async function handlePreparePackage() {
   const rawMode = packageType.value || currentPackageMode;
   const packageMode = rawMode === 'cv_only' ? 'cv' : rawMode === 'cl_only' ? 'cl' : rawMode;
 
+  let parsedCVData = null;
   btnPreparePackage.disabled = true;
   resetProgress(packageMode); // shows container and hides irrelevant rows
 
@@ -1165,6 +1166,7 @@ async function handlePreparePackage() {
         const parsed = parseAIResponse(rawJson);
         if (parsed && parsed.summary) newSummary = parsed.summary;
         if (parsed && Array.isArray(parsed.bullets) && parsed.bullets.length > 0) newBullets = parsed.bullets;
+        if (parsed && parsed.experience) parsedCVData = parsed;
       } catch (err) {
         console.warn('[JobLink] Structured CV tailoring failed, using originals:', err.message);
       }
@@ -1218,7 +1220,7 @@ async function handlePreparePackage() {
     };
     const saveResult = await savePreparedPackage(
       token, jobToSave,
-      { templateDocId: cvTemplateDocId, newSummary, newBullets },
+      { templateDocId: cvTemplateDocId, newSummary, newBullets, parsedCV: (!cvTemplateDocId && parsedCVData) ? parsedCVData : null },
       clData,
       selectedTemplate?.name ?? '',
       { pdfBase64, htmlContent, jsonContent }
