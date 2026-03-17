@@ -1140,19 +1140,15 @@ async function handlePreparePackage() {
     if (packageMode !== 'cl') {
       activeStep = 3;
       updateProgress(3, 'active');
-      // Only tailor when using a real user template — skip AI tailoring for the
-      // default fallback template to avoid generating fabricated content.
       const usingRealTemplate = selectedTemplate && selectedTemplate.id !== 'default-cv';
-      if (usingRealTemplate && currentSummary) {
-        try {
-          const structuredPrompt = buildTailorCVStructuredPrompt(jobToSave, profileText, currentSummary, currentBullets);
-          const rawJson = await callAI('claude', structuredPrompt, selectedModel);
-          const parsed = parseAIResponse(rawJson);
-          if (parsed && parsed.summary) newSummary = parsed.summary;
-          if (parsed && Array.isArray(parsed.bullets) && parsed.bullets.length > 0) newBullets = parsed.bullets;
-        } catch (err) {
-          console.warn('[JobLink] Structured CV tailoring failed, using originals:', err.message);
-        }
+      try {
+        const structuredPrompt = buildTailorCVStructuredPrompt(jobToSave, profileText, currentSummary, currentBullets);
+        const rawJson = await callAI('claude', structuredPrompt, selectedModel);
+        const parsed = parseAIResponse(rawJson);
+        if (parsed && parsed.summary) newSummary = parsed.summary;
+        if (parsed && Array.isArray(parsed.bullets) && parsed.bullets.length > 0) newBullets = parsed.bullets;
+      } catch (err) {
+        console.warn('[JobLink] Structured CV tailoring failed, using originals:', err.message);
       }
       updateProgress(3, 'done');
     } else {
