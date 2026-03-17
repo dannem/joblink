@@ -450,17 +450,24 @@ CURRENT DIRECTOR ROLE BULLETS:
 ${currentBullets.map((b, i) => `${i + 1}. ${b}`).join('\n')}
 
 TASK:
-1. Rewrite the Professional Summary (2-3 sentences, plain text, no bullet points) to better match the job requirements while staying truthful to the candidate's background.
-2. Rewrite each Director role bullet (plain text, no bullet symbols, no markdown) to emphasise aspects most relevant to this job. Keep the same number of bullets. Each bullet should be concise (one line).
+1. Write a Professional Summary (2-3 sentences, plain text, no bullet points)
+   tailored to the job. If a CURRENT PROFESSIONAL SUMMARY is provided, rewrite
+   it to better match the job. If it is empty or generic, write a fresh one
+   based entirely on the CANDIDATE PROFILE.
+2. Write 4 achievement bullet points (plain text, no bullet symbols, no
+   markdown) that highlight the most relevant aspects of the candidate's
+   background for this specific job. If CURRENT BULLETS are provided and
+   meaningful, rewrite them. If they are placeholder text like "Key achievement"
+   or generic, generate fresh bullets from the CANDIDATE PROFILE instead.
 
 Return this exact JSON structure:
 {
-  "summary": "rewritten summary text here",
+  "summary": "written summary text here",
   "bullets": [
-    "rewritten bullet 1",
-    "rewritten bullet 2",
-    "rewritten bullet 3",
-    "rewritten bullet 4"
+    "achievement bullet 1",
+    "achievement bullet 2",
+    "achievement bullet 3",
+    "achievement bullet 4"
   ]
 }`;
 }
