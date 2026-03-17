@@ -1167,6 +1167,7 @@ async function handlePreparePackage() {
         if (parsed && parsed.summary) newSummary = parsed.summary;
         if (parsed && Array.isArray(parsed.bullets) && parsed.bullets.length > 0) newBullets = parsed.bullets;
         if (parsed && parsed.experience) parsedCVData = parsed;
+        console.log('[JobLink] parsedCVData set:', !!parsedCVData, parsedCVData ? Object.keys(parsedCVData) : 'null');
       } catch (err) {
         console.warn('[JobLink] Structured CV tailoring failed, using originals:', err.message);
       }
@@ -1218,6 +1219,7 @@ async function handlePreparePackage() {
       companyBlock:   clCompanyBlock,
       bodyParagraphs: clBodyParagraphs,
     };
+    console.log('[JobLink] cvTemplateDocId:', cvTemplateDocId, 'parsedCVData:', !!parsedCVData);
     const saveResult = await savePreparedPackage(
       token, jobToSave,
       { templateDocId: cvTemplateDocId, newSummary, newBullets, parsedCV: (!cvTemplateDocId && parsedCVData) ? parsedCVData : null },
