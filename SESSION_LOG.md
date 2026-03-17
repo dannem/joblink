@@ -2414,4 +2414,23 @@ What was built:
   defaults automatically on load
 Test results: Model dropdowns now show current Gemini 3 series models.
 Known issues: None.
+
+---
+
+Session 51g — Complete
+Date: 2026-03-17
+Branch: main
+What was built:
+- Fixed Check Status button in Edge: replaced direct chrome.identity.getAuthToken()
+  call in handleCheckStatus() with getOAuthToken(false) cross-browser helper
+- Fixed cover letter not saved with default template: savePreparedPackage() now
+  enters the CL save block when bodyParagraphs exist, regardless of templateDocId
+- Created GitHub Pages landing site in docs/ folder: index.html, terms.html,
+  privacy.html, 5 screenshots
+- Drafted Lemon Squeezy reply email (saved as Gmail draft)
+- BUG_LOG.md updated with BUG-009 and BUG-010
+Test results: Cover letter now saved when using default template. Check Status
+works in Edge.
+Known issues: None.
+Next steps: Session 52 — README and store description.
 Next steps: Session 52 — README and store description.

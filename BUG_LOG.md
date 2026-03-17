@@ -112,3 +112,15 @@ chrome.storage.sync, not session. Session storage is cleared on browser restart.
 **File:** sidepanel/sidepanel.js
 **Commit:** b26761f
 **Rule:** Never use chrome.identity.getAuthToken() directly in sidepanel.js. Always use getOAuthToken() from helpers.js. See also BUG-003 and BUG-004.
+
+---
+
+## BUG-010 — Cover letter not saved when using default CL template
+**Status:** Resolved
+**Date:** 2026-03-17
+**Symptom:** Prepare Package completes all steps successfully but no cover letter document appears in Drive when no CL template folder is configured in Settings.
+**Root cause:** savePreparedPackage() in drive-api.js only entered the cover letter save block when clData.templateDocId or clData.html was set. When using the default template, both are null, so the block was skipped entirely even though AI-generated bodyParagraphs existed.
+**Fix:** Added a third condition to the if statement: also enter the block when clData.bodyParagraphs is a non-empty array.
+**File:** drive/drive-api.js
+**Commit:** 47ce7f9
+**Rule:** When saving a prepared package, always check for bodyParagraphs independently of templateDocId — AI-generated content must be saved even when no user template is configured.
