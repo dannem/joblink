@@ -126,3 +126,39 @@ chrome.storage.sync, not session. Session storage is cleared on browser restart.
 **File:** drive/drive-api.js
 **Commits:** 47ce7f9 (CL fix), 22094ff (CV fix)
 **Rule:** Always check for AI-generated content independently of templateDocId. Never assume content is absent just because no template doc ID is set.
+
+---
+
+## BUG-011 — CV tailoring skipped when using default CV template
+**Status:** Resolved
+**Date:** 2026-03-17
+**Symptom:** Prepare Package generates CV with only placeholder text ("A highly motivated and skilled professional... Key achievement 1, 2, 3") when no CV template folder is configured.
+**Root cause:** Step 3 in handlePreparePackage() guarded AI tailoring behind usingRealTemplate check. When using default template, this was false so AI tailoring was skipped entirely.
+**Fix:** Removed the usingRealTemplate guard — AI tailoring now runs unconditionally.
+**File:** sidepanel/sidepanel.js
+**Commit:** 483647b
+**Rule:** Never gate AI content generation behind a template availability check.
+
+---
+
+## BUG-012 — CV and Cover Letter not saved when using default templates
+**Status:** Resolved
+**Date:** 2026-03-17
+**Symptom:** Prepare Package completes all steps but no CV or cover letter appears in Drive when no template folders are configured.
+**Root cause:** savePreparedPackage() only entered CV/CL save blocks when templateDocId or html was set. With default templates both are null so blocks were skipped.
+**Fix:** Added conditions to enter save blocks when AI-generated content exists (newSummary/newBullets for CV, bodyParagraphs for CL).
+**Files:** drive/drive-api.js
+**Commits:** 47ce7f9 (CL), 22094ff (CV)
+**Rule:** Always check for AI-generated content independently of templateDocId.
+
+---
+
+## BUG-013 — CV output is only summary and bullets, not a full document
+**Status:** Resolved
+**Date:** 2026-03-17
+**Symptom:** Generated CV PDF contains only a professional summary paragraph and 4 bullet points — no contact info, experience section, education, or skills.
+**Root cause:** buildTailorCVStructuredPrompt() only requested summary and bullets. savePreparedPackage() rendered minimal HTML from these two fields only.
+**Fix:** Updated prompt to request complete structured CV JSON (name, email, phone, location, experience, education, skills). Added full HTML CV renderer in savePreparedPackage() that builds a properly structured document when parsedCV data is present.
+**Files:** utils/ai-helpers.js, sidepanel/sidepanel.js, drive/drive-api.js
+**Commits:** 74306ab, 88528e2
+**Rule:** Default template path must generate a complete CV document, not just a summary fragment.

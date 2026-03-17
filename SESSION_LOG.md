@@ -2430,3 +2430,22 @@ Test results: CV and cover letter now saved when using default templates.
 Check Status works in Edge.
 Known issues: None.
 Next steps: Session 52 — README and store description.
+
+---
+
+Session 51h — Complete
+Date: 2026-03-17
+Branch: main
+What was built:
+- Fixed CV tailoring skipped for default template (BUG-011)
+- Fixed CV and CL not saved with default templates (BUG-012)
+- Fixed CV output being only summary and bullets, not a full document (BUG-013)
+- Updated buildTailorCVStructuredPrompt() to request full structured CV JSON
+- Added full HTML CV renderer in savePreparedPackage() for parsedCV path
+- Removed usingRealTemplate guard so AI tailoring always runs
+- Removed temp debug console.log lines
+- BUG_LOG.md updated with BUG-011, BUG-012, BUG-013
+Test results: Default template path now generates a complete structured CV
+document with contact info, experience, education, and skills sections.
+Known issues: None.
+Next steps: Session 52 — README and store description.
