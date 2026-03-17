@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JobLink | Your AI Job Application Assistant</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-dark: #0f172a;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+            --card-bg: #1e293b;
+            --accent: #10b981;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            line-height: 1.6;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 5%;
+            background-color: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo span { color: var(--primary); }
+
+        .nav-links a {
+            color: var(--text-light);
+            text-decoration: none;
+            margin-left: 2rem;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover { color: var(--primary); }
+
+        .hero {
+            padding: 8rem 5% 5rem;
+            text-align: center;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            line-height: 1.2;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            margin-bottom: 2.5rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.39);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-2px);
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            margin: 0 auto 3rem auto;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(37, 99, 235, 0.15);
+            border: 2px solid rgba(255,255,255,0.05);
+        }
+
+        .responsive-video {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+        }
+
+        .responsive-video iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        .features {
+            padding: 5rem 5%;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            background-color: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(37, 99, 235, 0.5);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+        }
+
+        /* --- New Gallery Styles --- */
+        .gallery {
+            padding: 4rem 5%;
+            text-align: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .gallery h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .gallery > p {
+            color: var(--text-muted);
+            margin-bottom: 3rem;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            align-items: center;
+        }
+
+        /* Span the last image across the bottom if there's an odd number */
+        .gallery-grid img:last-child:nth-child(odd) {
+            grid-column: 1 / -1;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .screenshot-wrap {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            background-color: var(--card-bg);
+        }
+
+        .screenshot-wrap:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(37, 99, 235, 0.2);
+            border-color: rgba(37, 99, 235, 0.4);
+        }
+
+        .screenshot-wrap img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        /* -------------------------- */
+
+        .pricing {
+            padding: 5rem 5%;
+            text-align: center;
+        }
+
+        .pricing-grid {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .price-card {
+            background-color: var(--card-bg);
+            padding: 3rem;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 350px;
+            text-align: left;
+            position: relative;
+        }
+
+        .price-card.pro {
+            border: 2px solid var(--primary);
+            transform: scale(1.05);
+        }
+
+        .badge {
+            position: absolute;
+            top: -12px;
+            right: 20px;
+            background-color: var(--primary);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .price {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 1rem 0;
+        }
+
+        .price span {
+            font-size: 1rem;
+            color: var(--text-muted);
+            font-weight: normal;
+        }
+
+        ul.perks {
+            list-style: none;
+            margin: 2rem 0;
+        }
+
+        ul.perks li {
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-muted);
+        }
+
+        ul.perks li::before {
+            content: '✓';
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 3rem 5%;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-muted);
+            margin-top: 5rem;
+        }
+
+        .privacy-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 500;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="logo">Job<span>Link</span></div>
+        <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#gallery">Gallery</a>
+            <a href="#pricing">Pricing</a>
+            <a href="https://chrome.google.com/webstore/detail/joblink" class="btn btn-primary" style="padding: 0.5rem 1rem;">Add to Chrome</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="privacy-badge">🔒 100% Private - Saves to your Google Drive</div>
+        <h1>Capture Jobs. Tailor Your CV.<br>Land the Interview.</h1>
+        <p>Your AI-powered sidekick that lives in your browser. Save jobs from LinkedIn and Indeed with one click, track your pipeline, and let AI rewrite your resume and cover letter for every single application.</p>
+
+        <div class="video-container">
+            <div class="responsive-video">
+                <iframe
+                    src="https://www.youtube.com/embed/05D_ylIW1uM"
+                    title="JobLink App Demo"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen>
+                </iframe>
+            </div>
+        </div>
+
+        <a href="https://chrome.google.com/webstore/detail/joblink" class="btn btn-primary">Download Extension - It's Free</a>
+    </section>
+
+    <section id="features" class="features">
+        <div class="feature-card">
+            <div class="feature-icon">📥</div>
+            <h3>One-Click Capture</h3>
+            <p>Spot a job you like? Open the Chrome Side Panel to instantly extract the title, company, and full description. No more copy-pasting into spreadsheets.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📂</div>
+            <h3>Your Data, Your Drive</h3>
+            <p>JobLink creates organized folders (Preparation, Submitted, Rejected) directly in your own Google Drive. No external databases. Complete privacy.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">✨</div>
+            <h3>AI Package Preparation</h3>
+            <p>Using Claude, Gemini, or GPT-4, JobLink analyzes your base resume and perfectly tailors your summary and bullet points to match the job description.</p>
+        </div>
+    </section>
+
+    <section id="gallery" class="gallery">
+        <h2>Inside JobLink</h2>
+        <p>Take a look at the dashboard, side panel, and AI tools in action.</p>
+        <div class="gallery-grid">
+            <div class="screenshot-wrap">
+                <img src="screenshots/Screen Shot 2026-03-09 at 05.30.11.663 PM.png" alt="JobLink Dashboard Overview" loading="lazy">
+            </div>
+            <div class="screenshot-wrap">
+                <img src="screenshots/Screen Shot 2026-03-09 at 05.31.33.287 PM.png" alt="JobLink Kanban Board" loading="lazy">
+            </div>
+            <div class="screenshot-wrap">
+                <img src="screenshots/Screen Shot 2026-03-09 at 05.33.08.603 PM.png" alt="JobLink Chrome Side Panel Extension" loading="lazy">
+            </div>
+            <div class="screenshot-wrap">
+                <img src="screenshots/Screen Shot 2026-03-09 at 05.33.43.448 PM.png" alt="AI Evaluation and Scoring" loading="lazy">
+            </div>
+            <div class="screenshot-wrap">
+                <img src="screenshots/Screen Shot 2026-03-09 at 05.33.49.450 PM.png" alt="JobLink Settings and Google Drive Connection" loading="lazy">
+            </div>
+        </div>
+    </section>
+
+    <section id="pricing" class="pricing">
+        <h2>Simple, transparent pricing</h2>
+        <p style="color: var(--text-muted); margin-top: 1rem;">Start organizing for free, upgrade to automate your writing.</p>
+
+        <div class="pricing-grid">
+            <div class="price-card">
+                <h3>Free</h3>
+                <div class="price">$0<span>/forever</span></div>
+                <ul class="perks">
+                    <li>One-click job extraction</li>
+                    <li>Save to Google Drive</li>
+                    <li>Kanban Dashboard</li>
+                    <li>PDF & HTML generation</li>
+                </ul>
+                <a href="https://chrome.google.com/webstore/detail/joblink" class="btn btn-primary" style="width: 100%; text-align: center; background: transparent; border: 1px solid var(--primary);">Get Started</a>
+            </div>
+
+            <div class="price-card pro">
+                <div class="badge">Most Popular</div>
+                <h3>Pro</h3>
+                <div class="price">$4.99<span>/month</span></div>
+                <ul class="perks">
+                    <li>Everything in Free</li>
+                    <li>AI Fit Evaluation Score</li>
+                    <li>Automated CV Tailoring</li>
+                    <li>Auto-generated Cover Letters</li>
+                    <li>Academic Document Package</li>
+                </ul>
+                <a href="https://chrome.google.com/webstore/detail/joblink" class="btn btn-primary" style="width: 100%; text-align: center;">Upgrade to Pro</a>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <p>&copy; 2026 JobLink. All rights reserved.</p>
+        <p style="margin-top: 0.5rem;">
+            <a href="privacy.html" style="color: var(--text-muted); text-decoration: none; margin: 0 1rem;">Privacy Policy</a>
+            <a href="terms.html" style="color: var(--text-muted); text-decoration: none; margin: 0 1rem;">Terms & Conditions</a>
+        </p>
+    </footer>
+
+</body>
+</html>

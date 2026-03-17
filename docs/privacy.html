@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobLink — Privacy Policy</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #ffffff;
+      color: #333;
+      line-height: 1.7;
+    }
+
+    header {
+      background: #2563eb;
+      color: white;
+      padding: 24px 0;
+    }
+
+    header .inner {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    header p {
+      font-size: 0.95rem;
+      opacity: 0.85;
+      margin-top: 4px;
+    }
+
+    main {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 24px 64px;
+    }
+
+    h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #2563eb;
+      margin-top: 36px;
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    h2:first-child {
+      margin-top: 0;
+    }
+
+    p {
+      margin-bottom: 12px;
+      font-size: 0.97rem;
+    }
+
+    ul {
+      margin: 8px 0 12px 20px;
+      font-size: 0.97rem;
+    }
+
+    ul li {
+      margin-bottom: 6px;
+    }
+
+    .highlight-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0;
+      font-size: 0.95rem;
+      color: #1e40af;
+    }
+
+    .highlight-box strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 1rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 0.93rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    td {
+      padding: 10px 12px;
+      border: 1px solid #e5e7eb;
+      vertical-align: top;
+      color: #374151;
+    }
+
+    tr:nth-child(even) td {
+      background: #f9fafb;
+    }
+
+    a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    footer {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px 24px 40px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 0.85rem;
+      color: #9ca3af;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="inner">
+      <h1>JobLink — Privacy Policy</h1>
+      <p>How we handle your data — the short answer is: we don't. Your data stays yours.</p>
+    </div>
+  </header>
+
+  <main>
+
+    <h2>What JobLink Is Designed For</h2>
+    <p>JobLink is a focused productivity tool designed to support <strong>individual, quality-first job applications</strong>. It is not a bulk application tool. JobLink never submits applications on your behalf, never contacts employers automatically, and never generates documents for use without your review and approval.</p>
+
+    <div class="highlight-box">
+      <strong>Summary</strong>
+      JobLink has no backend server and collects no data. Everything you save goes
+      directly into your own Google Drive. API keys you enter are stored only in your
+      browser and sent directly to the respective AI provider. We never see your data.
+    </div>
+
+    <h2>1. What Data JobLink Accesses</h2>
+
+    <p>JobLink accesses the following data locally on your device or on services you
+    control:</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Where it comes from</th>
+          <th>Where it goes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Job posting content (title, company, location, description, URL)</td>
+          <td>Scraped from the page you are viewing (LinkedIn, Indeed, or any careers page)</td>
+          <td>Your Google Drive only</td>
+        </tr>
+        <tr>
+          <td>Google OAuth token</td>
+          <td>Chrome Identity API (you sign in via Google's own consent screen)</td>
+          <td>Used locally to call the Google Drive API on your behalf — never stored on our servers</td>
+        </tr>
+        <tr>
+          <td>AI provider API keys (Anthropic, Google Gemini, OpenAI)</td>
+          <td>Entered by you in the extension settings</td>
+          <td>Stored in <code>chrome.storage.sync</code> in your browser; sent directly to the respective AI provider when you use AI features — never transmitted to JobLink</td>
+        </tr>
+        <tr>
+          <td>Profile documents (CV, cover letter templates)</td>
+          <td>Files you select from your Google Drive</td>
+          <td>Read locally and sent to the AI provider you have configured — never to JobLink</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>2. How We Use Your Data</h2>
+
+    <ul>
+      <li><strong>Job data</strong> is written to a folder in your own Google Drive that you configure during setup. JobLink does not read, copy, or transmit this data anywhere else.</li>
+      <li><strong>AI features</strong> (CV tailoring, cover letter generation, job evaluation) send the job description and your profile documents directly from your browser to the AI provider you have chosen. This is a direct browser-to-provider connection — JobLink is not in the middle.</li>
+      <li><strong>API keys</strong> are used only to authenticate those direct requests to AI providers. They are never logged, transmitted to JobLink, or shared with any third party other than the provider you configured.</li>
+      <li><strong>No analytics, no tracking, no advertising.</strong> We do not use cookies, pixel trackers, session recording, or any form of analytics.</li>
+    </ul>
+
+    <h2>3. Third-Party Services</h2>
+
+    <p>JobLink integrates with the following third-party services. Your use of these
+    services is subject to their own privacy policies.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Purpose</th>
+          <th>Data sent</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Drive API</a></td>
+          <td>Save and retrieve job files</td>
+          <td>Job data you save; files you read for AI generation. All data goes into your own Drive account.</td>
+        </tr>
+        <tr>
+          <td><a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener">Anthropic API</a></td>
+          <td>CV tailoring, cover letter generation, job evaluation (if Anthropic model selected)</td>
+          <td>Job description, your profile documents. Only when you explicitly trigger an AI action.</td>
+        </tr>
+        <tr>
+          <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Gemini API</a></td>
+          <td>Same as above (if Gemini model selected)</td>
+          <td>Same as above.</td>
+        </tr>
+        <tr>
+          <td><a href="https://openai.com/privacy" target="_blank" rel="noopener">OpenAI API</a></td>
+          <td>Same as above (if OpenAI model selected)</td>
+          <td>Same as above.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>JobLink does not share your data with any other third parties.</p>
+
+    <h2>4. Data Storage and Retention</h2>
+
+    <ul>
+      <li><strong>Google Drive</strong> — all job files (JSON, HTML, PDF documents) live in your Drive. You can delete them at any time from within Drive.</li>
+      <li><strong>Browser storage (<code>chrome.storage.sync</code>)</strong> — extension settings (folder IDs, API keys, preferences) are stored in your browser and synced via your Google account if Chrome sync is enabled. This data never passes through JobLink servers.</li>
+      <li><strong>Uninstalling JobLink</strong> removes all locally stored settings. Files already saved to your Google Drive are not affected and remain in your Drive until you delete them.</li>
+    </ul>
+
+    <h2>5. Data We Do Not Collect</h2>
+
+    <p>JobLink has no backend server. We do not collect, store, or process:</p>
+
+    <ul>
+      <li>Your name, email address, or any account information</li>
+      <li>The content of job postings you save</li>
+      <li>Your CV, cover letter, or any profile documents</li>
+      <li>Your API keys or OAuth tokens</li>
+      <li>Usage statistics, feature telemetry, or crash reports</li>
+      <li>IP addresses or device identifiers</li>
+    </ul>
+
+    <h2>6. Children's Privacy</h2>
+
+    <p>JobLink is not directed at children under 13 and does not knowingly collect
+    any personal information from children.</p>
+
+    <h2>7. Changes to This Policy</h2>
+
+    <p>If this privacy policy changes materially, we will update the "Last updated"
+    date below and, where appropriate, note the change in the extension's update
+    release notes.</p>
+
+    <h2>8. Contact</h2>
+
+    <p>If you have questions or concerns about this privacy policy, please contact us
+    at <a href="mailto:privacy@joblink.app">privacy@joblink.app</a>.</p>
+
+  </main>
+
+  <footer>
+    <span>JobLink Chrome Extension</span>
+    <span>Last updated: March 2026</span>
+  </footer>
+
+</body>
+</html>
