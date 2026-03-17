@@ -703,12 +703,7 @@ async function handleCheckStatus() {
   statusResult.style.display = 'block';
 
   try {
-    const token = await new Promise((resolve, reject) => {
-      chrome.identity.getAuthToken({ interactive: false }, (t) => {
-        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-        else resolve(t);
-      });
-    });
+    const token = await getOAuthToken(false);
 
     const match = await checkExistingApplication(token, currentJob);
 
