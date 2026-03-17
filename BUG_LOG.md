@@ -100,3 +100,15 @@ re-auths silently if token has expired.
 **Files:** utils/helpers.js, setup/setup.js
 **Rule:** Always persist user-visible connection state (like email) to
 chrome.storage.sync, not session. Session storage is cleared on browser restart.
+
+---
+
+## BUG-009 — Check Status button fails in Edge
+**Status:** Resolved
+**Date:** 2026-03-17
+**Symptom:** "Could not check — This API is not supported on Microsoft Edge" when clicking Check Status in the side panel
+**Root cause:** handleCheckStatus() in sidepanel.js used chrome.identity.getAuthToken() directly instead of the cross-browser getOAuthToken() helper.
+**Fix:** Replaced the inline chrome.identity.getAuthToken() Promise wrapper in handleCheckStatus() with getOAuthToken(false).
+**File:** sidepanel/sidepanel.js
+**Commit:** b26761f
+**Rule:** Never use chrome.identity.getAuthToken() directly in sidepanel.js. Always use getOAuthToken() from helpers.js. See also BUG-003 and BUG-004.
