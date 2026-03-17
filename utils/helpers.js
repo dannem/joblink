@@ -374,27 +374,42 @@ async function getOAuthToken(interactive = true) {
     ].join(' ');
 
     const redirectUrl = chrome.identity.getRedirectURL();
-    console.log('[JobLink] OAuth redirect URL:', redirectUrl);
     const authUrl =
       'https://accounts.google.com/o/oauth2/auth' +
       '?client_id=' + encodeURIComponent(clientId) +
       '&response_type=token' +
       '&redirect_uri=' + encodeURIComponent(redirectUrl) +
-      '&scope=' + encodeURIComponent(scopes) +
-      (interactive ? '&prompt=consent' : '');
+      '&scope=' + encodeURIComponent(scopes);
 
-    const responseUrl = await new Promise((resolve, reject) => {
-      chrome.identity.launchWebAuthFlow(
-        { url: authUrl, interactive },
-        (result) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve(result);
+    // Stage 1 — silent check (prompt=none, no UI)
+    let responseUrl;
+    try {
+      responseUrl = await new Promise((resolve, reject) => {
+        chrome.identity.launchWebAuthFlow(
+          { url: authUrl + '&prompt=none', interactive: false },
+          (result) => {
+            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+            else resolve(result);
           }
-        }
-      );
-    });
+        );
+      });
+    } catch (_) {
+      responseUrl = null;
+    }
+
+    if (!responseUrl) {
+      // Stage 2 — interactive retry (silent re-auth if still signed in to Google)
+      try { await chrome.storage.session.remove('OAUTH_ACCESS_TOKEN'); } catch (_) {}
+      responseUrl = await new Promise((resolve, reject) => {
+        chrome.identity.launchWebAuthFlow(
+          { url: authUrl, interactive: true },
+          (result) => {
+            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+            else resolve(result);
+          }
+        );
+      });
+    }
 
     // Extract access_token from the redirect URL hash
     const hash = new URL(responseUrl).hash.substring(1);
