@@ -1054,20 +1054,7 @@ async function handlePreparePackage() {
         }
       }
 
-      // No CV folder set or empty — search Drive for any CV/Resume doc
-      if (!cvTemplates) {
-        try {
-          const foundCV = await findCVDocInDrive(token);
-          if (foundCV) {
-            console.log('[JobLink] Found CV doc in Drive:', foundCV.name);
-            cvTemplates = [foundCV];
-          }
-        } catch (err) {
-          console.warn('[JobLink] Could not search Drive for CV:', err.message);
-        }
-      }
-
-      // Final fallback — use default template
+      // No CV folder set — use default template to trigger full AI generation
       if (!cvTemplates) {
         cvTemplates = [DEFAULT_CV_TEMPLATE];
       }
